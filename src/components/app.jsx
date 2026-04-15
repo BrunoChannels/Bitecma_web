@@ -1207,7 +1207,7 @@
         <td><span class="pill p-amb">Borrador</span></td>
         <td>
           <button class="btn b-out b-xs" onclick="openEvadirViewer('${op.id}')">Ver</button>
-          <button class="btn b-teal b-xs" onclick="toast('Exportando EVADIR_${op.sector}_SEG${op.numSeg}.csv')">CSV</button>
+          <button class="btn b-teal b-xs" onclick="exportEvadirXlsx('${op.id}')">CSV</button>
         </td>
       </tr>`;
     }).join('');
@@ -1561,6 +1561,15 @@
       </div>
     </div>
     <div class="tx-body" id="tx_${opId}_${boteId}_${t.num}">
+      <div style="margin-bottom:10px;padding:9px;border:1px solid var(--border);border-radius:10px;background:var(--bg2)">
+        <div style="font-family:var(--ff-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Coordenadas del transecto</div>
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(90px,1fr));gap:8px">
+          <input class="ii" type="number" step="any" inputmode="decimal" placeholder="X" value="${esc(String(t.coordX ?? ''))}" oninput="updateTxCoord('${opId}','${boteId}',${t.num},'coordX',this.value)">
+          <input class="ii" type="number" step="any" inputmode="decimal" placeholder="Y" value="${esc(String(t.coordY ?? ''))}" oninput="updateTxCoord('${opId}','${boteId}',${t.num},'coordY',this.value)">
+          <input class="ii" type="number" step="any" inputmode="decimal" placeholder="LONG" value="${esc(String(t.coordLong ?? ''))}" oninput="updateTxCoord('${opId}','${boteId}',${t.num},'coordLong',this.value)">
+          <input class="ii" type="number" step="any" inputmode="decimal" placeholder="LAT" value="${esc(String(t.coordLat ?? ''))}" oninput="updateTxCoord('${opId}','${boteId}',${t.num},'coordLat',this.value)">
+        </div>
+      </div>
       <div style="font-family:var(--ff-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Conteo de especies</div>
       ${spRows}
       <button class="btn b-out b-sm" style="margin-top:6px" onclick="openAddEspTx('${opId}','${boteId}',${t.num})">Agregar especie</button>
@@ -1705,6 +1714,24 @@
     });
     toast('Área actualizada', 'green');
   };
+
+  /** Actualiza coordenadas libres (X, Y, LONG, LAT) de un transecto. */
+  window.updateTxCoord = function updateTxCoord(opId, boteId, txNum, key, val) {
+    const op = DB.operaciones.find((o) => o.id === opId);
+    const b = op?.botes.find((x) => x.id === boteId);
+    const t = b?.transectos.find((x) => x.num === txNum);
+    if (!t) return;
+    const allowed = ['coordX', 'coordY', 'coordLong', 'coordLat'];
+    if (!allowed.includes(key)) return;
+    const raw = String(val ?? '').trim().replace(',', '.');
+    if (raw === '') {
+      t[key] = null;
+      return;
+    }
+    const num = Number(raw);
+    if (!Number.isFinite(num)) return;
+    t[key] = num;
+  };
   /**
    * En ingreso rápido de cuadrantes: mueve el foco al siguiente cuadrante (según orden numérico).
    * Se usa en el evento ENTER del input de “Cantidad”.
@@ -1739,7 +1766,7 @@
       <div class="ig"><label class="il">Región</label>
         <select class="is" id="op-reg" onchange="onOpRegionChange()">${regOpts}</select>
       </div>
-      <div class="ig"><label class="il">N° Seguimiento / ESBA</label><input class="ii" id="op-seg" value="16"></div>
+      <div class="ig"><label class="il">N° Seguimiento / ESBA</label><input class="ii" id="op-seg"></div>
     </div>
     <div class="ig"><label class="il">Sector AMERB</label>
       <input class="ii" id="op-amerb-q" placeholder="Buscar sector AMERB..." oninput="renderOpAmerb()">
@@ -1855,6 +1882,13 @@
       org = String(found?.nombre || '').trim();
       if (!org) { toast('Organización inválida', 'red'); return; }
     }
+    const segRaw = String(document.getElementById('op-seg')?.value || '').trim();
+    let segNum = null;
+    if (segRaw !== '') {
+      const parsed = parseInt(segRaw);
+      if (!Number.isFinite(parsed)) { toast('Ingresa un N° de seguimiento válido', 'red'); return; }
+      segNum = parsed;
+    }
     DB.operaciones.unshift({
       id, region: regId,
       sectorAmerb,
@@ -1863,7 +1897,7 @@
       tipoOrg,
       org,
       opaId,
-      numSeg: parseInt(document.getElementById('op-seg')?.value) || 16,
+      numSeg: segNum,
       fechaInicio: document.getElementById('op-fi')?.value,
       fechaFin: document.getElementById('op-ff')?.value,
       botes: []
@@ -2132,7 +2166,7 @@
       <div class="ig"><label class="il">Región</label>
         <select class="is" id="op-reg" onchange="onOpRegionChange()">${regOpts}</select>
       </div>
-      <div class="ig"><label class="il">N° Seguimiento / ESBA</label><input class="ii" id="op-seg" value="${op.numSeg}"></div>
+      <div class="ig"><label class="il">N° Seguimiento / ESBA</label><input class="ii" id="op-seg" value="${esc(String(op.numSeg ?? ''))}"></div>
     </div>
     <div class="ig"><label class="il">Sector AMERB</label>
       <input class="ii" id="op-amerb-q" placeholder="Buscar sector AMERB..." oninput="renderOpAmerb()">
@@ -3394,7 +3428,7 @@
 
   /** Abre modal de “subida de Excel” (simulada) para L-P. */
   window.openUploadExcel = function openUploadExcel() {
-    openMo('Subir tabla Peso-Longitud (Excel)', `
+    openMo('Subir EVADIR (Excel)', `
     <div class="info-box blue" style="margin-bottom:13px"><span>i</span>
       <div>El archivo debe tener columnas: <strong>REGION, NOMBRE SECTOR, TIPO DE ORGANIZACIÓN, NOMBRE ORGANIZACIÓN, FECHA, DIA, MES, AÑO, NUM SEG ESBA, ZONA MUESTREO, BOTE, BUZO, ESPECIE, LONGITUD MM, PESO G</strong></div>
     </div>
@@ -3480,6 +3514,25 @@
   /** Alias para abrir la previsualización EVADIR desde tablas/listados. */
   window.openEvadirViewer = function openEvadirViewer(opId) { openEvadirPreview(opId); };
 
+  function getTxCoordValue(t, key) {
+    if (!t) return '';
+    const map = {
+      x: ['coordX', 'x'],
+      y: ['coordY', 'y'],
+      lon: ['coordLong', 'lon'],
+      lat: ['coordLat', 'lat']
+    };
+    const candidates = map[key] || [];
+    for (const k of candidates) {
+      const v = t[k];
+      if (v === null || v === undefined) continue;
+      if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+      const s = String(v).trim();
+      if (s !== '') return s;
+    }
+    return '';
+  }
+
   /** Construye la previsualización EVADIR (Densidad + L-P) desde la operación seleccionada. */
   window.openEvadirPreview = function openEvadirPreview(opId) {
     const op = DB.operaciones.find((o) => o.id === opId);
@@ -3495,11 +3548,11 @@
           fecha: t.fecha, dia: t.fecha.slice(8, 10), mes: t.fecha.slice(5, 7), año: t.fecha.slice(0, 4),
           numSeg: op.numSeg, zona: b.zona, bote: b.nombre, buzo: b.buzo,
           numTx: t.num, area: t.area, sustrato: t.sustrato, cubierta: t.cubierta,
-          x: (typeof t.x === 'number' ? t.x : 0).toFixed(2),
-          y: (typeof t.y === 'number' ? t.y : 0).toFixed(2),
-          lon: typeof t.lon === 'number' ? t.lon : 0,
-          lat: typeof t.lat === 'number' ? t.lat : 0,
-          datum: 'WGS 84',
+          x: getTxCoordValue(t, 'x'),
+          y: getTxCoordValue(t, 'y'),
+          lon: getTxCoordValue(t, 'lon'),
+          lat: getTxCoordValue(t, 'lat'),
+          datum: String(t.datum || 'WGS 84'),
           counts: t.counts, espKeys, tipo: t.tipo || 'transecto'
         };
         if (esCuad) densRowsCuad.push(row); else densRowsTx.push(row);
@@ -3555,7 +3608,6 @@
           <span class="pill ${s.hasPeso ? 'p-amb' : 'p-slt'}">${s.hasPeso ? 'Peso-Longitud' : 'Longitud'}</span>
           <span class="pill p-amb">${s.n} muestras</span>
         </div>
-        <button class="btn b-out b-xs" onclick="openInTab('lp_${s._idx}_${opId}')">Abrir</button>
       </div>
       <div style="overflow-x:auto;max-height:180px">
         <table class="ev-tbl">
@@ -3582,10 +3634,6 @@
             ${hasTxRows ? `<span class="pill p-blu" style="margin-right:4px">${densRowsTx.length} transecto(s)</span>` : ''}
             ${hasCuadRows ? `<span class="pill p-pur">${densRowsCuad.length} cuadrante(s)</span>` : ''}
           </div>
-        </div>
-        <div style="display:flex;gap:6px">
-          <button class="btn b-out b-sm" onclick="openInTab('densidad_${opId}')">Abrir</button>
-          <button class="btn b-teal b-sm" onclick="toast('Exportando DENSIDAD_${opId}.csv...')">CSV</button>
         </div>
       </div>
       ${densRows.length === 0 ? `<div class="info-box amber"><span>i</span><div>No hay registros de densidad en esta operación. Agrégalos desde <strong>Operaciones</strong>.</div></div>` : ''}
@@ -3620,8 +3668,8 @@
                 ${allSpIds.map((id) => `<td style="font-family:var(--ff-m);text-align:center">${r.counts[id] ?? 0}</td>`).join('')}
                 <td>${r.sustrato}</td><td>${r.cubierta}</td>
                 ${allSpIds.map((id) => `<td style="font-family:var(--ff-m);font-weight:700;color:var(--teal);text-align:center">${((r.tipo === 'cuadrante' && isLugaId(id)) ? (Number(r.counts[id] ?? 0)) : ((Number(r.counts[id] ?? 0)) / r.area)).toFixed(4)}</td>`).join('')}
-                <td style="font-size:10px">${r.x}</td><td style="font-size:10px">${r.y}</td>
-                <td>${r.lon}</td><td>${r.lat}</td><td>WGS 84</td>
+                <td style="font-size:10px">${r.x || ''}</td><td style="font-size:10px">${r.y || ''}</td>
+                <td>${r.lon || ''}</td><td>${r.lat || ''}</td><td>${r.datum || 'WGS 84'}</td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -3633,7 +3681,6 @@
       ${lpLongSections.length > 0 ? `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-family:var(--ff-d);font-size:14px;font-weight:700;color:var(--navy)">Tablas Longitud</div>
-        <button class="btn b-teal b-sm" onclick="toast('Exportando tablas de Longitud...')">Exportar</button>
       </div>
       ${lpTabsHTML(lpLongSections)}
       ` : ''}
@@ -3643,15 +3690,12 @@
       ${lpPesoLongSections.length > 0 ? `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;margin-top:6px">
         <div style="font-family:var(--ff-d);font-size:14px;font-weight:700;color:var(--navy)">Tablas PESO-LONGITUD</div>
-        <button class="btn b-teal b-sm" onclick="toast('Exportando tablas de Peso-Longitud...')">Exportar</button>
       </div>
       ${lpTabsHTML(lpPesoLongSections)}
       ` : ''}
       `}
     </div>
     <div style="display:flex;gap:8px;margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-      <button class="btn b-green" style="flex:1" onclick="closeMo();toast('EVADIR guardado — ${op.sector} SEG-${op.numSeg}','green');goPage('evadir')">Guardar EVADIR</button>
-      <button class="btn b-out b-sm" onclick="openInTab('densidad_${opId}')">Densidad</button>
       <button class="btn b-out" onclick="closeMo()">Cerrar</button>
     </div>
   `, 'wide');
@@ -3685,7 +3729,7 @@
         ${allSpIds.map((id) => `<td style="text-align:center">${t.counts[id] ?? 0}</td>`).join('')}
         <td>${t.sustrato}</td><td>${t.cubierta}</td>
         ${allSpIds.map((id) => `<td style="text-align:center;font-weight:700;color:#0a8f7e">${((t.tipo === 'cuadrante' && isLugaId(id)) ? (Number(t.counts[id] ?? 0)) : ((Number(t.counts[id] ?? 0)) / t.area)).toFixed(4)}</td>`).join('')}
-        <td>${t.x.toFixed(2)}</td><td>${t.y.toFixed(2)}</td><td>${t.lon}</td><td>${t.lat}</td><td>WGS 84</td></tr>`;
+        <td>${getTxCoordValue(t, 'x')}</td><td>${getTxCoordValue(t, 'y')}</td><td>${getTxCoordValue(t, 'lon')}</td><td>${getTxCoordValue(t, 'lat')}</td><td>${t.datum || 'WGS 84'}</td></tr>`;
         });
       });
       const legend = mixedTypes ? `<div style="margin-bottom:12px;padding:10px;background:#f0f4ff;border-radius:8px;font-size:12px"><strong>Operación mixta:</strong> contiene transectos y cuadrantes. La columna TIPO UNIDAD indica el tipo real de cada fila.</div>` : '';

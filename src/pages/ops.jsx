@@ -8,7 +8,7 @@ function opsInner() {
        Transectos de densidad</strong></p>
     </div>
     <div class="ph-a">
-      <button class="btn b-out b-sm" onclick="openUploadExcel()">Subir Excel L-P</button>
+      <button class="btn b-out b-sm" onclick="openUploadExcel()">Subir EVADIR</button>
       <button class="btn b-teal b-sm" onclick="openNuevaOp()">Nueva operación</button>
     </div>
   </div>
