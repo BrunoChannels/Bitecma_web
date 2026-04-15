@@ -1,5 +1,5 @@
 /** Página EVADIR: retorna el HTML del listado y botones para generar/visualizar EVADIR a partir de una operación. */
-import EvadirExportBridge from '../components/evadirExport.jsx'
+import EvadirExportBridge from '../utils/evadirExport.jsx'
 
 function evadirInner() {
   return `<div class="ph">
@@ -29,4 +29,3 @@ export default function EvadirPage() {
     </>
   )
 }
-
