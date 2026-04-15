@@ -10,9 +10,9 @@ import './data/botes.js'
 import './data/operaciones.js'
 import './data/perfiles.js'
 
-import './components/toast.js'
-import './components/modal.js'
-import './components/app.js'
+import './components/toast.jsx'
+import './components/modal.jsx'
+import './components/app.jsx'
 import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(
