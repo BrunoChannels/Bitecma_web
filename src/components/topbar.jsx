@@ -10,11 +10,132 @@ import { useUi } from '../context/uiContext.jsx'
 import { useDb } from '../context/dbContext.jsx'
 import { mergeOperacionesById, parseOperacionesPayload, serializeOperaciones } from '../services/operacionesTransferService.js'
 
+function ConfigModalBody() {
+  const { navigate, user } = useApp()
+  const { db, setDb } = useDb()
+  const { closeModal, toast, theme, setTheme } = useUi()
+  const isAdmin = String(user?.rol || '').toLowerCase() === 'admin'
+  const [mode, setMode] = useState('merge')
+
+  const exportOps = () => {
+    try {
+      const json = serializeOperaciones(db?.operaciones || [])
+      const blob = new Blob([json], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const d = new Date()
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `operaciones-${y}${m}${day}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1200)
+      toast('Operaciones exportadas', 'green')
+    } catch {
+      toast('No se pudo exportar', 'red')
+    }
+  }
+
+  const importOps = (file) => {
+    if (!file) return
+    const fr = new FileReader()
+    fr.onload = () => {
+      try {
+        const incoming = parseOperacionesPayload(String(fr.result || ''))
+        setDb((prev) => {
+          const cur = prev?.operaciones || []
+          const nextOps = mode === 'replace' ? incoming : mergeOperacionesById(cur, incoming)
+          return { ...prev, operaciones: nextOps }
+        })
+        toast('Operaciones importadas', 'green')
+      } catch {
+        toast('Archivo inválido', 'red')
+      }
+    }
+    fr.readAsText(file)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="cfg-row">
+        <div>
+          <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Tema Oscuro</div>
+        </div>
+        <div className="form-check form-switch" style={{ margin: 0 }}>
+          <input
+            className="form-check-input"
+            type="checkbox"
+            role="switch"
+            id="cfg-theme"
+            checked={theme === 'dark'}
+            onChange={(e) => setTheme(e.target.checked ? 'dark' : 'light')}
+            style={{ width: '3.2em', height: '1.7em', cursor: 'pointer' }}
+          />
+        </div>
+      </div>
+
+      {isAdmin ? (
+        <>
+          <div className="cfg-row">
+            <div>
+              <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Panel Admin</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)' }}>Acceso a usuarios/roles y auditoría</div>
+            </div>
+            <button
+              className="btn b-out b-sm"
+              onClick={() => {
+                closeModal()
+                navigate('admin')
+              }}
+            >
+              Abrir
+            </button>
+          </div>
+
+          <div className="cfg-row">
+            <div>
+              <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Exportar operaciones</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)' }}>Descarga un JSON para migrar a otra PC</div>
+            </div>
+            <button className="btn b-teal b-sm" onClick={exportOps}>
+              Exportar
+            </button>
+          </div>
+
+          <div className="cfg-row" style={{ alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Importar operaciones</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)' }}>Carga un JSON exportado previamente</div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                <select className="is" style={{ maxWidth: 220 }} value={mode} onChange={(e) => setMode(e.target.value)}>
+                  <option value="merge">Combinar por ID</option>
+                  <option value="replace">Reemplazar todo</option>
+                </select>
+                <input className="ii" type="file" accept="application/json,.json" onChange={(e) => importOps(e?.target?.files?.[0])} />
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="info-box blue">
+          <span>i</span>
+          <div>Las opciones de migración están disponibles solo para Admin.</div>
+        </div>
+      )}
+
+      <button className="btn b-teal" onClick={closeModal}>
+        Cerrar
+      </button>
+    </div>
+  )
+}
+
 export default function Topbar() {
   const { navigate, user, page } = useApp()
-  const { db, setDb } = useDb()
-  const { openModal, closeModal, toast, theme, toggleTheme } = useUi()
-  const isAdmin = String(user?.rol || '').toLowerCase() === 'admin'
+  const { openModal } = useUi()
   const currentLabel =
     {
       dashboard: 'Dashboard',
@@ -77,113 +198,7 @@ export default function Topbar() {
           <SvgIcon name="bell" aria-hidden="true" />
           <span className="tb-badge">2</span>
         </button>
-        <button
-          className="tb-btn"
-          onClick={() => {
-            const Body = () => {
-              const [mode, setMode] = useState('merge')
-
-              const exportOps = () => {
-                try {
-                  const json = serializeOperaciones(db?.operaciones || [])
-                  const blob = new Blob([json], { type: 'application/json' })
-                  const url = URL.createObjectURL(blob)
-                  const d = new Date()
-                  const y = d.getFullYear()
-                  const m = String(d.getMonth() + 1).padStart(2, '0')
-                  const day = String(d.getDate()).padStart(2, '0')
-                  const a = document.createElement('a')
-                  a.href = url
-                  a.download = `operaciones-${y}${m}${day}.json`
-                  document.body.appendChild(a)
-                  a.click()
-                  a.remove()
-                  setTimeout(() => URL.revokeObjectURL(url), 1200)
-                  toast('Operaciones exportadas', 'green')
-                } catch {
-                  toast('No se pudo exportar', 'red')
-                }
-              }
-
-              const importOps = (file) => {
-                if (!file) return
-                const fr = new FileReader()
-                fr.onload = () => {
-                  try {
-                    const incoming = parseOperacionesPayload(String(fr.result || ''))
-                    setDb((prev) => {
-                      const cur = prev?.operaciones || []
-                      const nextOps = mode === 'replace' ? incoming : mergeOperacionesById(cur, incoming)
-                      return { ...prev, operaciones: nextOps }
-                    })
-                    toast('Operaciones importadas', 'green')
-                  } catch {
-                    toast('Archivo inválido', 'red')
-                  }
-                }
-                fr.readAsText(file)
-              }
-
-              return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div className="cfg-row">
-                    <div>
-                      <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Tema</div>
-                      <div style={{ fontSize: 12, color: 'var(--text3)' }}>{theme === 'dark' ? 'Oscuro' : 'Claro'}</div>
-                    </div>
-                    <button className="btn b-out b-sm" onClick={toggleTheme}>
-                      Cambiar
-                    </button>
-                  </div>
-
-                  {isAdmin ? (
-                    <>
-                      <div className="cfg-row">
-                        <div>
-                          <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Exportar operaciones</div>
-                          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Descarga un JSON para migrar a otra PC</div>
-                        </div>
-                        <button className="btn b-teal b-sm" onClick={exportOps}>
-                          Exportar
-                        </button>
-                      </div>
-
-                      <div className="cfg-row" style={{ alignItems: 'flex-start' }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Importar operaciones</div>
-                          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Carga un JSON exportado previamente</div>
-                          <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                            <select className="is" style={{ maxWidth: 220 }} value={mode} onChange={(e) => setMode(e.target.value)}>
-                              <option value="merge">Combinar por ID</option>
-                              <option value="replace">Reemplazar todo</option>
-                            </select>
-                            <input
-                              className="ii"
-                              type="file"
-                              accept="application/json,.json"
-                              onChange={(e) => importOps(e?.target?.files?.[0])}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="info-box blue">
-                      <span>i</span>
-                      <div>Las opciones de migración están disponibles solo para Admin.</div>
-                    </div>
-                  )}
-
-                  <button className="btn b-teal" onClick={closeModal}>
-                    Cerrar
-                  </button>
-                </div>
-              )
-            }
-
-            openModal('Configuración', <Body />, 'wide')
-          }}
-        >
+        <button className="tb-btn" onClick={() => openModal('Configuración', <ConfigModalBody />, 'wide')}>
           <SvgIcon name="gear" aria-hidden="true" />
         </button>
         <div className="user-chip" onClick={() => navigate('perfil')}>

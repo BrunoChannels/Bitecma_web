@@ -20,19 +20,13 @@ export default function EvadirRegistradosTable() {
           <th>Fecha</th>
           <th>Transectos/Cuadrantes</th>
           <th>Botes</th>
-          <th>Den Loco</th>
-          <th>Den Erizo</th>
-          <th>Estado</th>
           <th>Acción</th>
         </tr>
       </thead>
       <tbody>
         {rows.length === 0 ? (
           <tr>
-            <td
-              colSpan={10}
-              style={{ textAlign: 'center', color: 'var(--text3)', padding: 14 }}
-            >
+            <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text3)', padding: 14 }}>
               Sin EVADIR registrados
             </td>
           </tr>
@@ -64,11 +58,6 @@ export default function EvadirRegistradosTable() {
                 <td>{fmtDMY(r.fechaInicio)}</td>
                 <td>{txCqUI}</td>
                 <td>{r.totalBotes}</td>
-                <td>{r.denLoco}</td>
-                <td>{r.denErizo}</td>
-                <td>
-                  <span className="pill p-amb">{r.estado}</span>
-                </td>
                 <td>
                   <button
                     className="btn b-out b-xs"

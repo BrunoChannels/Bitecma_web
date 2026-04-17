@@ -28,15 +28,6 @@ export default function Sidebar() {
         <SvgIcon className="nav-icon" name="table" aria-hidden="true" />
         EVADIR
       </div>
-      <div className="sb-sec">Análisis</div>
-      <div
-        className={`nav ${page === 'historico' ? 'on' : ''}`}
-        id="nav-historico"
-        onClick={() => navigate('historico')}
-      >
-        <SvgIcon className="nav-icon" name="archive" aria-hidden="true" />
-        Registro Histórico
-      </div>
       <div className="sb-sec">Maestros</div>
       <div
         className={`nav ${page === 'especies' ? 'on' : ''}`}

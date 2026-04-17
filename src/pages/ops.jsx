@@ -3,6 +3,7 @@ import { useOperaciones } from '../hooks/useOperaciones.js'
 import { useDb } from '../context/dbContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
 import { getOperacionMetricas } from '../services/operacionesService.js'
+import SvgIcon from '../components/svgIcon.jsx'
 import BoteCard from '../components/ops/BoteCard.jsx'
 import EvadirPreview from '../components/evadir/EvadirPreview.jsx'
 import SearchableSelect from '../components/common/SearchableSelect.jsx'
@@ -30,6 +31,21 @@ function todayISO() {
   return `${y}-${m}-${day}`
 }
 
+function getOperacionYear(op) {
+  const fi = String(op?.fechaInicio || '').trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(fi)) return fi.slice(0, 4)
+  if (/^\d{4}/.test(fi)) return fi.slice(0, 4)
+  const id = String(op?.id || '')
+  const m = id.match(/^OP-(\d{4})-/)
+  return m ? m[1] : ''
+}
+
+function getOperacionSegLabel(op) {
+  const n = Number(op?.numSeg)
+  if (!Number.isFinite(n)) return 'SEG—'
+  return `SEG${String(Math.trunc(n)).padStart(2, '0')}`
+}
+
 export default function OpsPage({ active }) {
   const { db, upsertOperacion, updateOperacion, deleteOperacion } = useDb()
   const { toast, openModal, closeModal } = useUi()
@@ -51,6 +67,216 @@ export default function OpsPage({ active }) {
   const sectorAmerb = db?.sectoresAmerb || []
   const caletasByRegion = db?.caletasByRegionStatic || {}
   const opa = db?.opa || []
+
+  const openEditOp = (op) => {
+    const iso = todayISO()
+    const form = {
+      region: op?.region ?? (regiones[0]?.id || 1),
+      sectorAmerbId: String(op?.sectorAmerbId || ''),
+      sectorAmerb: String(op?.sectorAmerb || ''),
+      sector: String(op?.sector || ''),
+      tipoOrg: String(op?.tipoOrg || 'STI'),
+      opaId: String(op?.opaId || ''),
+      org: String(op?.org || ''),
+      numSeg: op?.numSeg == null ? '' : String(op.numSeg),
+      fechaInicio: String(op?.fechaInicio || iso),
+      fechaFin: String(op?.fechaFin || iso),
+    }
+
+    const Body = () => {
+      const [s, setS] = useState(form)
+
+      const amerbOpts = sectorAmerb
+        .filter((a) => a.region === s.region)
+        .slice()
+        .sort((a, b) => String(a.nombreamerb || '').localeCompare(String(b.nombreamerb || '')))
+        .slice(0, 4000)
+
+      const caletasOpts = (Array.isArray(caletasByRegion?.[s.region]) ? caletasByRegion[s.region] : [])
+        .slice()
+        .sort((a, b) => String(a).localeCompare(String(b)))
+        .slice(0, 4000)
+
+      const opaOpts = opa
+        .filter((o) => o.region === s.region)
+        .slice()
+        .sort((a, b) => String(a.nombrecorto || a.nombre || '').localeCompare(String(b.nombrecorto || b.nombre || '')))
+        .slice(0, 4000)
+
+      const onSave = () => {
+        const segRaw = String(s.numSeg || '').trim()
+        const segNum = segRaw === '' ? null : parseInt(segRaw, 10)
+        if (segRaw !== '' && !Number.isFinite(segNum)) {
+          toast('Seguimiento inválido', 'red')
+          return
+        }
+        if (!String(s.sectorAmerb || '').trim()) {
+          toast('Selecciona Sector AMERB', 'red')
+          return
+        }
+        if (!String(s.sector || '').trim()) {
+          toast('Selecciona Caleta', 'red')
+          return
+        }
+
+        updateOperacion(op.id, (cur) => ({
+          ...cur,
+          region: s.region,
+          sectorAmerbId: s.sectorAmerbId,
+          sectorAmerb: s.sectorAmerb,
+          sector: s.sector,
+          tipoOrg: s.tipoOrg,
+          org: s.org,
+          opaId: s.opaId,
+          numSeg: segNum,
+          fechaInicio: s.fechaInicio,
+          fechaFin: s.fechaFin,
+        }))
+        closeModal()
+        toast('Operación actualizada', 'green')
+      }
+
+      const onDelete = () => {
+        const ok1 = confirm(
+          `Vas a eliminar la operación ${op.id}. Se perderán todos los datos de transectos/cuadrantes, botes y muestras. ¿Continuar?`,
+        )
+        if (!ok1) return
+        const ok2 = confirm(`Confirmación final: ¿Eliminar definitivamente ${op.id}?`)
+        if (!ok2) return
+        deleteOperacion(op.id)
+        setExpanded((prev) => {
+          const next = new Set(prev)
+          next.delete(op.id)
+          return next
+        })
+        closeModal()
+        toast('Operación eliminada', 'green')
+      }
+
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="i2">
+            <div className="ig">
+              <label className="il">Región</label>
+              <select
+                className="is"
+                value={s.region}
+                onChange={(e) => {
+                  const rid = parseInt(e.target.value, 10)
+                  setS((p) => ({
+                    ...p,
+                    region: Number.isFinite(rid) ? rid : p.region,
+                    sectorAmerbId: '',
+                    sectorAmerb: '',
+                    sector: '',
+                    opaId: '',
+                    org: '',
+                  }))
+                }}
+              >
+                {regiones.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.rom} — {r.nom}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="ig">
+              <label className="il">N° Seguimiento / ESBA</label>
+              <input className="ii" placeholder="Ej: 16" value={s.numSeg} onChange={(e) => setS((p) => ({ ...p, numSeg: e.target.value }))} />
+            </div>
+          </div>
+
+          <SearchableSelect
+            label="Sector AMERB"
+            value={s.sectorAmerbId}
+            options={amerbOpts.map((a) => ({ value: String(a.id), label: a.nombreamerb }))}
+            placeholder="Buscar sector AMERB..."
+            onChange={(id) => {
+              const f = amerbOpts.find((x) => String(x.id) === String(id))
+              setS((p) => ({ ...p, sectorAmerbId: String(id || ''), sectorAmerb: f?.nombreamerb || '' }))
+            }}
+            onAdd={() => {
+              const name = prompt('Nuevo Sector AMERB (no se guardará aún):')
+              if (!name) return
+              toast('Sector AMERB agregado solo para esta operación (pendiente BD)', 'blue')
+              setS((p) => ({ ...p, sectorAmerbId: 'custom', sectorAmerb: String(name).trim() }))
+            }}
+            addLabel="Agregar Sector..."
+          />
+
+          <SearchableSelect
+            label="Caleta"
+            value={s.sector}
+            options={caletasOpts.map((c) => ({ value: c, label: c }))}
+            placeholder="Buscar caleta..."
+            onChange={(v) => setS((p) => ({ ...p, sector: String(v || '') }))}
+            onAdd={() => {
+              const name = prompt('Nueva Caleta (no se guardará aún):')
+              if (!name) return
+              toast('Caleta agregada solo para esta operación (pendiente BD)', 'blue')
+              setS((p) => ({ ...p, sector: String(name).trim() }))
+            }}
+            addLabel="Agregar Caleta..."
+          />
+
+          <div className="i2">
+            <div className="ig">
+              <label className="il">Tipo organización</label>
+              <select className="is" value={s.tipoOrg} onChange={(e) => setS((p) => ({ ...p, tipoOrg: e.target.value }))}>
+                <option value="STI">STI</option>
+                <option value="ASOC">ASOC</option>
+                <option value="OTRO">OTRO</option>
+              </select>
+            </div>
+            <SearchableSelect
+              label="Organización (OPA)"
+              value={s.opaId}
+              options={opaOpts.map((o) => ({ value: String(o.id), label: o.nombrecorto || o.nombre }))}
+              placeholder="Buscar organización..."
+              onChange={(id) => {
+                const f = opaOpts.find((x) => String(x.id) === String(id))
+                setS((p) => ({ ...p, opaId: String(id || ''), org: f?.nombre || '' }))
+              }}
+              onAdd={() => {
+                const name = prompt('Nueva Organización (pendiente BD):')
+                if (!name) return
+                toast('Organización agregada solo para esta operación (pendiente BD)', 'blue')
+                setS((p) => ({ ...p, opaId: 'custom', org: String(name).trim() }))
+              }}
+              addLabel="Agregar Organización..."
+            />
+          </div>
+
+          <div className="i2">
+            <div className="ig">
+              <label className="il">Fecha inicio</label>
+              <input className="ii" type="date" value={s.fechaInicio} onChange={(e) => setS((p) => ({ ...p, fechaInicio: e.target.value }))} />
+            </div>
+            <div className="ig">
+              <label className="il">Fecha fin</label>
+              <input className="ii" type="date" value={s.fechaFin} onChange={(e) => setS((p) => ({ ...p, fechaFin: e.target.value }))} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+              Cancelar
+            </button>
+            <button className="btn b-teal" style={{ flex: 1 }} onClick={onSave}>
+              Guardar cambios
+            </button>
+          </div>
+
+          <button className="btn" style={{ border: '1.5px solid var(--red)', background: 'transparent', color: 'var(--red)' }} onClick={onDelete}>
+            ELIMINAR OPERACION
+          </button>
+        </div>
+      )
+    }
+
+    openModal(`Editar operación — ${op.id}`, <Body />, 'wide')
+  }
 
   const openNewOp = () => {
     const iso = todayISO()
@@ -431,12 +657,14 @@ export default function OpsPage({ active }) {
         {filtered.map((op) => {
           const open = expanded.has(op.id)
           const { totalTx, totalLPMuestras } = getOperacionMetricas(op)
+          const year = getOperacionYear(op)
+          const segLabel = getOperacionSegLabel(op)
           return (
             <div className="op-card card mb" key={op.id} style={{ padding: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 800, color: 'var(--text)' }}>
-                    {op.id} · SEG-{op.numSeg ?? '—'} · {op.sector}
+                    {year || '—'}, {segLabel}, {op.sector || '—'}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
                     {op.org} · {op.fechaInicio}
@@ -468,15 +696,8 @@ export default function OpsPage({ active }) {
                   >
                     Previsualizar EVADIR
                   </button>
-                  <button
-                    className="btn b-out b-sm"
-                    onClick={() => {
-                      if (!confirm(`Eliminar ${op.id}?`)) return
-                      deleteOperacion(op.id)
-                      toast('Operación eliminada', 'green')
-                    }}
-                  >
-                    Eliminar
+                  <button className="tb-btn" title="Editar" onClick={() => openEditOp(op)}>
+                    <SvgIcon name="edit" aria-hidden="true" />
                   </button>
                 </div>
               </div>
