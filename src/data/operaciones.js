@@ -1,5 +1,4 @@
-window.DB = window.DB || {};
-window.DB.operaciones = [
+export const OPERACIONES = [
   {
     id: 'OP-2026-003',
     region: 4,
@@ -78,3 +77,5 @@ window.DB.operaciones = [
     ]
   }
 ];
+
+export default OPERACIONES

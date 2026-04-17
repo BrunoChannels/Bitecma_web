@@ -5,8 +5,7 @@ import CesarP from '../img/perfiles/CesarP.png'
 import MedinaCristian from '../img/perfiles/MedinaCristian_.jpg'
 import Hugo from '../img/perfiles/Hugo.png'
 
-window.DB = window.DB || {}
-window.DB.perfiles = [
+export const PERFILES = [
   {
     id: 0,
     logo: '',
@@ -74,4 +73,4 @@ window.DB.perfiles = [
   },
 ]
 
-export default window.DB.perfiles
+export default PERFILES

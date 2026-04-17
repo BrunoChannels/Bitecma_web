@@ -1,4 +1,4 @@
-  const REGIONES_CHILE = [
+export const REGIONES_CHILE = [
   { id: 1, rom: 'I', nom: 'Tarapacá' },
   { id: 2, rom: 'II', nom: 'Antofagasta' },
   { id: 3, rom: 'III', nom: 'Atacama' },
@@ -16,7 +16,7 @@
   { id: 16, rom: 'XVI', nom: 'Ñuble' }
 ];
 
-    const CALETAS_BY_REGION_STATIC = {
+export const CALETAS_BY_REGION_STATIC = {
     15: ['Arica', 'Camarones'],
     1: ['Cáñamo', 'Caramucho', 'Cavancha', 'Chanavaya (Pabellón de Pica)', 'Chanavayita', 'Chipana', 'Los Verdes', 'Patache', 'Pisagua', 'Playa Blanca', 'Puerto de Iquique', 'Río Seco', 'Riquelme', 'San Marcos'],
     2: ['Abtao (Juan López)', 'Antofagasta', 'Blanco Encalada', 'Caleta Buena (Los Chinos)', 'Cifuncho', 'Cobija', 'Coloso', 'Constitución (I. Sta. María)', 'El Bote', 'El Cobre', 'El Fierro', 'El Lagarto', 'Gualaguala', 'Hornitos (Hornos)', 'Huachán', 'Indígena', 'La Chimba', 'La Colorada', 'Las Tórtolas', 'Mejillones', 'Michilla', 'Paposo', 'Paquica (La Cuchara)', 'Punta Arenas', 'Punta Atala', 'Taltal', 'Tocopilla', 'Urcu (Urco)'],
@@ -34,6 +34,4 @@
     12: ['Bahía Chilota', 'Bahía Mansa', 'Barranco Amarillo', 'Los Pinos', 'Porvenir', 'Puerto Edén', 'Puerto Natales', 'Puerto Toro', 'Puerto Williams', 'Punta Arenas (muelle fiscal)', 'Punta Carrera', 'Río Canelo'],
   };
 
-  window.DB = window.DB || {};
-  window.DB.regionesChile = REGIONES_CHILE;
-  window.DB.caletasByRegionStatic = CALETAS_BY_REGION_STATIC;
+export default { REGIONES_CHILE, CALETAS_BY_REGION_STATIC }

@@ -1,5 +1,4 @@
-window.DB = window.DB || {};
-window.DB.opa = [
+export const OPA = [
   {
     "id": 1,
     "nombre": "COOPERATIVA DE PESCADORES ARTESANALES Y ACUICULTORES DE CALETA CHILENA",
@@ -5377,3 +5376,5 @@ window.DB.opa = [
     "comuna": "Camarones"
   }
 ];
+
+export default OPA

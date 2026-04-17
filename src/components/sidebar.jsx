@@ -2,133 +2,80 @@
  * Retorna el HTML del menú lateral (navegación por secciones).
  * Controla el acceso a páginas internas y el cierre de sesión.
  */
-import { svgIcon } from './svgIcon.jsx'
+import SvgIcon from './svgIcon.jsx'
+import { useApp } from '../context/appContext.jsx'
 
 export default function Sidebar() {
+  const { page, navigate, logout } = useApp()
+
   return (
     <div className="sidebar">
       <div className="sb-sec">Principal</div>
       <div
-        className="nav on"
+        className={`nav ${page === 'dashboard' ? 'on' : ''}`}
         id="nav-dashboard"
-        onClick={() => window.goPage?.('dashboard')}
+        onClick={() => navigate('dashboard')}
       >
-        <span
-          className="nav-icon"
-          dangerouslySetInnerHTML={{ __html: svgIcon('grid') }}
-          aria-hidden="true"
-        />
+        <SvgIcon className="nav-icon" name="grid" aria-hidden="true" />
         Dashboard
       </div>
       <div className="sb-sec">Trabajo de Campo</div>
-      <div className="nav" id="nav-ops" onClick={() => window.goPage?.('ops')}>
-        <span
-          className="nav-icon"
-          dangerouslySetInnerHTML={{ __html: svgIcon('folder') }}
-          aria-hidden="true"
-        />
+      <div className={`nav ${page === 'ops' ? 'on' : ''}`} id="nav-ops" onClick={() => navigate('ops')}>
+        <SvgIcon className="nav-icon" name="folder" aria-hidden="true" />
         Operaciones
       </div>
-      <div className="nav" id="nav-evadir" onClick={() => window.goPage?.('evadir')}>
-        <span
-          className="nav-icon"
-          dangerouslySetInnerHTML={{ __html: svgIcon('table') }}
-          aria-hidden="true"
-        />
+      <div className={`nav ${page === 'evadir' ? 'on' : ''}`} id="nav-evadir" onClick={() => navigate('evadir')}>
+        <SvgIcon className="nav-icon" name="table" aria-hidden="true" />
         EVADIR
       </div>
       <div className="sb-sec">Análisis</div>
       <div
-        className="nav"
+        className={`nav ${page === 'historico' ? 'on' : ''}`}
         id="nav-historico"
-        onClick={() => window.goPage?.('historico')}
+        onClick={() => navigate('historico')}
       >
-        <span
-          className="nav-icon"
-          dangerouslySetInnerHTML={{ __html: svgIcon('archive') }}
-          aria-hidden="true"
-        />
+        <SvgIcon className="nav-icon" name="archive" aria-hidden="true" />
         Registro Histórico
       </div>
       <div className="sb-sec">Maestros</div>
       <div
-        className="nav"
+        className={`nav ${page === 'especies' ? 'on' : ''}`}
         id="nav-especies"
-        onClick={() => window.goPage?.('especies')}
+        onClick={() => navigate('especies')}
       >
-        <span
-          className="nav-icon"
-          dangerouslySetInnerHTML={{ __html: svgIcon('users') }}
-          aria-hidden="true"
-        />
+        <SvgIcon className="nav-icon" name="users" aria-hidden="true" />
         Especies
       </div>
       <div
-        className="nav"
+        className={`nav ${page === 'sectores' ? 'on' : ''}`}
         id="nav-sectores"
-        onClick={() => window.goPage?.('sectores')}
+        onClick={() => navigate('sectores')}
       >
-        <span
-          className="nav-icon"
-          dangerouslySetInnerHTML={{ __html: svgIcon('map') }}
-          aria-hidden="true"
-        />
+        <SvgIcon className="nav-icon" name="map" aria-hidden="true" />
         Sectores
       </div>
-      <div className="nav" id="nav-orgs" onClick={() => window.goPage?.('orgs')}>
-        <span
-          className="nav-icon"
-          dangerouslySetInnerHTML={{ __html: svgIcon('users') }}
-          aria-hidden="true"
-        />
+      <div className={`nav ${page === 'orgs' ? 'on' : ''}`} id="nav-orgs" onClick={() => navigate('orgs')}>
+        <SvgIcon className="nav-icon" name="users" aria-hidden="true" />
         Organizaciones
       </div>
       <div
-        className="nav"
+        className={`nav ${page === 'botes' ? 'on' : ''}`}
         id="nav-botes"
-        onClick={() => window.goPage?.('botes')}
+        onClick={() => navigate('botes')}
       >
-        <span
-          className="nav-icon"
-          dangerouslySetInnerHTML={{ __html: svgIcon('anchor') }}
-          aria-hidden="true"
-        />
+        <SvgIcon className="nav-icon" name="anchor" aria-hidden="true" />
         Botes
       </div>
       <div className="sb-foot">
         <div
           className="nav"
           style={{ color: 'var(--red)' }}
-          onClick={() => window.logout?.()}
+          onClick={logout}
         >
-          <span
-            className="nav-icon"
-            dangerouslySetInnerHTML={{ __html: svgIcon('logout') }}
-            aria-hidden="true"
-          />
+          <SvgIcon className="nav-icon" name="logout" aria-hidden="true" />
           Cerrar sesión
         </div>
       </div>
     </div>
   )
-}
-
-export function tplSidebar() {
-  return `<div class="sidebar">
-      <div class="sb-sec">Principal</div>
-      <div class="nav on" id="nav-dashboard" onclick="goPage('dashboard')"><span class="nav-icon">${svgIcon('grid')}</span>Dashboard</div>
-      <div class="sb-sec">Trabajo de Campo</div>
-      <div class="nav" id="nav-ops" onclick="goPage('ops')"><span class="nav-icon">${svgIcon('folder')}</span>Operaciones</div>
-      <div class="nav" id="nav-evadir" onclick="goPage('evadir')"><span class="nav-icon">${svgIcon('table')}</span>EVADIR</div>
-      <div class="sb-sec">Análisis</div>
-      <div class="nav" id="nav-historico" onclick="goPage('historico')"><span class="nav-icon">${svgIcon('archive')}</span>Registro Histórico</div>
-      <div class="sb-sec">Maestros</div>
-      <div class="nav" id="nav-especies" onclick="goPage('especies')"><span class="nav-icon">${svgIcon('users')}</span>Especies</div>
-      <div class="nav" id="nav-sectores" onclick="goPage('sectores')"><span class="nav-icon">${svgIcon('map')}</span>Sectores</div>
-      <div class="nav" id="nav-orgs" onclick="goPage('orgs')"><span class="nav-icon">${svgIcon('users')}</span>Organizaciones</div>
-      <div class="nav" id="nav-botes" onclick="goPage('botes')"><span class="nav-icon">${svgIcon('anchor')}</span>Botes</div>
-      <div class="sb-foot">
-        <div class="nav" style="color:var(--red)" onclick="logout()"><span class="nav-icon">${svgIcon('logout')}</span>Cerrar sesión</div>
-      </div>
-    </div>`;
 }

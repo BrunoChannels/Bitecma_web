@@ -1,5 +1,4 @@
-window.DB = window.DB || {};
-window.DB.sectores_amerb = [
+export const SECTORES_AMERB = [
   {
     "id": 1,
     "nombreamerb": "PUNTA SEREMEÑO",
@@ -8701,3 +8700,5 @@ window.DB.sectores_amerb = [
     "comuna": "Camarones"
   }
 ];
+
+export default SECTORES_AMERB

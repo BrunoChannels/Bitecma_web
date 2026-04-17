@@ -1,19 +1,131 @@
-/** Página Sectores: retorna el HTML del listado de sectores y accesos rápidos a operaciones. */
-function sectoresInner() {
-  return `<div class="ph"><div><h2>Sectores</h2><p>Sectores AMERB y caletas por región</p></div></div>
-  <div class="admin-layout" style="grid-template-columns: 240px 1fr 1fr;">
-    <div class="card admin-menu" id="ms-regions"></div>
-    <div class="card admin-content" id="ms-sectores-content"></div>
-    <div class="card admin-content" id="ms-caletas-content"></div>
-  </div>`
-}
+import { useMemo, useState } from 'react'
+import { useDb } from '../context/dbContext.jsx'
 
-export default function SectoresPage() {
+export default function SectoresPage({ active }) {
+  const { db } = useDb()
+  const regiones = useMemo(() => {
+    const arr = db?.regionesChile
+    return Array.isArray(arr) ? arr : []
+  }, [db?.regionesChile])
+  const sectoresAmerb = useMemo(() => {
+    const arr = db?.sectoresAmerb
+    return Array.isArray(arr) ? arr : []
+  }, [db?.sectoresAmerb])
+  const caletasByRegion = useMemo(() => {
+    return db?.caletasByRegionStatic || {}
+  }, [db?.caletasByRegionStatic])
+
+  const [regionId, setRegionId] = useState(regiones[0]?.id || 1)
+  const [q, setQ] = useState('')
+
+  const sectoresFiltrados = useMemo(() => {
+    const query = String(q || '').toLowerCase().trim()
+    return sectoresAmerb
+      .filter((s) => s.region === regionId)
+      .filter((s) => (!query ? true : String(s.nombreamerb || '').toLowerCase().includes(query)))
+      .slice(0, 500)
+  }, [sectoresAmerb, regionId, q])
+
+  const caletas = useMemo(() => {
+    const arr = caletasByRegion?.[regionId]
+    return Array.isArray(arr) ? arr : []
+  }, [caletasByRegion, regionId])
+
   return (
-    <div
-      className="page"
-      id="pg-sectores"
-      dangerouslySetInnerHTML={{ __html: sectoresInner() }}
-    />
+    <div className={`page${active ? ' active' : ''}`} id="pg-sectores">
+      <div className="ph">
+        <div>
+          <h2>Sectores</h2>
+          <p>Sectores AMERB y caletas por región</p>
+        </div>
+      </div>
+      <div className="admin-layout" style={{ gridTemplateColumns: '240px 1fr 1fr' }}>
+        <div className="card admin-menu">
+          {regiones.map((r) => (
+            <div
+              key={r.id}
+              className={`admin-item ${regionId === r.id ? 'on' : ''}`}
+              onClick={() => setRegionId(r.id)}
+            >
+              {r.rom} — {r.nom}
+            </div>
+          ))}
+        </div>
+        <div className="card admin-content">
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            <input
+              className="flt"
+              placeholder="Buscar sector AMERB..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+            <span style={{ fontSize: 12, color: 'var(--text3)' }}>
+              {sectoresFiltrados.length} sector(es)
+            </span>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Sector AMERB</th>
+                  <th>Comuna</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sectoresFiltrados.length ? (
+                  sectoresFiltrados.map((s) => (
+                    <tr key={s.id}>
+                      <td>{s.id}</td>
+                      <td>
+                        <strong>{s.nombreamerb}</strong>
+                      </td>
+                      <td>{s.comuna || '—'}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} style={{ textAlign: 'center', color: 'var(--text3)', padding: 14 }}>
+                      Sin resultados
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="card admin-content">
+          <div style={{ fontFamily: 'var(--ff-d)', fontSize: 14, fontWeight: 800, color: 'var(--navy)', marginBottom: 10 }}>
+            Caletas (estático)
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Caleta</th>
+                </tr>
+              </thead>
+              <tbody>
+                {caletas.length ? (
+                  caletas.map((c, idx) => (
+                    <tr key={`${c}-${idx}`}>
+                      <td>{idx + 1}</td>
+                      <td>{c}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={2} style={{ textAlign: 'center', color: 'var(--text3)', padding: 14 }}>
+                      Sin caletas configuradas
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

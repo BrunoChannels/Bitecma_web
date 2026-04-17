@@ -1,5 +1,4 @@
-window.DB = window.DB || {};
-window.DB.especies = [
+export const ESPECIES = [
     { "id": 1,
     "com": "Loco", 
     "sci": "Concholepas concholepas", 
@@ -176,3 +175,5 @@ window.DB.especies = [
     "lp": false, 
     "dens": true }
 ];
+
+export default ESPECIES
