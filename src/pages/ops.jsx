@@ -5,6 +5,7 @@ import { useUi } from '../context/uiContext.jsx'
 import { getOperacionMetricas } from '../services/operacionesService.js'
 import BoteCard from '../components/ops/BoteCard.jsx'
 import EvadirPreview from '../components/evadir/EvadirPreview.jsx'
+import SearchableSelect from '../components/common/SearchableSelect.jsx'
 
 function nextOpId(ops, year) {
   const y = String(year)
@@ -48,6 +49,7 @@ export default function OpsPage({ active }) {
 
   const regiones = db?.regionesChile || []
   const sectorAmerb = db?.sectoresAmerb || []
+  const caletasByRegion = db?.caletasByRegionStatic || {}
   const opa = db?.opa || []
 
   const openNewOp = () => {
@@ -69,8 +71,133 @@ export default function OpsPage({ active }) {
 
     const Body = () => {
       const [s, setS] = useState(form)
-      const amerbOpts = sectorAmerb.filter((a) => a.region === s.region).slice(0, 2000)
-      const opaOpts = opa.filter((o) => o.region === s.region).slice(0, 2000)
+      const amerbOpts = sectorAmerb
+        .filter((a) => a.region === s.region)
+        .slice()
+        .sort((a, b) => String(a.nombreamerb || '').localeCompare(String(b.nombreamerb || '')))
+        .slice(0, 4000)
+      const caletasOpts = (Array.isArray(caletasByRegion?.[s.region]) ? caletasByRegion[s.region] : [])
+        .slice()
+        .sort((a, b) => String(a).localeCompare(String(b)))
+        .slice(0, 4000)
+      const opaOpts = opa
+        .filter((o) => o.region === s.region)
+        .slice()
+        .sort((a, b) => String(a.nombrecorto || a.nombre || '').localeCompare(String(b.nombrecorto || b.nombre || '')))
+        .slice(0, 4000)
+
+      const openCrearBotes = (opId) => {
+        const BodyBotes = () => {
+          const [rows, setRows] = useState(() =>
+            Array.from({ length: 4 }, (_, i) => ({
+              zona: i + 1,
+              nombre: '',
+              buzo: '',
+              densTipo: 'transecto',
+            })),
+          )
+
+          const addRow = () => {
+            setRows((prev) => [...prev, { zona: (prev[prev.length - 1]?.zona || 0) + 1, nombre: '', buzo: '', densTipo: 'transecto' }])
+          }
+
+          const removeRow = (idx) => {
+            setRows((prev) => prev.filter((_, i) => i !== idx))
+          }
+
+          const onSaveBotes = () => {
+            const clean = rows
+              .map((r) => ({
+                zona: parseInt(r.zona, 10) || 1,
+                nombre: String(r.nombre || '').trim(),
+                buzo: String(r.buzo || '').trim(),
+                densTipo: r.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
+              }))
+              .filter((r) => r.nombre)
+            if (!clean.length) {
+              toast('Ingresa al menos un bote', 'red')
+              return
+            }
+            updateOperacion(opId, (cur) => {
+              const nextBotes = clean.map((r, i) => ({
+                id: `B${i + 1}`,
+                nombre: r.nombre,
+                buzo: r.buzo,
+                zona: r.zona,
+                densTipo: r.densTipo,
+                lpMuestras: {},
+                transectos: [],
+              }))
+              return { ...cur, botes: nextBotes }
+            })
+            closeModal()
+            toast('Botes creados', 'green')
+          }
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ overflow: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Zona muestreo</th>
+                      <th>Bote</th>
+                      <th>Buzo</th>
+                      <th>Unidad de muestreo</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, idx) => (
+                      <tr key={idx}>
+                        <td>{idx + 1}</td>
+                        <td style={{ minWidth: 120 }}>
+                          <input className="ii" type="number" value={r.zona} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))} />
+                        </td>
+                        <td style={{ minWidth: 200 }}>
+                          <input className="ii" placeholder="Nombre bote" value={r.nombre} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, nombre: e.target.value } : x)))} />
+                        </td>
+                        <td style={{ minWidth: 200 }}>
+                          <input className="ii" placeholder="Nombre buzo" value={r.buzo} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, buzo: e.target.value } : x)))} />
+                        </td>
+                        <td style={{ minWidth: 180 }}>
+                          <select className="is" value={r.densTipo} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, densTipo: e.target.value } : x)))}>
+                            <option value="transecto">Transecto</option>
+                            <option value="cuadrante">Cuadrante</option>
+                          </select>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button className="btn b-out b-sm" onClick={() => removeRow(idx)}>
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <button className="btn b-out" onClick={addRow}>
+                  Agregar fila
+                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn b-out" onClick={closeModal}>
+                    Cancelar
+                  </button>
+                  <button className="btn b-teal" onClick={onSaveBotes}>
+                    Crear botes
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+        openModal(`Crear botes — ${opId}`, <BodyBotes />, 'wide')
+      }
+
       const onSave = () => {
         const segRaw = String(s.numSeg || '').trim()
         const segNum = segRaw === '' ? null : parseInt(segRaw, 10)
@@ -99,6 +226,7 @@ export default function OpsPage({ active }) {
         })
         closeModal()
         toast('Operación creada', 'green')
+        setTimeout(() => openCrearBotes(opId), 50)
       }
 
       return (
@@ -109,7 +237,18 @@ export default function OpsPage({ active }) {
               <select
                 className="is"
                 value={s.region}
-                onChange={(e) => setS((p) => ({ ...p, region: parseInt(e.target.value, 10) }))}
+                onChange={(e) => {
+                  const rid = parseInt(e.target.value, 10)
+                  setS((p) => ({
+                    ...p,
+                    region: Number.isFinite(rid) ? rid : p.region,
+                    sectorAmerbId: '',
+                    sectorAmerb: '',
+                    sector: '',
+                    opaId: '',
+                    org: '',
+                  }))
+                }}
               >
                 {regiones.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -128,37 +267,37 @@ export default function OpsPage({ active }) {
               />
             </div>
           </div>
-          <div className="ig">
-            <label className="il">Sector AMERB</label>
-            <select
-              className="is"
-              value={s.sectorAmerbId}
-              onChange={(e) => {
-                const id = e.target.value
-                const f = amerbOpts.find((x) => String(x.id) === String(id))
-                setS((p) => ({
-                  ...p,
-                  sectorAmerbId: id,
-                  sectorAmerb: f?.nombreamerb || '',
-                }))
-              }}
-            >
-              <option value="">—</option>
-              {amerbOpts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.nombreamerb}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="ig">
-            <label className="il">Sector / Caleta</label>
-            <input
-              className="ii"
-              value={s.sector}
-              onChange={(e) => setS((p) => ({ ...p, sector: e.target.value }))}
-            />
-          </div>
+          <SearchableSelect
+            label="Sector AMERB"
+            value={s.sectorAmerbId}
+            options={amerbOpts.map((a) => ({ value: String(a.id), label: a.nombreamerb }))}
+            placeholder="Buscar sector AMERB..."
+            onChange={(id) => {
+              const f = amerbOpts.find((x) => String(x.id) === String(id))
+              setS((p) => ({ ...p, sectorAmerbId: String(id || ''), sectorAmerb: f?.nombreamerb || '' }))
+            }}
+            onAdd={() => {
+              const name = prompt('Nuevo Sector AMERB (no se guardará aún):')
+              if (!name) return
+              toast('Sector AMERB agregado solo para esta operación (pendiente BD)', 'blue')
+              setS((p) => ({ ...p, sectorAmerbId: 'custom', sectorAmerb: String(name).trim() }))
+            }}
+            addLabel="Agregar Sector..."
+          />
+          <SearchableSelect
+            label="Caleta"
+            value={s.sector}
+            options={caletasOpts.map((c) => ({ value: c, label: c }))}
+            placeholder="Buscar caleta..."
+            onChange={(v) => setS((p) => ({ ...p, sector: String(v || '') }))}
+            onAdd={() => {
+              const name = prompt('Nueva Caleta (no se guardará aún):')
+              if (!name) return
+              toast('Caleta agregada solo para esta operación (pendiente BD)', 'blue')
+              setS((p) => ({ ...p, sector: String(name).trim() }))
+            }}
+            addLabel="Agregar Caleta..."
+          />
           <div className="i2">
             <div className="ig">
               <label className="il">Tipo organización</label>
@@ -172,25 +311,23 @@ export default function OpsPage({ active }) {
                 <option value="OTRO">OTRO</option>
               </select>
             </div>
-            <div className="ig">
-              <label className="il">Organización (OPA)</label>
-              <select
-                className="is"
-                value={s.opaId}
-                onChange={(e) => {
-                  const id = e.target.value
-                  const f = opaOpts.find((x) => String(x.id) === String(id))
-                  setS((p) => ({ ...p, opaId: id, org: f?.nombre || '' }))
-                }}
-              >
-                <option value="">—</option>
-                {opaOpts.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.nombrecorto || o.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SearchableSelect
+              label="Organización (OPA)"
+              value={s.opaId}
+              options={opaOpts.map((o) => ({ value: String(o.id), label: o.nombrecorto || o.nombre }))}
+              placeholder="Buscar organización..."
+              onChange={(id) => {
+                const f = opaOpts.find((x) => String(x.id) === String(id))
+                setS((p) => ({ ...p, opaId: String(id || ''), org: f?.nombre || '' }))
+              }}
+              onAdd={() => {
+                const name = prompt('Nueva Organización (pendiente BD):')
+                if (!name) return
+                toast('Organización agregada solo para esta operación (pendiente BD)', 'blue')
+                setS((p) => ({ ...p, opaId: 'custom', org: String(name).trim() }))
+              }}
+              addLabel="Agregar Organización..."
+            />
           </div>
           <div className="i2">
             <div className="ig">
@@ -371,7 +508,7 @@ export default function OpsPage({ active }) {
                                   <input className="ii" type="number" value={b.zona} onChange={(e) => setB((s) => ({ ...s, zona: parseInt(e.target.value, 10) || 1 }))} />
                                 </div>
                                 <div className="ig">
-                                  <label className="il">Tipo densidad</label>
+                                  <label className="il">Unidad de Muestreo</label>
                                   <select className="is" value={b.densTipo} onChange={(e) => setB((s) => ({ ...s, densTipo: e.target.value }))}>
                                     <option value="transecto">Transecto</option>
                                     <option value="cuadrante">Cuadrante</option>

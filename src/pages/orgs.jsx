@@ -26,7 +26,8 @@ export default function OrgsPage({ active }) {
             String(o.nombrecorto || '').toLowerCase().includes(query) ||
             String(o.comuna || '').toLowerCase().includes(query),
       )
-      .slice(0, 500)
+      .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0))
+      .slice(0, 2000)
   }, [orgs, regionId, q])
 
   return (
@@ -37,8 +38,8 @@ export default function OrgsPage({ active }) {
           <p>Listado OPA por región (con búsqueda)</p>
         </div>
       </div>
-      <div className="admin-layout">
-        <div className="card admin-menu">
+      <div className="admin-layout" style={{ height: 'calc(100vh - 190px)', alignItems: 'stretch' }}>
+        <div className="card admin-menu" style={{ minHeight: 0, overflowY: 'auto' }}>
           {regiones.map((r) => (
             <div
               key={r.id}
@@ -49,19 +50,11 @@ export default function OrgsPage({ active }) {
             </div>
           ))}
         </div>
-        <div className="card admin-content">
+        <div className="card admin-content" style={{ minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-            <input
-              className="flt"
-              placeholder="Buscar organización..."
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-            <span style={{ fontSize: 12, color: 'var(--text3)' }}>
-              {orgsFiltradas.length} organización(es)
-            </span>
+            <input className="flt" placeholder="Buscar organización..." value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflow: 'auto', minHeight: 0 }}>
             <table className="tbl">
               <thead>
                 <tr>

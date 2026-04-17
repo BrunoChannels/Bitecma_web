@@ -34,6 +34,7 @@ export function crearUnidades({
   sustrato,
   cubierta,
   especieId,
+  especiesIds,
 }) {
   const base = Array.isArray(unidades) ? unidades : []
   const t = tipo === 'cuadrante' ? 'cuadrante' : 'transecto'
@@ -45,6 +46,9 @@ export function crearUnidades({
   const sus = String(sustrato || '').trim()
   const cub = String(cubierta || '').trim()
   const spId = especieId == null || especieId === '' ? null : Number(especieId)
+  const spIds = Array.isArray(especiesIds)
+    ? especiesIds.map(Number).filter((x) => Number.isFinite(x))
+    : []
 
   const created = Array.from({ length: n }, (_, i) => {
     const num = start + i
@@ -55,7 +59,7 @@ export function crearUnidades({
       fecha: f,
       sustrato: sus,
       cubierta: cub,
-      counts: {},
+      counts: t === 'transecto' && spIds.length ? Object.fromEntries(spIds.map((id) => [id, 0])) : {},
     }
     if (t === 'cuadrante' && Number.isFinite(spId)) {
       unit.especieId = spId
@@ -162,4 +166,3 @@ export function setCuadranteEspecie(unidades, num, especieId) {
     return { ...u, especieId: sp, counts: { [sp]: normInt(curVal) } }
   })
 }
-

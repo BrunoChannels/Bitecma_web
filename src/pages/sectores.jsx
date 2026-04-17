@@ -22,8 +22,14 @@ export default function SectoresPage({ active }) {
     const query = String(q || '').toLowerCase().trim()
     return sectoresAmerb
       .filter((s) => s.region === regionId)
-      .filter((s) => (!query ? true : String(s.nombreamerb || '').toLowerCase().includes(query)))
-      .slice(0, 500)
+      .filter((s) =>
+        !query
+          ? true
+          : String(s.nombreamerb || '').toLowerCase().includes(query) ||
+            String(s.comuna || '').toLowerCase().includes(query),
+      )
+      .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0))
+      .slice(0, 2000)
   }, [sectoresAmerb, regionId, q])
 
   const caletas = useMemo(() => {
@@ -39,8 +45,8 @@ export default function SectoresPage({ active }) {
           <p>Sectores AMERB y caletas por región</p>
         </div>
       </div>
-      <div className="admin-layout" style={{ gridTemplateColumns: '240px 1fr 1fr' }}>
-        <div className="card admin-menu">
+      <div className="admin-layout" style={{ gridTemplateColumns: '240px 1fr 1fr', height: 'calc(100vh - 190px)', alignItems: 'stretch' }}>
+        <div className="card admin-menu" style={{ minHeight: 0, overflowY: 'auto' }}>
           {regiones.map((r) => (
             <div
               key={r.id}
@@ -51,19 +57,11 @@ export default function SectoresPage({ active }) {
             </div>
           ))}
         </div>
-        <div className="card admin-content">
+        <div className="card admin-content" style={{ minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-            <input
-              className="flt"
-              placeholder="Buscar sector AMERB..."
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-            <span style={{ fontSize: 12, color: 'var(--text3)' }}>
-              {sectoresFiltrados.length} sector(es)
-            </span>
+            <input className="flt" placeholder="Buscar sector AMERB..." value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflow: 'auto', minHeight: 0 }}>
             <table className="tbl">
               <thead>
                 <tr>
@@ -94,11 +92,11 @@ export default function SectoresPage({ active }) {
             </table>
           </div>
         </div>
-        <div className="card admin-content">
+        <div className="card admin-content" style={{ minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
           <div style={{ fontFamily: 'var(--ff-d)', fontSize: 14, fontWeight: 800, color: 'var(--navy)', marginBottom: 10 }}>
             Caletas (estático)
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflow: 'auto', minHeight: 0 }}>
             <table className="tbl">
               <thead>
                 <tr>
