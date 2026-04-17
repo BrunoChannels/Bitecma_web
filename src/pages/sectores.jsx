@@ -93,8 +93,8 @@ export default function SectoresPage({ active }) {
           </div>
         </div>
         <div className="card admin-content" style={{ minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ fontFamily: 'var(--ff-d)', fontSize: 14, fontWeight: 800, color: 'var(--navy)', marginBottom: 10 }}>
-            Caletas (estático)
+          <div style={{ fontFamily: 'var(--ff-d)', fontSize: 14, fontWeight: 800, color: 'var(--text)', marginBottom: 10 }}>
+            Caletas
           </div>
           <div style={{ overflow: 'auto', minHeight: 0 }}>
             <table className="tbl">

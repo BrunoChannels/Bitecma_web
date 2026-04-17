@@ -11,10 +11,24 @@ import { useDb } from '../context/dbContext.jsx'
 import { mergeOperacionesById, parseOperacionesPayload, serializeOperaciones } from '../services/operacionesTransferService.js'
 
 export default function Topbar() {
-  const { navigate, user } = useApp()
+  const { navigate, user, page } = useApp()
   const { db, setDb } = useDb()
   const { openModal, closeModal, toast, theme, toggleTheme } = useUi()
   const isAdmin = String(user?.rol || '').toLowerCase() === 'admin'
+  const currentLabel =
+    {
+      dashboard: 'Dashboard',
+      ops: 'Operaciones',
+      evadir: 'EVADIR',
+      historico: 'Registro Histórico',
+      informe: 'Informe',
+      especies: 'Especies',
+      sectores: 'Sectores',
+      orgs: 'Organizaciones',
+      botes: 'Botes',
+      perfil: 'Perfil',
+      admin: 'Admin',
+    }[String(page || 'dashboard')] || 'Dashboard'
 
   return (
     <div className="topbar">
@@ -30,7 +44,7 @@ export default function Topbar() {
       <div className="tb-bc" id="topbc">
         <span>Inicio</span>
         <span>/</span>
-        <span className="cur">Dashboard</span>
+        <span className="cur">{currentLabel}</span>
       </div>
       <div className="tb-spacer"></div>
       <div className="tb-actions">

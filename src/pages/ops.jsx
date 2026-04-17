@@ -435,7 +435,7 @@ export default function OpsPage({ active }) {
             <div className="op-card card mb" key={op.id} style={{ padding: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, color: 'var(--navy)' }}>
+                  <div style={{ fontWeight: 800, color: 'var(--text)' }}>
                     {op.id} · SEG-{op.numSeg ?? '—'} · {op.sector}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
