@@ -49,6 +49,7 @@ export function getEvadirRegistradosRows(operaciones) {
     const { totalBotes, totalTx, totalCq, denLoco, denErizo } = getEvadirResumenOperacion(op)
     return {
       id: op?.id,
+      region: op?.region ?? null,
       sector: op?.sector,
       numSeg: op?.numSeg,
       fechaInicio: op?.fechaInicio,
@@ -61,4 +62,3 @@ export function getEvadirRegistradosRows(operaciones) {
     }
   })
 }
-

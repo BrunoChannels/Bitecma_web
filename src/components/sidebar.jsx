@@ -6,7 +6,7 @@ import SvgIcon from './svgIcon.jsx'
 import { useApp } from '../context/appContext.jsx'
 
 export default function Sidebar() {
-  const { page, navigate, logout } = useApp()
+  const { page, navigate, logout, isViewer } = useApp()
 
   return (
     <div className="sidebar">
@@ -20,10 +20,12 @@ export default function Sidebar() {
         Dashboard
       </div>
       <div className="sb-sec">Trabajo de Campo</div>
-      <div className={`nav ${page === 'ops' ? 'on' : ''}`} id="nav-ops" onClick={() => navigate('ops')}>
-        <SvgIcon className="nav-icon" name="folder" aria-hidden="true" />
-        Operaciones
-      </div>
+      {!isViewer ? (
+        <div className={`nav ${page === 'ops' ? 'on' : ''}`} id="nav-ops" onClick={() => navigate('ops')}>
+          <SvgIcon className="nav-icon" name="folder" aria-hidden="true" />
+          Operaciones
+        </div>
+      ) : null}
       <div className={`nav ${page === 'evadir' ? 'on' : ''}`} id="nav-evadir" onClick={() => navigate('evadir')}>
         <SvgIcon className="nav-icon" name="table" aria-hidden="true" />
         EVADIR

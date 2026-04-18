@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { addSample, ensureEspecie, removeEspecie, removeSample, updateSample } from '../../services/lpMuestrasService.js'
+import SpeciesGrid from '../common/SpeciesGrid.jsx'
 
 function typeForSamples(samples) {
   const arr = Array.isArray(samples) ? samples : []
@@ -8,6 +9,43 @@ function typeForSamples(samples) {
   if (hasD) return 'D'
   if (hasPeso) return 'LP'
   return 'L'
+}
+
+function normKey(s) {
+  return String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
+const ALGA_COM = new Set(
+  [
+    'Huiro negro',
+    'Huiro palo',
+    'Cochayuyo',
+    'Huiro canutillo',
+    'Huiro',
+    'Luga roja',
+    'Luga negra',
+    'Luga cuchara',
+  ].map(normKey),
+)
+const ALGA_SCI = new Set(
+  [
+    'Lessonia berteroana',
+    'Lessonia trabeculata',
+    'Durvillaea antarctica',
+    'Macrocystis integrifolia',
+    'Macrocystis pyrifera',
+    'Gigartina skottsbergii',
+    'Sarcothalia crispata',
+    'Mazzaella laminarioides',
+  ].map(normKey),
+)
+
+function isAlgaSpecies(sp) {
+  return ALGA_COM.has(normKey(sp?.com)) || ALGA_SCI.has(normKey(sp?.sci))
 }
 
 export default function LpTab({ op, bote, especies, updateOperacion, toast, openModal, closeModal }) {
@@ -28,88 +66,66 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
     .filter((x) => Number.isFinite(x))
     .sort((a, b) => a - b)
 
-  const openAgregarEspecie = () => {
+  const openSeleccionarEspecies = () => {
     const Body = () => {
-      const [q, setQ] = useState('')
-      const [tipo, setTipo] = useState('LP')
-      const filtradas = especiesLp
-        .filter((e) => {
-          const s = String(e?.com || '').toLowerCase()
-          const sci = String(e?.sci || '').toLowerCase()
-          const qq = String(q || '').toLowerCase().trim()
-          return !qq ? true : s.includes(qq) || sci.includes(qq)
-        })
-        .slice(0, 200)
+      const initial = spIds
+      const [sel, setSel] = useState(() => initial.slice())
+
+      const prevSet = new Set(initial.map(Number))
+      const nextSet = new Set((Array.isArray(sel) ? sel : []).map(Number).filter((x) => Number.isFinite(x)))
+      const removed = [...prevSet].filter((x) => !nextSet.has(x))
+      const added = [...nextSet].filter((x) => !prevSet.has(x))
 
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="ig">
-            <label className="il">Buscar especie</label>
-            <input className="ii" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ej: Loco" />
-          </div>
-          <div className="ig">
-            <label className="il">Tipo de registro</label>
-            <select className="is" value={tipo} onChange={(e) => setTipo(e.target.value)}>
-              <option value="LP">Peso-Longitud</option>
-              <option value="L">Longitud</option>
-              <option value="D">Diámetro disco</option>
-            </select>
+          <div className="info-box blue">
+            <span>i</span>
+            <div>
+              Selecciona las especies a muestrear en este bote. Para algas, el ingreso será por <strong>diámetro del disco</strong>.
+            </div>
           </div>
 
-          <div style={{ maxHeight: 320, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left' }}>Especie</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtradas.map((e) => (
-                  <tr key={e.id}>
-                    <td style={{ textAlign: 'left' }}>
-                      <strong>{e.com}</strong>
-                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{e.sci}</div>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button
-                        className="btn b-teal b-sm"
-                        onClick={() => {
-                          updateOperacion(op.id, (cur) => {
-                            const nextBotes = (cur.botes || []).map((x) => {
-                              if (x.id !== bote.id) return x
-                              const nextLp = ensureEspecie(x.lpMuestras, e.id)
-                              return { ...x, lpMuestras: nextLp }
-                            })
-                            return { ...cur, botes: nextBotes }
-                          })
-                          closeModal()
-                          toast?.('Especie agregada', 'green')
-                          setTimeout(() => openIngreso(e.id, tipo), 50)
-                        }}
-                      >
-                        Agregar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {filtradas.length === 0 ? (
-                  <tr>
-                    <td colSpan={2} style={{ textAlign: 'center', color: 'var(--text3)' }}>
-                      Sin resultados
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
+          <SpeciesGrid especies={especiesLp} selectedIds={sel} onChange={setSel} multi columns={3} maxHeight={420} />
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+              Cancelar
+            </button>
+            <button
+              className="btn b-teal"
+              style={{ flex: 1 }}
+              onClick={() => {
+                if (removed.length) {
+                  const ok = confirm(
+                    `Vas a quitar ${removed.length} especie(s) del muestreo. Se eliminarán sus muestras L-P/D asociadas. ¿Continuar?`,
+                  )
+                  if (!ok) return
+                }
+                updateOperacion(op.id, (cur) => {
+                  const nextBotes = (cur.botes || []).map((x) => {
+                    if (x.id !== bote.id) return x
+                    let map = x.lpMuestras || {}
+                    added.forEach((id) => {
+                      map = ensureEspecie(map, id)
+                    })
+                    removed.forEach((id) => {
+                      map = removeEspecie(map, id)
+                    })
+                    return { ...x, lpMuestras: map }
+                  })
+                  return { ...cur, botes: nextBotes }
+                })
+                closeModal()
+                toast?.('Especies actualizadas', 'green')
+              }}
+            >
+              Confirmar
+            </button>
           </div>
-          <button className="btn b-out" onClick={closeModal}>
-            Cerrar
-          </button>
         </div>
       )
     }
-    openModal('Agregar especie L-P', <Body />, 'wide')
+    openModal(`Especies a muestrear (L-P) — Bote ${bote?.nombre || bote?.id}`, <Body />, 'wide')
   }
 
   const openIngreso = (especieId, forcedType) => {
@@ -117,12 +133,16 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
     const sp = byId.get(spId)
 
     const Body = () => {
-      const samples = (bote?.lpMuestras || {})[spId] || []
-      const inferred = typeForSamples(samples)
+      const initialSamples = (bote?.lpMuestras || {})[spId] || []
+      const [samplesNow, setSamplesNow] = useState(() => (Array.isArray(initialSamples) ? initialSamples : []))
+      const inferred = typeForSamples(samplesNow)
       const kind = forcedType || inferred
 
       const [draft, setDraft] = useState(() => (kind === 'LP' ? { l: '', p: '' } : kind === 'D' ? { d: '' } : { l: '' }))
       const [editIdx, setEditIdx] = useState(null)
+      const lRef = useRef(null)
+      const pRef = useRef(null)
+      const dRef = useRef(null)
 
       const addOrUpdate = () => {
         if (kind === 'LP') {
@@ -137,6 +157,12 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
             })
             return { ...cur, botes: nextBotes }
           })
+          setSamplesNow((prev) => {
+            const next = prev.slice()
+            if (editIdx == null) next.push({ l, p })
+            else next[editIdx] = { l, p }
+            return next
+          })
         } else if (kind === 'D') {
           const d = draft.d
           updateOperacion(op.id, (cur) => {
@@ -147,6 +173,12 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
               return { ...x, lpMuestras: next }
             })
             return { ...cur, botes: nextBotes }
+          })
+          setSamplesNow((prev) => {
+            const next = prev.slice()
+            if (editIdx == null) next.push({ d })
+            else next[editIdx] = { d }
+            return next
           })
         } else {
           const l = draft.l
@@ -159,12 +191,28 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
             })
             return { ...cur, botes: nextBotes }
           })
+          setSamplesNow((prev) => {
+            const next = prev.slice()
+            if (editIdx == null) next.push({ l })
+            else next[editIdx] = { l }
+            return next
+          })
         }
         setDraft(kind === 'LP' ? { l: '', p: '' } : kind === 'D' ? { d: '' } : { l: '' })
         setEditIdx(null)
+        setTimeout(() => {
+          if (kind === 'LP') {
+            lRef.current?.focus?.()
+            lRef.current?.select?.()
+          } else if (kind === 'D') {
+            dRef.current?.focus?.()
+            dRef.current?.select?.()
+          } else {
+            lRef.current?.focus?.()
+            lRef.current?.select?.()
+          }
+        }, 0)
       }
-
-      const samplesNow = (bote?.lpMuestras || {})[spId] || []
 
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -182,6 +230,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
                   <label className="il">Longitud (mm)</label>
                   <input
                     className="ii lp-num-inp"
+                    ref={lRef}
                     type="number"
                     step="any"
                     value={draft.l}
@@ -189,7 +238,8 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
                     onKeyDown={(e) => {
                       if (e.key !== 'Enter') return
                       e.preventDefault()
-                      e.currentTarget?.form?.querySelector('input[name="lp-p"]')?.focus?.()
+                      pRef.current?.focus?.()
+                      pRef.current?.select?.()
                     }}
                   />
                 </div>
@@ -197,7 +247,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
                   <label className="il">Peso (g)</label>
                   <input
                     className="ii lp-num-inp"
-                    name="lp-p"
+                    ref={pRef}
                     type="number"
                     step="any"
                     value={draft.p}
@@ -215,6 +265,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
                 <label className="il">Diámetro disco (cm)</label>
                 <input
                   className="ii lp-num-inp"
+                  ref={dRef}
                   type="number"
                   step="any"
                   value={draft.d}
@@ -231,6 +282,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
                 <label className="il">Longitud (mm)</label>
                 <input
                   className="ii lp-num-inp"
+                  ref={lRef}
                   type="number"
                   step="any"
                   value={draft.l}
@@ -274,6 +326,18 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
                           onClick={() => {
                             setEditIdx(idx)
                             setDraft(kind === 'LP' ? { l: m?.l ?? '', p: m?.p ?? '' } : kind === 'D' ? { d: m?.d ?? '' } : { l: m?.l ?? '' })
+                            setTimeout(() => {
+                              if (kind === 'LP') {
+                                lRef.current?.focus?.()
+                                lRef.current?.select?.()
+                              } else if (kind === 'D') {
+                                dRef.current?.focus?.()
+                                dRef.current?.select?.()
+                              } else {
+                                lRef.current?.focus?.()
+                                lRef.current?.select?.()
+                              }
+                            }, 0)
                           }}
                         >
                           Editar
@@ -290,6 +354,11 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
                               })
                               return { ...cur, botes: nextBotes }
                             })
+                            setSamplesNow((prev) => prev.filter((_, i) => i !== idx))
+                            if (editIdx === idx) {
+                              setEditIdx(null)
+                              setDraft(kind === 'LP' ? { l: '', p: '' } : kind === 'D' ? { d: '' } : { l: '' })
+                            }
                           }}
                         >
                           Eliminar
@@ -343,8 +412,8 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 10 }}>
         <div style={{ fontFamily: 'var(--ff-d)', fontSize: 14, fontWeight: 800, color: 'var(--navy)' }}>Peso-Longitud</div>
-        <button className="btn b-teal b-sm" onClick={openAgregarEspecie}>
-          + Agregar especie
+        <button className="btn b-teal b-sm" onClick={openSeleccionarEspecies}>
+          Seleccionar especies
         </button>
       </div>
 
@@ -368,7 +437,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
               {spIds.map((spId) => {
                 const sp = byId.get(Number(spId))
                 const samples = lpMap?.[spId] || []
-                const kind = typeForSamples(samples)
+                const kind = isAlgaSpecies(sp) ? 'D' : typeForSamples(samples)
                 return (
                   <tr key={spId}>
                     <td style={{ textAlign: 'left' }}>
@@ -378,7 +447,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
                     <td>{Array.isArray(samples) ? samples.length : 0}</td>
                     <td>{kind === 'LP' ? 'L-P' : kind === 'D' ? 'D' : 'L'}</td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <button className="btn b-teal b-sm" onClick={() => openIngreso(spId)}>
+                      <button className="btn b-teal b-sm" onClick={() => openIngreso(spId, isAlgaSpecies(sp) ? 'D' : null)}>
                         Ingresar
                       </button>
                     </td>
@@ -392,4 +461,3 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
     </div>
   )
 }
-

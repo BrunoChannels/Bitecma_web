@@ -6,10 +6,12 @@ import {
   eliminarUnidad,
   nextUnidadNum,
   removeEspecieFromUnidad,
+  setCuadranteEspecie,
   setUnidadCoord,
   setUnidadCount,
   updateUnidad,
 } from '../../services/densidadService.js'
+import SpeciesGrid from '../common/SpeciesGrid.jsx'
 
 function focusNextInput(from, root) {
   const container = root || document
@@ -47,6 +49,10 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
     return arr.filter((e) => e?.dens)
   }, [especies])
 
+  const especiesAll = useMemo(() => {
+    return especiesDens.slice().sort((a, b) => String(a?.com || '').localeCompare(String(b?.com || '')))
+  }, [especiesDens])
+
   const byId = useMemo(() => {
     const m = new Map()
     especiesDens.forEach((e) => m.set(Number(e.id), e))
@@ -74,13 +80,14 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
           especiesIds: [],
         })),
       )
+      const [pick, setPick] = useState(null)
 
       const replicate = () => {
         setRows((prev) => {
           const first = prev[0]
           if (!first) return prev
           return prev.map((r, idx) =>
-            idx === 0 ? r : { ...r, area: first.area, sustrato: first.sustrato, cubierta: first.cubierta, especiesIds: first.especiesIds },
+            idx === 0 ? r : { ...r, area: first.area, sustrato: first.sustrato, cubierta: first.cubierta, especiesIds: (first.especiesIds || []).slice() },
           )
         })
       }
@@ -158,24 +165,9 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                       />
                     </td>
                     <td style={{ minWidth: 240 }}>
-                      <select
-                        className="is"
-                        multiple
-                        value={(r.especiesIds || []).map(String)}
-                        onChange={(e) => {
-                          const selected = Array.from(e.target.selectedOptions).map((o) => Number(o.value)).filter((x) => Number.isFinite(x))
-                          setRows((prev) => prev.map((x) => (x.num === r.num ? { ...x, especiesIds: selected } : x)))
-                        }}
-                      >
-                        {especiesDens
-                          .slice()
-                          .sort((a, b) => String(a.com || '').localeCompare(String(b.com || '')))
-                          .map((sp) => (
-                            <option key={sp.id} value={sp.id}>
-                              {sp.com}
-                            </option>
-                          ))}
-                      </select>
+                      <button className="btn b-out b-sm" onClick={() => setPick({ num: r.num, sel: (r.especiesIds || []).slice() })}>
+                        {Array.isArray(r.especiesIds) && r.especiesIds.length ? `${r.especiesIds.length} especies` : 'Seleccionar especies'}
+                      </button>
                     </td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <button className="btn b-out b-sm" onClick={() => setRows((prev) => prev.filter((x) => x.num !== r.num))}>
@@ -187,6 +179,35 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
               </tbody>
             </table>
           </div>
+
+          {pick ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>Especies — T{pick.num}</div>
+              <SpeciesGrid
+                especies={especiesAll}
+                selectedIds={pick.sel}
+                onChange={(ids) => setPick((p) => ({ ...p, sel: ids }))}
+                multi
+                columns={3}
+                maxHeight={320}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn b-out" style={{ flex: 1 }} onClick={() => setPick(null)}>
+                  Cerrar
+                </button>
+                <button
+                  className="btn b-teal"
+                  style={{ flex: 1 }}
+                  onClick={() => {
+                    setRows((prev) => prev.map((x) => (x.num === pick.num ? { ...x, especiesIds: pick.sel } : x)))
+                    setPick(null)
+                  }}
+                >
+                  Aplicar a T{pick.num}
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
@@ -243,8 +264,10 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
         sustrato: '',
         especieId: '',
       }))
+      const [showPick, setShowPick] = useState(false)
 
       const canSave = String(form.especieId || '').trim() !== '' && Number(form.cantidad) > 0
+      const selectedSp = byId.get(Number(form.especieId))
 
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -269,19 +292,30 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
             </div>
             <div className="ig">
               <label className="il">Especie</label>
-              <select className="is" value={form.especieId} onChange={(e) => setForm((s) => ({ ...s, especieId: e.target.value }))}>
-                <option value="">Seleccionar especie...</option>
-                {especiesDens
-                  .slice()
-                  .sort((a, b) => String(a.com || '').localeCompare(String(b.com || '')))
-                  .map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.com}
-                    </option>
-                  ))}
-              </select>
+              <button className="btn b-out" onClick={() => setShowPick((v) => !v)}>
+                {selectedSp ? `${selectedSp.com} — ${selectedSp.sci}` : 'Seleccionar especie'}
+              </button>
             </div>
           </div>
+          {showPick ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <SpeciesGrid
+                especies={especiesAll}
+                selectedIds={form.especieId ? [Number(form.especieId)] : []}
+                onChange={(ids) => {
+                  const id = ids?.[0]
+                  setForm((s) => ({ ...s, especieId: id ? String(id) : '' }))
+                  setShowPick(false)
+                }}
+                multi={false}
+                columns={3}
+                maxHeight={320}
+              />
+              <button className="btn b-out" onClick={() => setShowPick(false)}>
+                Cancelar
+              </button>
+            </div>
+          ) : null}
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
               Cancelar
@@ -353,8 +387,6 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
             .map(Number)
             .filter((x) => Number.isFinite(x))
             .sort((a, b) => a - b)
-          const usedSet = new Set(spIds)
-          const addable = especiesDens.filter((e) => !usedSet.has(Number(e.id)))
           const area = Number(t.area) || 0
           const coordX = t?.coordX ?? ''
           const coordY = t?.coordY ?? ''
@@ -449,6 +481,52 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                 </div>
 
                 <div className={`tx-body${open ? ' open' : ''}`}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+                    <button
+                      className="btn b-out b-sm"
+                      onClick={() => {
+                        const Body = () => {
+                          const [sel, setSel] = useState(() => (spId ? [spId] : []))
+                          const current = sel?.[0] ? byId.get(Number(sel[0])) : null
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                              <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>
+                                Especie del cuadrante — C{num}
+                              </div>
+                              <SpeciesGrid especies={especiesAll} selectedIds={sel} onChange={setSel} multi={false} columns={3} maxHeight={420} />
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+                                  Cancelar
+                                </button>
+                                <button
+                                  className="btn b-teal"
+                                  style={{ flex: 1 }}
+                                  disabled={!current}
+                                  onClick={() => {
+                                    if (!current) return
+                                    updateOperacion(op.id, (cur) => {
+                                      const nextBotes = (cur.botes || []).map((x) => {
+                                        if (x.id !== bote.id) return x
+                                        return { ...x, transectos: setCuadranteEspecie(x.transectos, num, current.id) }
+                                      })
+                                      return { ...cur, botes: nextBotes }
+                                    })
+                                    closeModal()
+                                    toast?.('Especie actualizada', 'green')
+                                  }}
+                                >
+                                  Confirmar
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        }
+                        openModal(`Seleccionar especie — C${num}`, <Body />, 'wide')
+                      }}
+                    >
+                      Cambiar especie
+                    </button>
+                  </div>
                   <div className="i2">
                     <div className="ig">
                       <label className="il">Área (m²)</label>
@@ -789,32 +867,58 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
               </div>
 
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap', marginTop: 6 }}>
-                <div className="ig" style={{ marginBottom: 0, minWidth: 240 }}>
-                  <label className="il">Agregar especie</label>
-                  <select
-                    className="is"
-                    value=""
-                    onChange={(e) => {
-                      const spId = e.target.value
-                      if (!spId) return
-                      updateOperacion(op.id, (cur) => {
-                        const nextBotes = (cur.botes || []).map((x) => {
-                          if (x.id !== bote.id) return x
-                          return { ...x, transectos: addEspecieToUnidad(x.transectos, num, spId) }
-                        })
-                        return { ...cur, botes: nextBotes }
-                      })
-                      e.target.value = ''
-                    }}
-                  >
-                    <option value="">Selecciona...</option>
-                    {addable.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.com}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <button
+                  className="btn b-out b-sm"
+                  onClick={() => {
+                    const Body = () => {
+                      const [sel, setSel] = useState(() => spIds.slice())
+                      const prevSet = new Set(spIds.map(Number))
+                      const nextSet = new Set((Array.isArray(sel) ? sel : []).map(Number).filter((x) => Number.isFinite(x)))
+                      const removed = [...prevSet].filter((x) => !nextSet.has(x))
+                      const added = [...nextSet].filter((x) => !prevSet.has(x))
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>
+                            Especies del transecto — T{num}
+                          </div>
+                          <SpeciesGrid especies={especiesAll} selectedIds={sel} onChange={setSel} multi columns={3} maxHeight={420} />
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+                              Cancelar
+                            </button>
+                            <button
+                              className="btn b-teal"
+                              style={{ flex: 1 }}
+                              onClick={() => {
+                                updateOperacion(op.id, (cur) => {
+                                  const nextBotes = (cur.botes || []).map((x) => {
+                                    if (x.id !== bote.id) return x
+                                    let u = x.transectos
+                                    added.forEach((id) => {
+                                      u = addEspecieToUnidad(u, num, id)
+                                    })
+                                    removed.forEach((id) => {
+                                      u = removeEspecieFromUnidad(u, num, id)
+                                    })
+                                    return { ...x, transectos: u }
+                                  })
+                                  return { ...cur, botes: nextBotes }
+                                })
+                                closeModal()
+                                toast?.('Especies actualizadas', 'green')
+                              }}
+                            >
+                              Confirmar
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    }
+                    openModal(`Seleccionar especies — T${num}`, <Body />, 'wide')
+                  }}
+                >
+                  Seleccionar especies
+                </button>
               </div>
 
               <div style={{ overflowX: 'auto', marginTop: 10 }}>

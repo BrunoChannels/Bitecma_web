@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useOperaciones } from '../hooks/useOperaciones.js'
 import { useDb } from '../context/dbContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
+import { useApp } from '../context/appContext.jsx'
 import { getOperacionMetricas } from '../services/operacionesService.js'
 import SvgIcon from '../components/svgIcon.jsx'
 import BoteCard from '../components/ops/BoteCard.jsx'
@@ -49,10 +50,18 @@ function getOperacionSegLabel(op) {
 export default function OpsPage({ active }) {
   const { db, upsertOperacion, updateOperacion, deleteOperacion } = useDb()
   const { toast, openModal, closeModal } = useUi()
+  const { canWrite, isViewer, navigate } = useApp()
   const { filtered, sectores, meses, sector, setSector, mes, setMes, texto, setTexto, operaciones } =
     useOperaciones()
 
   const [expanded, setExpanded] = useState(() => new Set())
+
+  useEffect(() => {
+    if (!active) return
+    if (!isViewer) return
+    toast('Acceso restringido: Visualizador no puede entrar a Operaciones', 'red')
+    navigate('dashboard')
+  }, [active, isViewer, navigate, toast])
 
   const toggleExpanded = (opId) => {
     setExpanded((prev) => {
@@ -68,7 +77,35 @@ export default function OpsPage({ active }) {
   const caletasByRegion = db?.caletasByRegionStatic || {}
   const opa = db?.opa || []
 
+  const safeUpdateOperacion = (opId, updater) => {
+    if (!canWrite) {
+      toast('Modo solo lectura', 'blue')
+      return
+    }
+    updateOperacion(opId, updater)
+  }
+
+  const safeUpsertOperacion = (opData) => {
+    if (!canWrite) {
+      toast('Modo solo lectura', 'blue')
+      return
+    }
+    upsertOperacion(opData)
+  }
+
+  const safeDeleteOperacion = (opId) => {
+    if (!canWrite) {
+      toast('Modo solo lectura', 'blue')
+      return
+    }
+    deleteOperacion(opId)
+  }
+
   const openEditOp = (op) => {
+    if (!canWrite) {
+      toast('Modo solo lectura', 'blue')
+      return
+    }
     const iso = todayISO()
     const form = {
       region: op?.region ?? (regiones[0]?.id || 1),
@@ -119,7 +156,7 @@ export default function OpsPage({ active }) {
           return
         }
 
-        updateOperacion(op.id, (cur) => ({
+        safeUpdateOperacion(op.id, (cur) => ({
           ...cur,
           region: s.region,
           sectorAmerbId: s.sectorAmerbId,
@@ -143,7 +180,7 @@ export default function OpsPage({ active }) {
         if (!ok1) return
         const ok2 = confirm(`Confirmación final: ¿Eliminar definitivamente ${op.id}?`)
         if (!ok2) return
-        deleteOperacion(op.id)
+        safeDeleteOperacion(op.id)
         setExpanded((prev) => {
           const next = new Set(prev)
           next.delete(op.id)
@@ -344,7 +381,7 @@ export default function OpsPage({ active }) {
               toast('Ingresa al menos un bote', 'red')
               return
             }
-            updateOperacion(opId, (cur) => {
+            safeUpdateOperacion(opId, (cur) => {
               const nextBotes = clean.map((r, i) => ({
                 id: `B${i + 1}`,
                 nombre: r.nombre,
@@ -436,7 +473,7 @@ export default function OpsPage({ active }) {
           return
         }
         const opId = nextOpId(operaciones, y)
-        upsertOperacion({
+        safeUpsertOperacion({
           id: opId,
           region: s.region,
           sectorAmerbId: s.sectorAmerbId,
@@ -591,6 +628,7 @@ export default function OpsPage({ active }) {
   }
 
   return (
+    isViewer ? null : (
     <div className={`page${active ? ' active' : ''}`} id="pg-ops">
       <div className="ph">
         <div>
@@ -604,10 +642,30 @@ export default function OpsPage({ active }) {
           </p>
         </div>
         <div className="ph-a">
-          <button className="btn b-out b-sm" onClick={() => toast('Subida EVADIR (pendiente)', 'blue')}>
+          <button
+            className="btn b-out b-sm"
+            disabled={!canWrite}
+            onClick={() => {
+              if (!canWrite) {
+                toast('Modo solo lectura', 'blue')
+                return
+              }
+              toast('Subida EVADIR (pendiente)', 'blue')
+            }}
+          >
             Subir EVADIR
           </button>
-          <button className="btn b-teal b-sm" onClick={openNewOp}>
+          <button
+            className="btn b-teal b-sm"
+            disabled={!canWrite}
+            onClick={() => {
+              if (!canWrite) {
+                toast('Modo solo lectura', 'blue')
+                return
+              }
+              openNewOp()
+            }}
+          >
             Nueva operación
           </button>
         </div>
@@ -690,7 +748,7 @@ export default function OpsPage({ active }) {
                             Cerrar
                           </button>
                         </div>,
-                        'wide',
+                        'full',
                       )
                     }}
                   >
@@ -799,7 +857,7 @@ export default function OpsPage({ active }) {
                           op={op}
                           bote={b}
                           especies={db?.especies || []}
-                          updateOperacion={updateOperacion}
+                          updateOperacion={safeUpdateOperacion}
                           toast={toast}
                           openModal={openModal}
                           closeModal={closeModal}
@@ -813,5 +871,6 @@ export default function OpsPage({ active }) {
         })}
       </div>
     </div>
+    )
   )
 }

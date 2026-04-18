@@ -11,10 +11,9 @@ import { useDb } from '../context/dbContext.jsx'
 import { mergeOperacionesById, parseOperacionesPayload, serializeOperaciones } from '../services/operacionesTransferService.js'
 
 function ConfigModalBody() {
-  const { navigate, user } = useApp()
+  const { navigate, isAdmin } = useApp()
   const { db, setDb } = useDb()
   const { closeModal, toast, theme, setTheme } = useUi()
-  const isAdmin = String(user?.rol || '').toLowerCase() === 'admin'
   const [mode, setMode] = useState('merge')
 
   const exportOps = () => {
@@ -134,7 +133,7 @@ function ConfigModalBody() {
 }
 
 export default function Topbar() {
-  const { navigate, user, page } = useApp()
+  const { navigate, user, page, role } = useApp()
   const { openModal } = useUi()
   const currentLabel =
     {
@@ -216,7 +215,7 @@ export default function Topbar() {
               {user?.nombre || 'Usuario'}
             </div>
             <div className="user-role" id="tb-user-role">
-              {user?.rol || '—'}
+              {role || user?.rol || '—'}
             </div>
           </div>
         </div>

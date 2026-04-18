@@ -7,6 +7,22 @@ const AppContext = createContext(null)
 const ACTIVE_PROFILE_KEY = 'bitecma_active_profile'
 const PROFILE_DATA_KEY = 'bitecma_profile_data'
 
+function normKey(s) {
+  return String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
+function normalizeRole(rol) {
+  const r = normKey(rol)
+  if (r === 'admin') return 'Admin'
+  if (r === 'usuario' || r === 'biologo' || r === 'biologa') return 'Usuario'
+  if (r === 'visualizador' || r === 'viewer' || r === 'readonly' || r === 'read-only') return 'Visualizador'
+  return String(rol || '').trim() || 'Usuario'
+}
+
 function readActiveProfileId() {
   try {
     return localStorage.getItem(ACTIVE_PROFILE_KEY)
@@ -57,6 +73,11 @@ export function AppProvider({ children }) {
     const saved = profileMap?.[String(base.id)]
     return saved && typeof saved === 'object' ? { ...base, ...saved } : base
   }, [db.perfiles, userId, profileMap])
+
+  const role = useMemo(() => normalizeRole(user?.rol), [user?.rol])
+  const isAdmin = role === 'Admin'
+  const isViewer = role === 'Visualizador'
+  const canWrite = !isViewer
 
   const isAuthed = !!user
 
@@ -153,12 +174,16 @@ export function AppProvider({ children }) {
       navigate,
       isAuthed,
       user,
+      role,
+      isAdmin,
+      isViewer,
+      canWrite,
       login,
       logout,
       updateProfile,
       changePassword,
     }),
-    [page, navigate, isAuthed, user, login, logout, updateProfile, changePassword],
+    [page, navigate, isAuthed, user, role, isAdmin, isViewer, canWrite, login, logout, updateProfile, changePassword],
   )
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

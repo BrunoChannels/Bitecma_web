@@ -49,7 +49,7 @@ function ModalHost() {
             ×
           </button>
         </div>
-        <div>{modalState.body}</div>
+        <div className="mb-body">{modalState.body}</div>
       </div>
     </div>
   )

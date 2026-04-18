@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getAuditEntries } from '../services/auditService.js'
 import { useDb } from '../context/dbContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
@@ -7,7 +7,7 @@ import { useApp } from '../context/appContext.jsx'
 export default function AdminPage({ active }) {
   const { db } = useDb()
   const { toast } = useUi()
-  const { navigate } = useApp()
+  const { navigate, isAdmin } = useApp()
   const [tab, setTab] = useState('usuarios')
 
   const perfiles = useMemo(() => {
@@ -17,9 +17,18 @@ export default function AdminPage({ active }) {
 
   const auditEntries = useMemo(() => getAuditEntries(), [])
 
+  useEffect(() => {
+    if (!active) return
+    if (isAdmin) return
+    toast('Acceso restringido: solo Admin', 'red')
+    navigate('dashboard')
+  }, [active, isAdmin, navigate, toast])
+
   const rolePillClass = (rol) => {
     const r = String(rol || '').toLowerCase()
     if (r === 'admin') return 'p-red'
+    if (r === 'usuario') return 'p-grn'
+    if (r === 'visualizador') return 'p-amb'
     if (r === 'biólogo' || r === 'biologo') return 'p-grn'
     return 'p-slt'
   }
@@ -162,8 +171,8 @@ export default function AdminPage({ active }) {
                     <tr>
                       <th>Acción / Módulo</th>
                       <th>Admin</th>
-                      <th>Biólogo</th>
-                      <th>Analista</th>
+                      <th>Usuario</th>
+                      <th>Visualizador</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -173,7 +182,7 @@ export default function AdminPage({ active }) {
                       </td>
                       <td>✔</td>
                       <td>✔</td>
-                      <td>—</td>
+                      <td>Ver</td>
                     </tr>
                     <tr>
                       <td>
