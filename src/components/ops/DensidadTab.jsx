@@ -6,7 +6,6 @@ import {
   eliminarUnidad,
   nextUnidadNum,
   removeEspecieFromUnidad,
-  setCuadranteEspecie,
   setUnidadCoord,
   setUnidadCount,
   updateUnidad,
@@ -15,6 +14,17 @@ import {
 function focusNextInput(from, root) {
   const container = root || document
   const inputs = Array.from(container.querySelectorAll('input[data-nav="dens"]'))
+  const idx = inputs.indexOf(from)
+  if (idx < 0) return
+  const next = inputs[idx + 1]
+  if (!next) return
+  next.focus()
+  next.select?.()
+}
+
+function focusNextTransectSpeciesInput(from, root) {
+  const container = root || document
+  const inputs = Array.from(container.querySelectorAll('input[data-nav="dens-transecto"]'))
   const idx = inputs.indexOf(from)
   if (idx < 0) return
   const next = inputs[idx + 1]
@@ -572,7 +582,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
 
           return (
             <div key={`${bote.id}-${num}`} className="tx-card">
-              <div className="tx-hd" onClick={() => toggleUnit(num)}>
+              <div className="tx-hd">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <div style={{ fontWeight: 800, color: 'var(--navy)' }}>{`T-${num}`}</div>
                   {speciesChips.length ? (
@@ -590,6 +600,9 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                     Área {area || '—'} · {t?.sustrato ? `Sustrato ${t.sustrato}` : 'Sustrato —'} ·{' '}
                     {t?.cubierta ? `Cubierta ${t.cubierta}` : 'Cubierta —'}
                   </span>
+                  <button className="btn b-out b-sm" onClick={() => toggleUnit(num)}>
+                    {open ? 'Detalles ▴' : 'Detalles ▾'}
+                  </button>
                   <button
                     className="btn b-out b-sm"
                     onClick={(e) => {
@@ -773,140 +786,111 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                     />
                   </div>
                 </div>
+              </div>
 
-                {isCuad ? (
-                  <div className="ig">
-                    <label className="il">Especie (cuadrante)</label>
-                    <select
-                      className="is"
-                      value={String(t.especieId ?? spIds[0] ?? '')}
-                      onChange={(e) => {
-                        const nextId = e.target.value
-                        updateOperacion(op.id, (cur) => {
-                          const nextBotes = (cur.botes || []).map((x) => {
-                            if (x.id !== bote.id) return x
-                            return { ...x, transectos: setCuadranteEspecie(x.transectos, num, nextId) }
-                          })
-                          return { ...cur, botes: nextBotes }
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap', marginTop: 6 }}>
+                <div className="ig" style={{ marginBottom: 0, minWidth: 240 }}>
+                  <label className="il">Agregar especie</label>
+                  <select
+                    className="is"
+                    value=""
+                    onChange={(e) => {
+                      const spId = e.target.value
+                      if (!spId) return
+                      updateOperacion(op.id, (cur) => {
+                        const nextBotes = (cur.botes || []).map((x) => {
+                          if (x.id !== bote.id) return x
+                          return { ...x, transectos: addEspecieToUnidad(x.transectos, num, spId) }
                         })
-                      }}
-                    >
-                      <option value="">Selecciona...</option>
-                      {especiesDens.map((e) => (
-                        <option key={e.id} value={e.id}>
-                          {e.com}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : null}
-
-                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap', marginTop: 6 }}>
-                  {!isCuad ? (
-                    <div className="ig" style={{ marginBottom: 0, minWidth: 240 }}>
-                      <label className="il">Agregar especie</label>
-                      <select
-                        className="is"
-                        value=""
-                        onChange={(e) => {
-                          const spId = e.target.value
-                          if (!spId) return
-                          updateOperacion(op.id, (cur) => {
-                            const nextBotes = (cur.botes || []).map((x) => {
-                              if (x.id !== bote.id) return x
-                              return { ...x, transectos: addEspecieToUnidad(x.transectos, num, spId) }
-                            })
-                            return { ...cur, botes: nextBotes }
-                          })
-                          e.target.value = ''
-                        }}
-                      >
-                        <option value="">Selecciona...</option>
-                        {addable.map((e) => (
-                          <option key={e.id} value={e.id}>
-                            {e.com}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : null}
+                        return { ...cur, botes: nextBotes }
+                      })
+                      e.target.value = ''
+                    }}
+                  >
+                    <option value="">Selecciona...</option>
+                    {addable.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.com}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+              </div>
 
-                <div style={{ overflowX: 'auto', marginTop: 10 }}>
-                  <table className="tbl lp-tbl">
-                    <thead>
+              <div style={{ overflowX: 'auto', marginTop: 10 }}>
+                <table className="tbl lp-tbl">
+                  <thead>
+                    <tr>
+                      <th>Especie</th>
+                      <th>N° IND</th>
+                      <th>Dens</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {spIds.length ? (
+                      spIds.map((spId) => {
+                        const sp = byId.get(Number(spId))
+                        const cnt = Number(counts?.[spId] ?? 0)
+                        const dens = calcDensidad(cnt, area)
+                        return (
+                          <tr key={`${num}-${spId}`}>
+                            <td style={{ textAlign: 'left' }}>{sp?.com || spId}</td>
+                            <td>
+                              <input
+                                className="ii lp-num-inp"
+                                style={{ width: 90, textAlign: 'center' }}
+                                type="number"
+                                step="1"
+                                min="0"
+                                data-nav="dens-transecto"
+                                value={String(cnt)}
+                                onKeyDown={(e) => {
+                                  if (e.key !== 'Enter') return
+                                  e.preventDefault()
+                                  focusNextTransectSpeciesInput(e.currentTarget, rootRef.current)
+                                }}
+                                onChange={(e) => {
+                                  const v = e.target.value
+                                  updateOperacion(op.id, (cur) => {
+                                    const nextBotes = (cur.botes || []).map((x) => {
+                                      if (x.id !== bote.id) return x
+                                      return { ...x, transectos: setUnidadCount(x.transectos, num, spId, v) }
+                                    })
+                                    return { ...cur, botes: nextBotes }
+                                  })
+                                }}
+                              />
+                            </td>
+                            <td>{dens.toFixed(4)}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              <button
+                                className="btn b-out b-sm"
+                                onClick={() => {
+                                  updateOperacion(op.id, (cur) => {
+                                    const nextBotes = (cur.botes || []).map((x) => {
+                                      if (x.id !== bote.id) return x
+                                      return { ...x, transectos: removeEspecieFromUnidad(x.transectos, num, spId) }
+                                    })
+                                    return { ...cur, botes: nextBotes }
+                                  })
+                                }}
+                              >
+                                Quitar
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    ) : (
                       <tr>
-                        <th>Especie</th>
-                        <th>N° IND</th>
-                        <th>Dens</th>
-                        <th></th>
+                        <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text3)' }}>
+                          Agrega especies para contar
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {spIds.length ? (
-                        spIds.map((spId) => {
-                          const sp = byId.get(Number(spId))
-                          const cnt = Number(counts?.[spId] ?? 0)
-                          const dens = calcDensidad(cnt, area)
-                          return (
-                            <tr key={`${num}-${spId}`}>
-                              <td style={{ textAlign: 'left' }}>{sp?.com || spId}</td>
-                              <td>
-                                <input
-                                  className="ii lp-num-inp"
-                                  style={{ width: 90, textAlign: 'center' }}
-                                  type="number"
-                                  step="1"
-                                  min="0"
-                                  data-nav="dens"
-                                  value={String(cnt)}
-                                  onKeyDown={(e) => {
-                                    if (e.key !== 'Enter') return
-                                    e.preventDefault()
-                                    focusNextInput(e.currentTarget, rootRef.current)
-                                  }}
-                                  onChange={(e) => {
-                                    const v = e.target.value
-                                    updateOperacion(op.id, (cur) => {
-                                      const nextBotes = (cur.botes || []).map((x) => {
-                                        if (x.id !== bote.id) return x
-                                        return { ...x, transectos: setUnidadCount(x.transectos, num, spId, v) }
-                                      })
-                                      return { ...cur, botes: nextBotes }
-                                    })
-                                  }}
-                                />
-                              </td>
-                              <td>{dens.toFixed(4)}</td>
-                              <td style={{ textAlign: 'right' }}>
-                                <button
-                                  className="btn b-out b-sm"
-                                  onClick={() => {
-                                    updateOperacion(op.id, (cur) => {
-                                      const nextBotes = (cur.botes || []).map((x) => {
-                                        if (x.id !== bote.id) return x
-                                        return { ...x, transectos: removeEspecieFromUnidad(x.transectos, num, spId) }
-                                      })
-                                      return { ...cur, botes: nextBotes }
-                                    })
-                                  }}
-                                >
-                                  Quitar
-                                </button>
-                              </td>
-                            </tr>
-                          )
-                        })
-                      ) : (
-                        <tr>
-                          <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text3)' }}>
-                            Agrega especies para contar
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           )
