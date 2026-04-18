@@ -5,7 +5,6 @@ import { useDb } from '../../context/dbContext.jsx'
 import { useUi } from '../../context/uiContext.jsx'
 import { exportEvadirXlsx } from '../../utils/evadirExport.js'
 import EvadirPreview from './EvadirPreview.jsx'
-import SvgIcon from '../svgIcon.jsx'
 
 export default function EvadirRegistradosTable() {
   const { db } = useDb()
@@ -34,25 +33,12 @@ export default function EvadirRegistradosTable() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
-          <SvgIcon
-            name="search"
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              left: 10,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: 16,
-              height: 16,
-              color: 'var(--text3)',
-            }}
-          />
           <input
             className="flt"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar EVADIR..."
-            style={{ paddingLeft: 34, width: '100%' }}
+            style={{ width: '100%' }}
           />
         </div>
         <select className="flt" value={regionId} onChange={(e) => setRegionId(e.target.value)} style={{ minWidth: 220 }}>

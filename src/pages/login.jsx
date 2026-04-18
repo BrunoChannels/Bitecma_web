@@ -18,7 +18,7 @@ export default function LoginScreen({ active }) {
           </div>
           <div className="lc-brand">
             <h1>BITECMA</h1>
-            <span>Sistema AMERB - V1.0.4</span>
+            <span>Sistema AMERB - V1.1.0</span>
           </div>
         </div>
         <div className="lc-title">Iniciar sesión</div>

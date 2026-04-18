@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useOperaciones } from '../hooks/useOperaciones.js'
 import { useDb } from '../context/dbContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
@@ -47,14 +47,50 @@ function getOperacionSegLabel(op) {
   return `SEG${String(Math.trunc(n)).padStart(2, '0')}`
 }
 
+function fmtDMY(iso) {
+  const s = String(iso || '').trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s || '—'
+  return `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`
+}
+
+function toRoman(n) {
+  const num = Math.trunc(Number(n) || 0)
+  if (num <= 0) return ''
+  const map = [
+    [1000, 'M'],
+    [900, 'CM'],
+    [500, 'D'],
+    [400, 'CD'],
+    [100, 'C'],
+    [90, 'XC'],
+    [50, 'L'],
+    [40, 'XL'],
+    [10, 'X'],
+    [9, 'IX'],  
+    [5, 'V'],
+    [4, 'IV'],
+    [1, 'I'],
+  ]
+  let x = num
+  let out = ''
+  map.forEach(([v, s]) => {
+    while (x >= v) {
+      out += s
+      x -= v
+    }
+  })
+  return out
+}
+
 export default function OpsPage({ active }) {
   const { db, upsertOperacion, updateOperacion, deleteOperacion } = useDb()
   const { toast, openModal, closeModal } = useUi()
   const { canWrite, isViewer, navigate } = useApp()
-  const { filtered, sectores, meses, sector, setSector, mes, setMes, texto, setTexto, operaciones } =
+  const { filtered, meses, sector, setSector, mes, setMes, texto, setTexto, operaciones } =
     useOperaciones()
 
   const [expanded, setExpanded] = useState(() => new Set())
+  const [regionSel, setRegionSel] = useState('')
 
   useEffect(() => {
     if (!active) return
@@ -72,10 +108,59 @@ export default function OpsPage({ active }) {
     })
   }
 
-  const regiones = db?.regionesChile || []
+  const regiones = useMemo(() => db?.regionesChile || [], [db?.regionesChile])
   const sectorAmerb = db?.sectoresAmerb || []
   const caletasByRegion = db?.caletasByRegionStatic || {}
-  const opa = db?.opa || []
+  const opa = useMemo(() => db?.opa || [], [db?.opa])
+  const regionMetaById = useMemo(() => new Map(regiones.map((r) => [String(r?.id), r])), [regiones])
+  const regionNameById = useMemo(
+    () => new Map(regiones.map((r) => [String(r?.id), String(r?.nom || r?.rom || r?.id || '')])),
+    [regiones],
+  )
+  const opaShortById = useMemo(() => new Map(opa.map((o) => [String(o?.id), String(o?.nombrecorto || o?.nombre || '')])), [opa])
+
+  const regionButtons = useMemo(() => {
+    const ops = Array.isArray(operaciones) ? operaciones : []
+    const ids = ops
+      .map((o) => (o?.region == null ? '' : String(o.region)))
+      .filter((x) => x)
+    const uniq = [...new Set(ids)]
+    uniq.sort((a, b) => (Number(a) || 0) - (Number(b) || 0))
+    return uniq.map((id) => {
+      const r = regionMetaById.get(String(id))
+      const nom = String(r?.nom || '')
+      const rom = String(r?.rom || '')
+      const det = rom || toRoman(id)
+      const label = nom ? `Región de ${nom}` : `Región ${id}`
+      return { id: String(id), label, det }
+    })
+  }, [operaciones, regionMetaById])
+
+  const filteredByRegion = useMemo(() => {
+    const rid = String(regionSel || '')
+    const arr = Array.isArray(filtered) ? filtered : []
+    if (!rid) return []
+    return arr.filter((o) => String(o?.region ?? '') === rid)
+  }, [filtered, regionSel])
+
+  const sectoresInRegion = useMemo(() => {
+    const rid = String(regionSel || '')
+    if (!rid) return []
+    const set = new Set()
+    ;(Array.isArray(operaciones) ? operaciones : []).forEach((o) => {
+      if (String(o?.region ?? '') !== rid) return
+      const s = String(o?.sector || '').trim()
+      if (s) set.add(s)
+    })
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [operaciones, regionSel])
+
+  useEffect(() => {
+    if (!regionSel) return
+    if (!sector) return
+    if (sectoresInRegion.includes(sector)) return
+    setSector('')
+  }, [regionSel, sector, sectoresInRegion, setSector])
 
   const safeUpdateOperacion = (opId, updater) => {
     if (!canWrite) {
@@ -99,6 +184,137 @@ export default function OpsPage({ active }) {
       return
     }
     deleteOperacion(opId)
+  }
+
+  const openBotesTable = (opId) => {
+    const BodyBotes = () => {
+      const opBase = (operaciones || []).find((o) => String(o?.id) === String(opId)) || null
+      const seed = Array.isArray(opBase?.botes) ? opBase.botes : []
+
+      const [rows, setRows] = useState(() => {
+        if (seed.length) {
+          return seed.map((b, i) => ({
+            sourceId: String(b?.id || ''),
+            zona: Number(b?.zona) || i + 1,
+            nombre: String(b?.nombre || ''),
+            buzo: String(b?.buzo || ''),
+            densTipo: b?.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
+          }))
+        }
+        return Array.from({ length: 4 }, (_, i) => ({
+          sourceId: '',
+          zona: i + 1,
+          nombre: '',
+          buzo: '',
+          densTipo: 'transecto',
+        }))
+      })
+
+      const addRow = () => {
+        setRows((prev) => [...prev, { sourceId: '', zona: (prev[prev.length - 1]?.zona || 0) + 1, nombre: '', buzo: '', densTipo: 'transecto' }])
+      }
+
+      const removeRow = (idx) => {
+        setRows((prev) => prev.filter((_, i) => i !== idx))
+      }
+
+      const onSaveBotes = () => {
+        const clean = rows
+          .map((r) => ({
+            sourceId: String(r.sourceId || ''),
+            zona: parseInt(r.zona, 10) || 1,
+            nombre: String(r.nombre || '').trim(),
+            buzo: String(r.buzo || '').trim(),
+            densTipo: r.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
+          }))
+          .filter((r) => r.nombre)
+        if (!clean.length) {
+          toast('Ingresa al menos un bote', 'red')
+          return
+        }
+        safeUpdateOperacion(opId, (cur) => {
+          const prevBotes = Array.isArray(cur?.botes) ? cur.botes : []
+          const prevById = new Map(prevBotes.map((b) => [String(b?.id || ''), b]))
+          const nextBotes = clean.map((r, i) => {
+            const prev = prevById.get(r.sourceId)
+            return {
+              id: `B${i + 1}`,
+              nombre: r.nombre,
+              buzo: r.buzo,
+              zona: r.zona,
+              densTipo: r.densTipo,
+              lpMuestras: prev?.lpMuestras && typeof prev.lpMuestras === 'object' ? prev.lpMuestras : {},
+              transectos: Array.isArray(prev?.transectos) ? prev.transectos : [],
+            }
+          })
+          return { ...cur, botes: nextBotes }
+        })
+        closeModal()
+        toast('Botes actualizados', 'green')
+      }
+
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ overflow: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Zona muestreo</th>
+                  <th>Bote</th>
+                  <th>Buzo</th>
+                  <th>Unidad de muestreo</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, idx) => (
+                  <tr key={`${r.sourceId || 'new'}-${idx}`}>
+                    <td>{idx + 1}</td>
+                    <td style={{ minWidth: 120 }}>
+                      <input className="ii" type="number" value={r.zona} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))} />
+                    </td>
+                    <td style={{ minWidth: 220 }}>
+                      <input className="ii" placeholder="Nombre bote" value={r.nombre} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, nombre: e.target.value } : x)))} />
+                    </td>
+                    <td style={{ minWidth: 220 }}>
+                      <input className="ii" placeholder="Nombre buzo" value={r.buzo} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, buzo: e.target.value } : x)))} />
+                    </td>
+                    <td style={{ minWidth: 190 }}>
+                      <select className="is" value={r.densTipo} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, densTipo: e.target.value } : x)))}>
+                        <option value="transecto">Transecto</option>
+                        <option value="cuadrante">Cuadrante</option>
+                      </select>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button className="btn b-out b-sm" onClick={() => removeRow(idx)}>
+                        Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+            <button className="btn b-out" onClick={addRow}>
+              Agregar fila
+            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn b-out" onClick={closeModal}>
+                Cancelar
+              </button>
+              <button className="btn b-teal" onClick={onSaveBotes}>
+                Guardar botes
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    openModal(`Botes — ${opId}`, <BodyBotes />, 'wide')
   }
 
   const openEditOp = (op) => {
@@ -349,118 +565,6 @@ export default function OpsPage({ active }) {
         .sort((a, b) => String(a.nombrecorto || a.nombre || '').localeCompare(String(b.nombrecorto || b.nombre || '')))
         .slice(0, 4000)
 
-      const openCrearBotes = (opId) => {
-        const BodyBotes = () => {
-          const [rows, setRows] = useState(() =>
-            Array.from({ length: 4 }, (_, i) => ({
-              zona: i + 1,
-              nombre: '',
-              buzo: '',
-              densTipo: 'transecto',
-            })),
-          )
-
-          const addRow = () => {
-            setRows((prev) => [...prev, { zona: (prev[prev.length - 1]?.zona || 0) + 1, nombre: '', buzo: '', densTipo: 'transecto' }])
-          }
-
-          const removeRow = (idx) => {
-            setRows((prev) => prev.filter((_, i) => i !== idx))
-          }
-
-          const onSaveBotes = () => {
-            const clean = rows
-              .map((r) => ({
-                zona: parseInt(r.zona, 10) || 1,
-                nombre: String(r.nombre || '').trim(),
-                buzo: String(r.buzo || '').trim(),
-                densTipo: r.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
-              }))
-              .filter((r) => r.nombre)
-            if (!clean.length) {
-              toast('Ingresa al menos un bote', 'red')
-              return
-            }
-            safeUpdateOperacion(opId, (cur) => {
-              const nextBotes = clean.map((r, i) => ({
-                id: `B${i + 1}`,
-                nombre: r.nombre,
-                buzo: r.buzo,
-                zona: r.zona,
-                densTipo: r.densTipo,
-                lpMuestras: {},
-                transectos: [],
-              }))
-              return { ...cur, botes: nextBotes }
-            })
-            closeModal()
-            toast('Botes creados', 'green')
-          }
-
-          return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ overflow: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
-                <table className="tbl">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Zona muestreo</th>
-                      <th>Bote</th>
-                      <th>Buzo</th>
-                      <th>Unidad de muestreo</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r, idx) => (
-                      <tr key={idx}>
-                        <td>{idx + 1}</td>
-                        <td style={{ minWidth: 120 }}>
-                          <input className="ii" type="number" value={r.zona} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))} />
-                        </td>
-                        <td style={{ minWidth: 200 }}>
-                          <input className="ii" placeholder="Nombre bote" value={r.nombre} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, nombre: e.target.value } : x)))} />
-                        </td>
-                        <td style={{ minWidth: 200 }}>
-                          <input className="ii" placeholder="Nombre buzo" value={r.buzo} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, buzo: e.target.value } : x)))} />
-                        </td>
-                        <td style={{ minWidth: 180 }}>
-                          <select className="is" value={r.densTipo} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, densTipo: e.target.value } : x)))}>
-                            <option value="transecto">Transecto</option>
-                            <option value="cuadrante">Cuadrante</option>
-                          </select>
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <button className="btn b-out b-sm" onClick={() => removeRow(idx)}>
-                            Eliminar
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                <button className="btn b-out" onClick={addRow}>
-                  Agregar fila
-                </button>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn b-out" onClick={closeModal}>
-                    Cancelar
-                  </button>
-                  <button className="btn b-teal" onClick={onSaveBotes}>
-                    Crear botes
-                  </button>
-                </div>
-              </div>
-            </div>
-          )
-        }
-
-        openModal(`Crear botes — ${opId}`, <BodyBotes />, 'wide')
-      }
-
       const onSave = () => {
         const segRaw = String(s.numSeg || '').trim()
         const segNum = segRaw === '' ? null : parseInt(segRaw, 10)
@@ -489,7 +593,7 @@ export default function OpsPage({ active }) {
         })
         closeModal()
         toast('Operación creada', 'green')
-        setTimeout(() => openCrearBotes(opId), 50)
+        setTimeout(() => openBotesTable(opId), 50)
       }
 
       return (
@@ -671,52 +775,108 @@ export default function OpsPage({ active }) {
         </div>
       </div>
 
-      <div className="filters">
-        <select className="flt" value={sector} onChange={(e) => setSector(e.target.value)}>
-          <option value="">Todos los sectores</option>
-          {sectores.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-        <select className="flt" value={mes} onChange={(e) => setMes(e.target.value)}>
-          <option value="">Todas las fechas</option>
-          {meses.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-        <input
-          className="flt"
-          type="text"
-          placeholder="Buscar operación, buzo, org..."
-          style={{ minWidth: 220 }}
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-        />
-        <button
-          className="btn b-out b-sm"
-          onClick={() => {
-            setSector('')
-            setMes('')
-            setTexto('')
-          }}
-        >
-          Limpiar
-        </button>
-        <span style={{ fontFamily: 'var(--ff-m)', fontSize: 11, color: 'var(--text3)', marginLeft: 4 }}>
-          {filtered.length} operaciones
-        </span>
-      </div>
+      {regionSel ? (
+        <div className="filters">
+          <select className="flt" value={sector} onChange={(e) => setSector(e.target.value)}>
+            <option value="">Todos los sectores</option>
+            {sectoresInRegion.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          <select className="flt" value={mes} onChange={(e) => setMes(e.target.value)}>
+            <option value="">Todas las fechas</option>
+            {meses.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+          <input
+            className="flt"
+            type="text"
+            placeholder="Buscar operación, buzo, org..."
+            style={{ minWidth: 220 }}
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+          />
+          <button
+            className="btn b-out b-sm"
+            onClick={() => {
+              setSector('')
+              setMes('')
+              setTexto('')
+            }}
+          >
+            Limpiar
+          </button>
+          <span style={{ fontFamily: 'var(--ff-m)', fontSize: 11, color: 'var(--text3)', marginLeft: 4 }}>
+            {filteredByRegion.length} operaciones
+          </span>
+        </div>
+      ) : null}
 
       <div>
-        {filtered.map((op) => {
+        {!regionSel ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {regionButtons.map((r) => (
+              <button
+                key={r.id}
+                className="card"
+                onClick={() => setRegionSel(r.id)}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '18px 18px',
+                  borderRadius: 18,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg)',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span>{r.label}</span>
+                  {r.det ? (
+                    <span style={{ fontFamily: 'var(--ff-m)', fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
+                      — {r.det}
+                    </span>
+                  ) : null}
+                </div>
+              </button>
+            ))}
+            {!regionButtons.length ? (
+              <div className="info-box amber">
+                <span>i</span>
+                <div>Sin operaciones registradas.</div>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+              <button className="btn b-out b-sm" onClick={() => setRegionSel('')}>
+                Volver a regiones
+              </button>
+              <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>
+                {regionButtons.find((x) => x.id === regionSel)?.label || `Región ${regionSel}`}
+              </div>
+            </div>
+
+            {filteredByRegion.length === 0 ? (
+              <div className="info-box amber">
+                <span>i</span>
+                <div>Sin operaciones para esta región con los filtros actuales.</div>
+              </div>
+            ) : null}
+
+            {filteredByRegion.map((op) => {
           const open = expanded.has(op.id)
           const { totalTx, totalLPMuestras } = getOperacionMetricas(op)
           const year = getOperacionYear(op)
           const segLabel = getOperacionSegLabel(op)
+          const regionLabel = regionNameById.get(String(op?.region ?? '')) || String(op?.region || '—')
+          const orgShort = opaShortById.get(String(op?.opaId ?? '')) || String(op?.org || '—')
           return (
             <div className="op-card card mb" key={op.id} style={{ padding: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -724,12 +884,12 @@ export default function OpsPage({ active }) {
                   <div style={{ fontWeight: 800, color: 'var(--text)' }}>
                     {year || '—'}, {segLabel}, {op.sector || '—'}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-                    {op.org} · {op.fechaInicio}
-                  </div>
-                  <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span className="pill p-teal">Región {regionLabel}</span>
+                    <span className="pill p-blu">{orgShort}</span>
+                    <span className="pill p-grn">{fmtDMY(op.fechaInicio)}</span>
                     <span className="pill p-pur">{(op.botes || []).length} botes</span>
-                    <span className="pill p-blu">{totalTx} unidades densidad</span>
+                    <span className="pill p-pur">{totalTx} unidades densidad</span>
                     <span className="pill p-amb">{totalLPMuestras} muestras L-P</span>
                   </div>
                 </div>
@@ -768,70 +928,7 @@ export default function OpsPage({ active }) {
                     </div>
                     <button
                       className="btn b-teal b-sm"
-                      onClick={() => {
-                        const Body = () => {
-                          const [b, setB] = useState({ nombre: '', buzo: '', zona: 1, densTipo: 'transecto' })
-                          return (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                              <div className="ig">
-                                <label className="il">Nombre bote</label>
-                                <input className="ii" value={b.nombre} onChange={(e) => setB((s) => ({ ...s, nombre: e.target.value }))} />
-                              </div>
-                              <div className="ig">
-                                <label className="il">Buzo</label>
-                                <input className="ii" value={b.buzo} onChange={(e) => setB((s) => ({ ...s, buzo: e.target.value }))} />
-                              </div>
-                              <div className="i2">
-                                <div className="ig">
-                                  <label className="il">Zona</label>
-                                  <input className="ii" type="number" value={b.zona} onChange={(e) => setB((s) => ({ ...s, zona: parseInt(e.target.value, 10) || 1 }))} />
-                                </div>
-                                <div className="ig">
-                                  <label className="il">Unidad de Muestreo</label>
-                                  <select className="is" value={b.densTipo} onChange={(e) => setB((s) => ({ ...s, densTipo: e.target.value }))}>
-                                    <option value="transecto">Transecto</option>
-                                    <option value="cuadrante">Cuadrante</option>
-                                  </select>
-                                </div>
-                              </div>
-                              <div style={{ display: 'flex', gap: 8 }}>
-                                <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
-                                  Cancelar
-                                </button>
-                                <button
-                                  className="btn b-teal"
-                                  style={{ flex: 1 }}
-                                  onClick={() => {
-                                    if (!String(b.nombre || '').trim()) {
-                                      toast('Ingresa nombre del bote', 'red')
-                                      return
-                                    }
-                                    updateOperacion(op.id, (cur) => {
-                                      const nextBotes = Array.isArray(cur.botes) ? [...cur.botes] : []
-                                      const nextId = `B${nextBotes.length + 1}`
-                                      nextBotes.push({
-                                        id: nextId,
-                                        nombre: b.nombre,
-                                        buzo: b.buzo,
-                                        zona: b.zona,
-                                        densTipo: b.densTipo,
-                                        lpMuestras: {},
-                                        transectos: [],
-                                      })
-                                      return { ...cur, botes: nextBotes }
-                                    })
-                                    closeModal()
-                                    toast('Bote agregado', 'green')
-                                  }}
-                                >
-                                  Agregar
-                                </button>
-                              </div>
-                            </div>
-                          )
-                        }
-                        openModal('Agregar bote', <Body />, 'slim')
-                      }}
+                      onClick={() => openBotesTable(op.id)}
                     >
                       + Agregar bote
                     </button>
@@ -869,6 +966,8 @@ export default function OpsPage({ active }) {
             </div>
           )
         })}
+          </>
+        )}
       </div>
     </div>
     )

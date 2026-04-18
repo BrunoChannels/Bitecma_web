@@ -32,20 +32,6 @@ export default function BoteCard({ op, bote, especies, updateOperacion, toast, o
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <span className="pill p-amb">{totalUnidades} unidades</span>
           <span className="pill p-teal">{totalMuestras} muestras</span>
-          <button
-            className="btn b-out b-sm"
-            onClick={(e) => {
-              e.stopPropagation()
-              if (!confirm(`Eliminar bote "${bote?.nombre || bote?.id}"?`)) return
-              updateOperacion(op.id, (cur) => ({
-                ...cur,
-                botes: (cur.botes || []).filter((x) => x.id !== bote.id),
-              }))
-              toast?.('Bote eliminado', 'green')
-            }}
-          >
-            Eliminar
-          </button>
         </div>
       </div>
 

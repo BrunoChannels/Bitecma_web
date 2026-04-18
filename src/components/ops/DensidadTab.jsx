@@ -71,14 +71,28 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
   const openCrearTransectos = () => {
     const Body = () => {
       const startNum = nextUnidadNum(bote?.transectos)
+      const seeded = (Array.isArray(bote?.transectos) ? bote.transectos : [])
+        .filter((u) => String(u?.tipo || 'transecto') === 'transecto')
+        .slice()
+        .sort((a, b) => (Number(a?.num) || 0) - (Number(b?.num) || 0))
       const [rows, setRows] = useState(() =>
-        Array.from({ length: 6 }, (_, i) => ({
-          num: startNum + i,
-          area: 120,
-          sustrato: '',
-          cubierta: '',
-          especiesIds: [],
-        })),
+        seeded.length
+          ? seeded.map((u) => ({
+              num: Number(u?.num) || 0,
+              area: Number(u?.area) || 120,
+              sustrato: String(u?.sustrato || ''),
+              cubierta: String(u?.cubierta || ''),
+              especiesIds: Object.keys(u?.counts && typeof u.counts === 'object' ? u.counts : {})
+                .map(Number)
+                .filter((x) => Number.isFinite(x)),
+            }))
+          : Array.from({ length: 6 }, (_, i) => ({
+              num: startNum + i,
+              area: 120,
+              sustrato: '',
+              cubierta: '',
+              especiesIds: [],
+            })),
       )
       const [pick, setPick] = useState(null)
 
@@ -222,31 +236,45 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                 updateOperacion(op.id, (cur) => {
                   const nextBotes = (cur.botes || []).map((x) => {
                     if (x.id !== bote.id) return x
+                    const prevUnits = Array.isArray(x.transectos) ? x.transectos : []
+                    const prevTranByNum = new Map(
+                      prevUnits
+                        .filter((u) => String(u?.tipo || 'transecto') === 'transecto')
+                        .map((u) => [Number(u?.num) || 0, u]),
+                    )
+                    const preservedNonTran = prevUnits.filter((u) => String(u?.tipo || 'transecto') !== 'transecto')
                     const sorted = rows
                       .slice()
                       .sort((a, b) => (Number(a.num) || 0) - (Number(b.num) || 0))
-                    let u = Array.isArray(x.transectos) ? x.transectos : []
-                    sorted.forEach((row) => {
-                      u = crearUnidades({
-                        unidades: u,
+                    const nextTran = sorted.map((row) => {
+                      const num = Number(row?.num) || 0
+                      const prev = prevTranByNum.get(num)
+                      const prevCounts = prev?.counts && typeof prev.counts === 'object' ? prev.counts : {}
+                      const selected = Array.isArray(row?.especiesIds) ? row.especiesIds.map(Number).filter((v) => Number.isFinite(v)) : []
+                      const counts = Object.fromEntries(selected.map((id) => [id, Number(prevCounts[id] ?? 0)]))
+                      return {
+                        num,
                         tipo: 'transecto',
-                        cantidad: 1,
-                        area: row.area,
-                        fecha: String(op?.fechaInicio || ''),
-                        sustrato: row.sustrato,
-                        cubierta: row.cubierta,
-                        especiesIds: row.especiesIds,
-                      })
+                        area: Number(row?.area) || 120,
+                        fecha: String(prev?.fecha || op?.fechaInicio || ''),
+                        sustrato: String(row?.sustrato || ''),
+                        cubierta: String(row?.cubierta || ''),
+                        coordX: prev?.coordX ?? null,
+                        coordY: prev?.coordY ?? null,
+                        coordLong: prev?.coordLong ?? null,
+                        coordLat: prev?.coordLat ?? null,
+                        counts,
+                      }
                     })
-                    return { ...x, transectos: u }
+                    return { ...x, transectos: [...preservedNonTran, ...nextTran] }
                   })
                   return { ...cur, botes: nextBotes }
                 })
                 closeModal()
-                toast?.('Transectos creados', 'green')
+                toast?.('Transectos actualizados', 'green')
               }}
             >
-              Crear
+              Guardar
             </button>
           </div>
         </div>
@@ -369,7 +397,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
           {bote?.densTipo === 'cuadrante' ? 'Cuadrantes' : 'Transectos'}
         </div>
         <button className="btn b-teal b-sm" onClick={openCrearUnidades}>
-          + Crear
+          {bote?.densTipo === 'cuadrante' ? '+ Crear' : 'Agregar Transecto'}
         </button>
       </div>
 
