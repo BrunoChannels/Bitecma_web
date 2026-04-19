@@ -366,7 +366,22 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       const iCaleta = idxBy([/caleta/, /sector\/caleta/])
       const iSector = iCaleta >= 0 ? iCaleta : idxBy([/nombre sector/, /^sector$/])
       const iTipoOrg = idxBy([/tipo de organizacion/, /tipo organizacion/, /^tipo org$/, /de organiza/])
-      const iOrg = idxBy([/nombre organizacion/, /organizacion/])
+      const iOrgNombre = idxBy([/^nombre organizacion$/, /nombre.*organizacion/, /^nombre org$/, /nombre.*org/])
+      const iOrgGenerico = idxBy([/^organizacion$/, /organizacion/])
+      const iOrg = (() => {
+        if (iOrgNombre >= 0) return iOrgNombre
+        if (iOrgGenerico < 0) return -1
+        const k = keys[iOrgGenerico] || ''
+        const isTipoCol = (iTipoOrg >= 0 && iOrgGenerico === iTipoOrg) || (k.includes('tipo') && k.includes('organiz'))
+        if (!isTipoCol) return iOrgGenerico
+        for (let i = 0; i < keys.length; i++) {
+          const kk = keys[i] || ''
+          if (!kk.includes('organizacion')) continue
+          if (kk.includes('tipo')) continue
+          return i
+        }
+        return -1
+      })()
       const iFecha = idxBy(['fecha'])
       const iSeg = idxBy([/seg/, /esba/, /seguimiento/])
       const iZona = idxBy([/zona muestreo/, /^zona$/, /zona muestre/])
@@ -953,4 +968,3 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
     </>
   )
 }
-
