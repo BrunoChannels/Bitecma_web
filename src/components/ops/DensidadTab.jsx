@@ -146,7 +146,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                   <tr key={r.num}>
                     <td>{idx + 1}</td>
                     <td>
-                      <strong>T{r.num}</strong>
+                      <strong>Transecto {r.num}</strong>
                     </td>
                     <td style={{ minWidth: 140 }}>
                       <input
@@ -192,7 +192,9 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
 
           {pick ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>Especies — T{pick.num}</div>
+              <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>
+                Especies — Transecto {pick.num}
+              </div>
               <SpeciesGrid
                 especies={especiesAll}
                 selectedIds={pick.sel}
@@ -213,7 +215,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                     setPick(null)
                   }}
                 >
-                  Aplicar a T{pick.num}
+                  Aplicar a Transecto {pick.num}
                 </button>
               </div>
             </div>
@@ -437,9 +439,8 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                   style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}
                 >
                   <span className="pill p-pur" style={{ fontSize: 10 }}>
-                    C{num}
+                    Cuadrante {num}
                   </span>
-                  <span style={{ fontWeight: 800, color: 'var(--navy)' }}>Cuadrante</span>
                   <span style={{ fontWeight: 800, color: 'var(--navy)' }}>{sp?.com || '—'}</span>
 
                   <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -484,7 +485,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                       className="btn b-out b-sm"
                       onClick={(e) => {
                         e.stopPropagation()
-                        if (!confirm(`Eliminar C-${num}?`)) return
+                        if (!confirm(`Eliminar Cuadrante ${num}?`)) return
                         updateOperacion(op.id, (cur) => {
                           const nextBotes = (cur.botes || []).map((x) => {
                             if (x.id !== bote.id) return x
@@ -515,7 +516,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                           return (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                               <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>
-                                Especie del cuadrante — C{num}
+                                Especie del cuadrante — Cuadrante {num}
                               </div>
                               <SpeciesGrid especies={especiesAll} selectedIds={sel} onChange={setSel} multi={false} columns={3} maxHeight={420} />
                               <div style={{ display: 'flex', gap: 8 }}>
@@ -545,7 +546,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                             </div>
                           )
                         }
-                        openModal(`Seleccionar especie — C${num}`, <Body />, 'wide')
+                        openModal(`Seleccionar especie — Cuadrante ${num}`, <Body />, 'wide')
                       }}
                     >
                       Cambiar especie
@@ -686,7 +687,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
             <div key={`${bote.id}-${num}`} className="tx-card">
               <div className="tx-hd">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <div style={{ fontWeight: 800, color: 'var(--navy)' }}>{`T-${num}`}</div>
+                  <div style={{ fontWeight: 800, color: 'var(--navy)' }}>{`Transecto ${num}`}</div>
                   {speciesChips.length ? (
                     speciesChips.map((name) => (
                       <span key={name} className="pill p-teal" style={{ fontSize: 10 }}>
@@ -709,7 +710,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                     className="btn b-out b-sm"
                     onClick={(e) => {
                       e.stopPropagation()
-                      if (!confirm(`Eliminar T-${num}?`)) return
+                      if (!confirm(`Eliminar Transecto ${num}?`)) return
                       updateOperacion(op.id, (cur) => {
                         const nextBotes = (cur.botes || []).map((x) => {
                           if (x.id !== bote.id) return x
@@ -903,7 +904,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                       return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                           <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>
-                            Especies del transecto — T{num}
+                            Especies del transecto — Transecto {num}
                           </div>
                           <SpeciesGrid especies={especiesAll} selectedIds={sel} onChange={setSel} multi columns={3} maxHeight={420} />
                           <div style={{ display: 'flex', gap: 8 }}>
@@ -938,7 +939,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                         </div>
                       )
                     }
-                    openModal(`Seleccionar especies — T${num}`, <Body />, 'wide')
+                    openModal(`Seleccionar especies — Transecto ${num}`, <Body />, 'wide')
                   }}
                 >
                   Seleccionar especies

@@ -91,7 +91,7 @@ export default function OpsPage({ active }) {
   const { filtered, meses, sector, setSector, mes, setMes, texto, setTexto, operaciones } =
     useOperaciones()
 
-  const [expanded, setExpanded] = useState(() => new Set())
+  const [expanded, setExpanded] = useState('')
   const [regionSel, setRegionSel] = useState('')
 
   useEffect(() => {
@@ -103,10 +103,9 @@ export default function OpsPage({ active }) {
 
   const toggleExpanded = (opId) => {
     setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(opId)) next.delete(opId)
-      else next.add(opId)
-      return next
+      const id = String(opId ?? '')
+      if (!id) return ''
+      return String(prev || '') === id ? '' : id
     })
   }
 
@@ -904,47 +903,7 @@ export default function OpsPage({ active }) {
         </div>
       </div>
 
-      {regionSel ? (
-        <div className="filters">
-          <select className="flt" value={sector} onChange={(e) => setSector(e.target.value)}>
-            <option value="">Todos los sectores</option>
-            {sectoresInRegion.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <select className="flt" value={mes} onChange={(e) => setMes(e.target.value)}>
-            <option value="">Todas las fechas</option>
-            {meses.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-          <input
-            className="flt"
-            type="text"
-            placeholder="Buscar operación, buzo, org..."
-            style={{ minWidth: 220 }}
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-          />
-          <button
-            className="btn b-out b-sm"
-            onClick={() => {
-              setSector('')
-              setMes('')
-              setTexto('')
-            }}
-          >
-            Limpiar
-          </button>
-          <span style={{ fontFamily: 'var(--ff-m)', fontSize: 11, color: 'var(--text3)', marginLeft: 4 }}>
-            {filteredByRegion.length} operaciones
-          </span>
-        </div>
-      ) : null}
+
 
       <div>
         {!regionSel ? (
@@ -987,10 +946,52 @@ export default function OpsPage({ active }) {
               <button className="btn b-out b-sm" onClick={() => setRegionSel('')}>
                 Volver a regiones
               </button>
-              <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>
+              <div className="region-title">
                 {regionButtons.find((x) => x.id === regionSel)?.label || `Región ${regionSel}`}
               </div>
             </div>
+
+            {regionSel ? (
+              <div className="filters">
+                <select className="flt" value={sector} onChange={(e) => setSector(e.target.value)}>
+                  <option value="">Todos los sectores</option>
+                  {sectoresInRegion.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+                <select className="flt" value={mes} onChange={(e) => setMes(e.target.value)}>
+                  <option value="">Todas las fechas</option>
+                  {meses.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="flt"
+                  type="text"
+                  placeholder="Buscar operación, buzo, org..."
+                  style={{ minWidth: 220 }}
+                  value={texto}
+                  onChange={(e) => setTexto(e.target.value)}
+                />
+                <button
+                  className="btn b-out b-sm"
+                  onClick={() => {
+                    setSector('')
+                    setMes('')
+                    setTexto('')
+                  }}
+                >
+                  Limpiar
+                </button>
+                <span style={{ fontFamily: 'var(--ff-m)', fontSize: 11, color: 'var(--text3)', marginLeft: 4 }}>
+                  {filteredByRegion.length} operaciones
+                </span>
+              </div>
+            ) : null}
 
             {filteredByRegion.length === 0 ? (
               <div className="info-box amber">
@@ -1000,7 +1001,7 @@ export default function OpsPage({ active }) {
             ) : null}
 
             {filteredByRegion.map((op) => {
-          const open = expanded.has(op.id)
+          const open = String(expanded || '') === String(op?.id ?? '')
           const { totalTx, totalLPMuestras } = getOperacionMetricas(op)
           const year = getOperacionYear(op)
           const segLabel = getOperacionSegLabel(op)

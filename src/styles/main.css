@@ -159,6 +159,7 @@ opacity:.95;filter:blur(.2px);animation:bubble-rise2 12s linear infinite;transfo
 .p-teal{background:var(--teal-lt);color:var(--teal);}
 .p-amb{background:var(--amber-lt);color:var(--amber);}
 .p-grn{background:var(--green-lt);color:var(--green);}
+.region-title{font-family:var(--ff-d);font-size:18px;font-weight:800;color:var(--navy);}
 .p-red{background:var(--red-lt);color:var(--red);}
 .p-blu{background:var(--blue-lt);color:var(--blue);}
 .p-pur{background:var(--purple-lt);color:var(--purple);}
@@ -255,7 +256,7 @@ input[type=number].lp-num-inp{-moz-appearance:textfield;appearance:textfield;}
 
 /* Transectos y conteo */
 .tx-card{border:1px solid var(--border);border-radius:9px;margin-bottom:7px;overflow:hidden;background:var(--white);}
-.tx-hd{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;cursor:pointer;transition:background .15s;}
+.tx-hd{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;cursor:pointer;transition:background .15s;background:var(--bg);}
 .tx-hd:hover{background:var(--slate-lt);}
 .tx-body{padding:13px;border-top:1px solid var(--border);display:none;}
 .tx-body.open{display:block;}
