@@ -1,10 +1,24 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 export default function SpeciesGrid({ especies, selectedIds, onChange, multi = true, columns = 3, maxHeight = 380 }) {
+  const [q, setQ] = useState('')
+
   const list = useMemo(() => {
     const arr = Array.isArray(especies) ? especies : []
     return arr.slice().sort((a, b) => String(a?.com || '').localeCompare(String(b?.com || '')))
   }, [especies])
+
+  const filtered = useMemo(() => {
+    const norm = (v) =>
+      String(v || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+    const qq = norm(q)
+    if (!qq) return list
+    return list.filter((e) => norm(e?.com).includes(qq) || norm(e?.sci).includes(qq))
+  }, [list, q])
 
   const selectedSet = useMemo(() => {
     const arr = Array.isArray(selectedIds) ? selectedIds : []
@@ -26,8 +40,15 @@ export default function SpeciesGrid({ especies, selectedIds, onChange, multi = t
 
   return (
     <div style={{ overflow: 'auto', maxHeight, border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
+      <input
+        className="ii"
+        placeholder="Buscar especie..."
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        style={{ marginBottom: 10 }}
+      />
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: 10 }}>
-        {list.map((e) => {
+        {filtered.map((e) => {
           const id = Number(e?.id)
           const active = selectedSet.has(id)
           return (
@@ -71,4 +92,3 @@ export default function SpeciesGrid({ especies, selectedIds, onChange, multi = t
     </div>
   )
 }
-

@@ -49,9 +49,9 @@ function isAlgaSpecies(sp) {
 }
 
 export default function LpTab({ op, bote, especies, updateOperacion, toast, openModal, closeModal }) {
-  const especiesLp = useMemo(() => {
+  const especiesAll = useMemo(() => {
     const arr = Array.isArray(especies) ? especies : []
-    return arr.filter((e) => e?.lp)
+    return arr.slice().sort((a, b) => String(a?.com || '').localeCompare(String(b?.com || '')))
   }, [especies])
 
   const byId = useMemo(() => {
@@ -85,7 +85,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
             </div>
           </div>
 
-          <SpeciesGrid especies={especiesLp} selectedIds={sel} onChange={setSel} multi columns={3} maxHeight={420} />
+          <SpeciesGrid especies={especiesAll} selectedIds={sel} onChange={setSel} multi columns={3} maxHeight={420} />
 
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>

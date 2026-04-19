@@ -4,10 +4,12 @@ import { useDb } from '../context/dbContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
 import { useApp } from '../context/appContext.jsx'
 import { getOperacionMetricas } from '../services/operacionesService.js'
+import { BOTES } from '../data/botes'
 import SvgIcon from '../components/svgIcon.jsx'
 import BoteCard from '../components/ops/BoteCard.jsx'
-import EvadirPreview from '../components/evadir/EvadirPreview.jsx'
 import SearchableSelect from '../components/common/SearchableSelect.jsx'
+import EvadirImporter from '../components/ops/EvadirImporter.jsx'
+
 
 function nextOpId(ops, year) {
   const y = String(year)
@@ -190,6 +192,7 @@ export default function OpsPage({ active }) {
     const BodyBotes = () => {
       const opBase = (operaciones || []).find((o) => String(o?.id) === String(opId)) || null
       const seed = Array.isArray(opBase?.botes) ? opBase.botes : []
+      const opCaleta = String(opBase?.sector || '')
 
       const [rows, setRows] = useState(() => {
         if (seed.length) {
@@ -210,12 +213,46 @@ export default function OpsPage({ active }) {
         }))
       })
 
+      const [showPanel, setShowPanel] = useState(false)
+      const [currentRowIdx, setCurrentRowIdx] = useState(null)
+      const [searchTerm, setSearchTerm] = useState('')
+
       const addRow = () => {
         setRows((prev) => [...prev, { sourceId: '', zona: (prev[prev.length - 1]?.zona || 0) + 1, nombre: '', buzo: '', densTipo: 'transecto' }])
       }
 
       const removeRow = (idx) => {
         setRows((prev) => prev.filter((_, i) => i !== idx))
+        if (currentRowIdx === idx) {
+          setShowPanel(false)
+          setCurrentRowIdx(null)
+        }
+      }
+
+      const openPanel = (idx) => {
+        setCurrentRowIdx(idx)
+        setShowPanel(true)
+      }
+
+      const closePanel = () => {
+        setShowPanel(false)
+        setCurrentRowIdx(null)
+        setSearchTerm('')
+      }
+
+      const handleSelectBoat = (boatName) => {
+        if (currentRowIdx !== null) {
+          setRows((prev) => prev.map((x, i) => (i === currentRowIdx ? { ...x, nombre: boatName } : x)))
+        }
+        closePanel()
+      }
+
+      const handleAddNewBoat = () => {
+        const newBoatName = prompt('Ingresa el nombre del nuevo bote:')
+        if (newBoatName && currentRowIdx !== null) {
+          setRows((prev) => prev.map((x, i) => (i === currentRowIdx ? { ...x, nombre: newBoatName.trim() } : x)))
+        }
+        closePanel()
       }
 
       const onSaveBotes = () => {
@@ -253,6 +290,17 @@ export default function OpsPage({ active }) {
         toast('Botes actualizados', 'green')
       }
 
+      const filteredBotes = useMemo(() => {
+        const term = searchTerm.toLowerCase()
+        return BOTES.filter(
+          (b) =>
+            b.caleta === opCaleta &&
+            (b.nombre.toLowerCase().includes(term) ||
+              b.nrpa.toLowerCase().includes(term) ||
+              b.nmatricula.toLowerCase().includes(term))
+        )
+      }, [searchTerm, opCaleta])
+
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ overflow: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
@@ -275,7 +323,18 @@ export default function OpsPage({ active }) {
                       <input className="ii" type="number" value={r.zona} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))} />
                     </td>
                     <td style={{ minWidth: 220 }}>
-                      <input className="ii" placeholder="Nombre bote" value={r.nombre} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, nombre: e.target.value } : x)))} />
+                      <input
+                        className="ii"
+                        placeholder="Nombre bote"
+                        value={r.nombre}
+                        onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, nombre: e.target.value } : x)))}
+                        onClick={() => openPanel(idx)}
+                        onFocus={() => openPanel(idx)}
+                        style={{
+                          borderColor: currentRowIdx === idx ? 'var(--teal)' : undefined,
+                          boxShadow: currentRowIdx === idx ? '0 0 0 2px rgba(10,143,126,0.1)' : undefined
+                        }}
+                      />
                     </td>
                     <td style={{ minWidth: 220 }}>
                       <input className="ii" placeholder="Nombre buzo" value={r.buzo} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, buzo: e.target.value } : x)))} />
@@ -297,7 +356,80 @@ export default function OpsPage({ active }) {
             </table>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          {showPanel && (
+            <div style={{
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              padding: 16,
+              backgroundColor: 'var(--bg)',
+              boxShadow: 'var(--shadow)',
+              marginTop: 4,
+            }}>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+                <input
+                  className="ii"
+                  placeholder="Buscar bote, RPA o matrícula..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ flexGrow: 1, minWidth: 200 }}
+                  autoFocus
+                />
+                <button className="btn b-out" onClick={handleAddNewBoat}>
+                  Agregar nuevo
+                </button>
+                <button className="btn b-out" onClick={closePanel}>
+                  Cerrar
+                </button>
+              </div>
+
+              <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
+                {filteredBotes.length === 0 ? (
+                  <div style={{ padding: '16px', color: 'var(--text3)', textAlign: 'center' }}>
+                    No se encontraron botes para "{searchTerm}" en la caleta {opCaleta || '(ninguna)'}.
+                  </div>
+                ) : (
+                  filteredBotes.map((boat) => (
+                    <div
+                      key={boat.id}
+                      style={{
+                        padding: '12px 16px',
+                        cursor: 'pointer',
+                        borderBottom: '1px solid var(--border)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        transition: 'background-color 0.15s',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg2)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      onClick={() => handleSelectBoat(boat.nombre)}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 800, color: 'var(--navy)', fontSize: 14 }}>
+                          {boat.nombre}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+                          RPA {boat.nrpa} · Caleta {boat.caleta}
+                        </div>
+                      </div>
+                      <div style={{
+                        backgroundColor: 'var(--bg2)',
+                        padding: '4px 8px',
+                        borderRadius: 12,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: 'var(--text2)'
+                      }}>
+                        {boat.region}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 8 }}>
             <button className="btn b-out" onClick={addRow}>
               Agregar fila
             </button>
@@ -746,19 +878,16 @@ export default function OpsPage({ active }) {
           </p>
         </div>
         <div className="ph-a">
-          <button
-            className="btn b-out b-sm"
-            disabled={!canWrite}
-            onClick={() => {
-              if (!canWrite) {
-                toast('Modo solo lectura', 'blue')
-                return
-              }
-              toast('Subida EVADIR (pendiente)', 'blue')
-            }}
-          >
-            Subir EVADIR
-          </button>
+          <EvadirImporter
+            db={db}
+            canWrite={canWrite}
+            toast={toast}
+            openModal={openModal}
+            closeModal={closeModal}
+            operaciones={operaciones}
+            nextOpId={nextOpId}
+            safeUpsertOperacion={safeUpsertOperacion}
+          />
           <button
             className="btn b-teal b-sm"
             disabled={!canWrite}
@@ -930,7 +1059,7 @@ export default function OpsPage({ active }) {
                       className="btn b-teal b-sm"
                       onClick={() => openBotesTable(op.id)}
                     >
-                      + Agregar bote
+                      Agregar bote
                     </button>
                   </div>
 

@@ -151,9 +151,9 @@ export function buildEvadirPreviewSheets({ db, op }) {
           bote: b.nombre,
           buzo: b.buzo,
           especie: sp?.sci || sp?.com || '',
-          l: m?.l ?? '',
+          l: m?.l ?? m?.d ?? '',
           p: m?.p ?? '',
-          d: m?.d ?? '',
+          d: m?.d ?? m?.l ?? '',
         })
       })
     })
@@ -294,4 +294,3 @@ export function buildEvadirPreviewSheets({ db, op }) {
     sheets,
   }
 }
-

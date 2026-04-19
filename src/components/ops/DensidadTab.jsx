@@ -44,20 +44,16 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
     return [...arr].sort((a, b) => (Number(a?.num) || 0) - (Number(b?.num) || 0))
   }, [bote?.transectos])
 
-  const especiesDens = useMemo(() => {
-    const arr = Array.isArray(especies) ? especies : []
-    return arr.filter((e) => e?.dens)
-  }, [especies])
-
   const especiesAll = useMemo(() => {
-    return especiesDens.slice().sort((a, b) => String(a?.com || '').localeCompare(String(b?.com || '')))
-  }, [especiesDens])
+    const arr = Array.isArray(especies) ? especies : []
+    return arr.slice().sort((a, b) => String(a?.com || '').localeCompare(String(b?.com || '')))
+  }, [especies])
 
   const byId = useMemo(() => {
     const m = new Map()
-    especiesDens.forEach((e) => m.set(Number(e.id), e))
+    especiesAll.forEach((e) => m.set(Number(e.id), e))
     return m
-  }, [especiesDens])
+  }, [especiesAll])
 
   const toggleUnit = (num) => {
     setOpenUnits((prev) => {
