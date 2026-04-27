@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useApp } from '../context/appContext.jsx'
 import { useDb } from '../context/dbContext.jsx'
 
@@ -26,27 +27,29 @@ export default function DashboardPage({ active }) {
     (acc, op) => acc + (op?.botes || []).reduce((a, b) => a + ((b?.transectos || []).length || 0), 0),
     0,
   )
-  const totalMuestras = ops.reduce(
-    (acc, op) =>
-      acc +
-      (op?.botes || []).reduce(
-        (a, b) =>
-          a +
-          Object.values(b?.lpMuestras || {}).reduce(
-            (x, arr) => x + (Array.isArray(arr) ? arr.length : 0),
-            0,
-          ),
-        0,
-      ),
-    0,
-  )
+  const totalMuestras = useMemo(() => {
+    return ops.reduce(
+      (acc, op) =>
+        acc +
+        (op?.botes || []).reduce(
+          (a, b) =>
+            a +
+            Object.values(b?.lpMuestras || {}).reduce(
+              (x, arr) => x + (Array.isArray(arr) ? arr.length : 0),
+              0,
+            ),
+          0,
+        ),
+      0,
+    )
+  }, [ops])
 
   const recentOps = ops
     .slice()
     .sort((a, b) => toDateValue(b?.fechaInicio) - toDateValue(a?.fechaInicio))
     .slice(0, 5)
 
-  const chartData = (() => {
+  const chartData = useMemo(() => {
     const byId = new Map((especies || []).map((e) => [Number(e.id), String(e.com || e.sci || e.id)]))
     const counts = new Map()
     for (const op of ops) {
@@ -70,7 +73,7 @@ export default function DashboardPage({ active }) {
       .map((x, i) => ({ ...x, color: palette[i % palette.length] }))
 
     return { items, max: Math.max(1, ...items.map((x) => x.value)) }
-  })()
+  }, [especies, ops])
 
   const yTicksCount = 5
   const yStep = Math.max(1, Math.ceil(chartData.max / yTicksCount))
