@@ -2,7 +2,22 @@ export function getOperacionMetricas(op) {
   const botes = Array.isArray(op?.botes) ? op.botes : []
   const totalTx = botes.reduce((s, b) => s + ((b?.transectos || []).length || 0), 0)
   const totalLPMuestras = botes.reduce(
-    (s, b) => s + Object.values(b?.lpMuestras || {}).reduce((s2, m) => s2 + (m?.length || 0), 0),
+    (s, b) =>
+      s +
+      Object.values(b?.lpMuestras || {}).reduce((s2, entry) => {
+        if (Array.isArray(entry)) return s2 + entry.length
+        if (entry && typeof entry === 'object') {
+          if (Array.isArray(entry.ms)) return s2 + entry.ms.length
+          return (
+            s2 +
+            ['LP', 'L', 'D'].reduce((acc, k) => {
+              const arr = entry?.[k]
+              return acc + (Array.isArray(arr) ? arr.length : 0)
+            }, 0)
+          )
+        }
+        return s2
+      }, 0),
     0,
   )
   return { totalTx, totalLPMuestras }
@@ -36,4 +51,3 @@ export function filterOperaciones(operaciones, { sector = '', mes = '', texto = 
     return opMatchesText(op, q)
   })
 }
-

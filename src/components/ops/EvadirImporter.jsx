@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import EvadirPreview from '../evadir/EvadirPreview.jsx'
 import SpeciesGrid from '../common/SpeciesGrid.jsx'
+import { addSample } from '../../services/lpMuestrasService.js'
 
 function normText(v) {
   return String(v || '')
@@ -731,8 +732,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
           }
           const spId = spIdAuto
 
-          const map = b.lpMuestras && typeof b.lpMuestras === 'object' ? b.lpMuestras : {}
-          const arr = Array.isArray(map[spId]) ? map[spId].slice() : []
+          let map = b.lpMuestras && typeof b.lpMuestras === 'object' ? b.lpMuestras : {}
 
           const isAlga = algaIdSet.has(Number(spId))
           const forceD = parsed.kind === 'L' && isAlga
@@ -740,19 +740,20 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
           if (parsed.kind === 'D') {
             const d = String(r[parsed.id] ?? '').trim()
             if (!d) continue
-            arr.push({ d })
+            map = addSample(map, spId, 'D', { d })
+            b.lpMuestras = map
           } else if (parsed.kind === 'LP') {
             const l = String(r[parsed.il] ?? '').trim()
             const p = String(r[parsed.ip] ?? '').trim()
-            arr.push({ l, p })
+            map = addSample(map, spId, 'LP', { l, p })
+            b.lpMuestras = map
           } else {
             const l = String(r[parsed.il] ?? '').trim()
             if (!l) continue
-            if (forceD) arr.push({ d: l })
-            else arr.push({ l })
+            if (forceD) map = addSample(map, spId, 'D', { d: l })
+            else map = addSample(map, spId, 'L', { l })
+            b.lpMuestras = map
           }
-          map[spId] = arr
-          b.lpMuestras = map
           if (!useAltAsBoat) {
             if (!b.buzo && buzoCell) b.buzo = buzoCell
           }
@@ -857,22 +858,22 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         if (!Number.isFinite(spId)) continue
         for (const it of g.items) {
           const b = it.b
-          const map = b.lpMuestras && typeof b.lpMuestras === 'object' ? b.lpMuestras : {}
-          const arr = Array.isArray(map[spId]) ? map[spId].slice() : []
+          let map = b.lpMuestras && typeof b.lpMuestras === 'object' ? b.lpMuestras : {}
           const isAlga = algaIdSet.has(Number(spId))
           const forceD = it.kind === 'L' && isAlga
           if (it.kind === 'D') {
             if (!it.d) continue
-            arr.push({ d: it.d })
+            map = addSample(map, spId, 'D', { d: it.d })
+            b.lpMuestras = map
           } else if (it.kind === 'LP') {
-            arr.push({ l: it.l || '', p: it.p || '' })
+            map = addSample(map, spId, 'LP', { l: it.l || '', p: it.p || '' })
+            b.lpMuestras = map
           } else {
             if (!it.l) continue
-            if (forceD) arr.push({ d: it.l })
-            else arr.push({ l: it.l })
+            if (forceD) map = addSample(map, spId, 'D', { d: it.l })
+            else map = addSample(map, spId, 'L', { l: it.l })
+            b.lpMuestras = map
           }
-          map[spId] = arr
-          b.lpMuestras = map
         }
       }
 

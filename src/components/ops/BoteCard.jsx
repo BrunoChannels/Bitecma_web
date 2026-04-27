@@ -9,7 +9,20 @@ export default function BoteCard({ op, bote, especies, updateOperacion, toast, o
   const totalUnidades = Array.isArray(bote?.transectos) ? bote.transectos.length : 0
   const totalMuestras = (() => {
     const map = bote?.lpMuestras && typeof bote.lpMuestras === 'object' ? bote.lpMuestras : {}
-    return Object.values(map).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0)
+    return Object.values(map).reduce((acc, entry) => {
+      if (Array.isArray(entry)) return acc + entry.length
+      if (entry && typeof entry === 'object') {
+        if (Array.isArray(entry.ms)) return acc + entry.ms.length
+        return (
+          acc +
+          ['LP', 'L', 'D'].reduce((s, k) => {
+            const arr = entry?.[k]
+            return s + (Array.isArray(arr) ? arr.length : 0)
+          }, 0)
+        )
+      }
+      return acc
+    }, 0)
   })()
 
   return (

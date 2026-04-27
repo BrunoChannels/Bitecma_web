@@ -7,6 +7,7 @@ import { getOperacionMetricas } from '../services/operacionesService.js'
 import { BOTES } from '../data/botes'
 import SvgIcon from '../components/svgIcon.jsx'
 import BoteCard from '../components/ops/BoteCard.jsx'
+import EvadirPreview from '../components/evadir/EvadirPreview.jsx'
 import SearchableSelect from '../components/common/SearchableSelect.jsx'
 import EvadirImporter from '../components/ops/EvadirImporter.jsx'
 
@@ -84,8 +85,8 @@ function toRoman(n) {
   return out
 }
 
-export default function OpsPage({ active }) {
-  const { db, upsertOperacion, updateOperacion, deleteOperacion } = useDb()
+ export default function OpsPage({ active }) {
+  const { db, upsertOperacion, updateOperacion, deleteOperacion, upsertBoteMaestro } = useDb()
   const { toast, openModal, closeModal } = useUi()
   const { canWrite, isViewer, navigate } = useApp()
   const { filtered, meses, sector, setSector, mes, setMes, texto, setTexto, operaciones } =
@@ -187,11 +188,436 @@ export default function OpsPage({ active }) {
     deleteOperacion(opId)
   }
 
-  const openBotesTable = (opId) => {
+  const openAddBoteModal = (onBoatCreated) => {
+    const initialRegion = regiones[0]?.rom || 'I'
+    const initialCaletas = caletasByRegion[initialRegion] || []
+
+    const Body = () => {
+      const [form, setForm] = useState({
+        region: initialRegion,
+        nombre: '',
+        nrpa: '',
+        nmatricula: '',
+        caleta: initialCaletas[0] || ''
+      })
+
+      const caletas = caletasByRegion[form.region] || []
+
+      const onSave = () => {
+        if (!form.nombre.trim()) {
+          toast('Ingresa el nombre del bote', 'red')
+          return
+        }
+        if (!form.caleta) {
+          toast('Selecciona una caleta', 'red')
+          return
+        }
+
+        const newBote = {
+          id: Date.now().toString(),
+          region: form.region,
+          nombre: form.nombre.toUpperCase().trim(),
+          nrpa: form.nrpa.trim(),
+          nmatricula: form.nmatricula.trim(),
+          caleta: form.caleta.toUpperCase().trim()
+        }
+
+        upsertBoteMaestro(newBote)
+        toast('Bote agregado correctamente', 'green')
+        closeModal()
+        if (typeof onBoatCreated === 'function') {
+          onBoatCreated(newBote.nombre)
+        }
+      }
+
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="i2">
+            <div className="ig">
+              <label className="il">Región</label>
+              <select
+                className="is"
+                value={form.region}
+                onChange={(e) => {
+                  const newRegion = e.target.value
+                  const newCaletas = caletasByRegion[newRegion] || []
+                  setForm((p) => ({ ...p, region: newRegion, caleta: newCaletas[0] || '' }))
+                }}
+              >
+                {regiones.map((r) => (
+                  <option key={r.id} value={r.rom}>{r.rom} — {r.nom}</option>
+                ))}
+              </select>
+            </div>
+            <div className="ig">
+              <label className="il">Nombre de Bote</label>
+              <input
+                className="ii"
+                placeholder="Ej: CHIPANA"
+                value={form.nombre}
+                onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="i2">
+            <div className="ig">
+              <label className="il">RPA</label>
+              <input
+                className="ii"
+                placeholder="Ej: 401"
+                value={form.nrpa}
+                onChange={(e) => setForm((p) => ({ ...p, nrpa: e.target.value }))}
+              />
+            </div>
+            <div className="ig">
+              <label className="il">Matrícula</label>
+              <input
+                className="ii"
+                placeholder="Ej: 100"
+                value={form.nmatricula}
+                onChange={(e) => setForm((p) => ({ ...p, nmatricula: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="ig">
+            <label className="il">Caleta</label>
+            <select
+              className="is"
+              value={form.caleta}
+              onChange={(e) => setForm((p) => ({ ...p, caleta: e.target.value }))}
+            >
+              {caletas.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+              Cancelar
+            </button>
+            <button className="btn b-teal" style={{ flex: 1 }} onClick={onSave}>
+              Guardar
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    openModal('Agregar Nuevo Bote', <Body />, 'normal')
+  }
+
+  const BotesEditor = ({ opId, opFallback, onCancel, onSaved }) => {
+    const opBase = (operaciones || []).find((o) => String(o?.id) === String(opId)) || null
+    const base = opBase || opFallback || null
+    const seed = Array.isArray(base?.botes) ? base.botes : []
+    const opCaleta = String(base?.sector || base?.caleta || '').trim()
+    const caletaKey = String(opCaleta || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+
+    const [rows, setRows] = useState(() => {
+      if (seed.length) {
+        return seed.map((b, i) => ({
+          sourceId: String(b?.id || ''),
+          zona: Number(b?.zona) || i + 1,
+          nombre: String(b?.nombre || ''),
+          buzo: String(b?.buzo || ''),
+          densTipo: b?.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
+        }))
+      }
+      return Array.from({ length: 4 }, (_, i) => ({
+        sourceId: '',
+        zona: i + 1,
+        nombre: '',
+        buzo: '',
+        densTipo: 'transecto',
+      }))
+    })
+
+    const [showPanel, setShowPanel] = useState(false)
+    const [currentRowIdx, setCurrentRowIdx] = useState(null)
+    const [searchTerm, setSearchTerm] = useState('')
+
+    const addRow = () => {
+      setRows((prev) => [...prev, { sourceId: '', zona: (prev[prev.length - 1]?.zona || 0) + 1, nombre: '', buzo: '', densTipo: 'transecto' }])
+    }
+
+    const removeRow = (idx) => {
+      setRows((prev) => prev.filter((_, i) => i !== idx))
+      if (currentRowIdx === idx) {
+        setShowPanel(false)
+        setCurrentRowIdx(null)
+      }
+    }
+
+    const openPanel = (idx) => {
+      setCurrentRowIdx(idx)
+      setShowPanel(true)
+    }
+
+    const closePanel = () => {
+      setShowPanel(false)
+      setCurrentRowIdx(null)
+      setSearchTerm('')
+    }
+
+    const handleSelectBoat = (boatName) => {
+      if (currentRowIdx !== null) {
+        setRows((prev) => prev.map((x, i) => (i === currentRowIdx ? { ...x, nombre: boatName } : x)))
+      }
+      closePanel()
+    }
+
+    const handleAddNewBoat = () => {
+      openAddBoteModal((newBoatName) => {
+        if (newBoatName && currentRowIdx !== null) {
+          setRows((prev) => prev.map((x, i) => (i === currentRowIdx ? { ...x, nombre: newBoatName } : x)))
+        }
+        closePanel()
+      })
+    }
+
+    const onSaveBotes = () => {
+      const clean = rows
+        .map((r) => ({
+          sourceId: String(r.sourceId || ''),
+          zona: parseInt(r.zona, 10) || 1,
+          nombre: String(r.nombre || '').trim(),
+          buzo: String(r.buzo || '').trim(),
+          densTipo: r.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
+        }))
+        .filter((r) => r.nombre)
+      if (!clean.length) {
+        toast('Ingresa al menos un bote', 'red')
+        return
+      }
+      safeUpdateOperacion(opId, (cur) => {
+        const prevBotes = Array.isArray(cur?.botes) ? cur.botes : []
+        const prevById = new Map(prevBotes.map((b) => [String(b?.id || ''), b]))
+        const nextBotes = clean.map((r, i) => {
+          const prev = prevById.get(r.sourceId)
+          const prevDensTipo = prev?.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto'
+          const keepDensidad = prev && prevDensTipo === r.densTipo
+          return {
+            id: `B${i + 1}`,
+            nombre: r.nombre,
+            buzo: r.buzo,
+            zona: r.zona,
+            densTipo: r.densTipo,
+            lpMuestras: prev?.lpMuestras && typeof prev.lpMuestras === 'object' ? prev.lpMuestras : {},
+            transectos: keepDensidad ? (Array.isArray(prev?.transectos) ? prev.transectos : []) : [],
+          }
+        })
+        return { ...cur, botes: nextBotes }
+      })
+      toast('Botes actualizados', 'green')
+      if (typeof onSaved === 'function') onSaved()
+    }
+
+    const masterBotes = useMemo(() => {
+      const arr = db?.botesMaestro
+      return Array.isArray(arr) ? arr : []
+    }, [db?.botesMaestro])
+
+    const filteredBotes = useMemo(() => {
+      const term = String(searchTerm || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+      return masterBotes.filter(
+        (b) =>
+          String(b?.caleta || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim() === caletaKey &&
+          (String(b?.nombre || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim()
+            .includes(term) ||
+            String(b?.nrpa || '')
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/[^a-z0-9]+/g, ' ')
+              .trim()
+              .includes(term) ||
+            String(b?.nmatricula || '')
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/[^a-z0-9]+/g, ' ')
+              .trim()
+              .includes(term))
+      )
+    }, [searchTerm, caletaKey, masterBotes])
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ overflow: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Zona muestreo</th>
+                <th>Bote</th>
+                <th>Buzo</th>
+                <th>Unidad de muestreo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, idx) => (
+                <tr key={`${r.sourceId || 'new'}-${idx}`}>
+                  <td>{idx + 1}</td>
+                  <td style={{ minWidth: 120 }}>
+                    <input className="ii" type="number" value={r.zona} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))} />
+                  </td>
+                  <td style={{ minWidth: 220 }}>
+                    <input
+                      className="ii"
+                      placeholder="Nombre bote"
+                      value={r.nombre}
+                      onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, nombre: e.target.value } : x)))}
+                      onClick={() => openPanel(idx)}
+                      onFocus={() => openPanel(idx)}
+                      style={{
+                        borderColor: currentRowIdx === idx ? 'var(--teal)' : undefined,
+                        boxShadow: currentRowIdx === idx ? '0 0 0 2px rgba(10,143,126,0.1)' : undefined,
+                      }}
+                    />
+                  </td>
+                  <td style={{ minWidth: 220 }}>
+                    <input className="ii" placeholder="Nombre buzo" value={r.buzo} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, buzo: e.target.value } : x)))} />
+                  </td>
+                  <td style={{ minWidth: 190 }}>
+                    <select 
+                      className="is" 
+                      value={r.densTipo} 
+                      onChange={(e) => {
+                        const newDensTipo = e.target.value
+                        if (r.densTipo !== newDensTipo) {
+                          const ok = confirm('Al cambiar la unidad de muestreo, solo se perderán los datos de densidad (los datos de peso-longitud se mantendrán). ¿Continuar?')
+                          if (!ok) return
+                        }
+                        setRows((p) => p.map((x, i) => (i === idx ? { ...x, densTipo: newDensTipo } : x)))
+                      }}
+                    >
+                      <option value="transecto">Transecto</option>
+                      <option value="cuadrante">Cuadrante</option>
+                    </select>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button className="btn b-out b-sm" onClick={() => removeRow(idx)}>
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {showPanel && (
+          <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 16, backgroundColor: 'var(--bg)', boxShadow: 'var(--shadow)', marginTop: 4 }}>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+              <input
+                className="ii"
+                placeholder="Buscar bote, RPA o matrícula..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{ flexGrow: 1, minWidth: 200 }}
+                autoFocus
+              />
+              <button className="btn b-out" onClick={handleAddNewBoat}>
+                Agregar nuevo
+              </button>
+              <button className="btn b-out" onClick={closePanel}>
+                Cerrar
+              </button>
+            </div>
+
+            <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
+              {filteredBotes.length === 0 ? (
+                <div style={{ padding: '16px', color: 'var(--text3)', textAlign: 'center' }}>
+                  No se encontraron botes para "{searchTerm}" en la caleta {opCaleta || '(ninguna)'}.
+                </div>
+              ) : (
+                filteredBotes.map((boat) => (
+                  <div
+                    key={boat.id}
+                    style={{
+                      padding: '12px 16px',
+                      cursor: 'pointer',
+                      borderBottom: '1px solid var(--border)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      transition: 'background-color 0.15s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg2)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    onClick={() => handleSelectBoat(boat.nombre)}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 800, color: 'var(--navy)', fontSize: 14 }}>{boat.nombre}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+                        RPA {boat.nrpa} · Caleta {boat.caleta}
+                      </div>
+                    </div>
+                    <div style={{ backgroundColor: 'var(--bg2)', padding: '4px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600, color: 'var(--text2)' }}>
+                      {boat.region}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 8 }}>
+          <button className="btn b-out" onClick={addRow}>
+            Agregar fila
+          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn b-out"
+              onClick={() => {
+                if (typeof onCancel === 'function') onCancel()
+              }}
+            >
+              Cancelar
+            </button>
+            <button className="btn b-teal" onClick={onSaveBotes}>
+              Guardar botes
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const openBotesTable = (opId, opFallback) => {
     const BodyBotes = () => {
-      const opBase = (operaciones || []).find((o) => String(o?.id) === String(opId)) || null
+      const opBase = (operaciones || []).find((o) => String(o?.id) === String(opId)) || opFallback || null
       const seed = Array.isArray(opBase?.botes) ? opBase.botes : []
-      const opCaleta = String(opBase?.sector || '')
+      const opCaleta = String(opBase?.sector || opBase?.caleta || '').trim()
+      const caletaKey = String(opCaleta || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
 
       const [rows, setRows] = useState(() => {
         if (seed.length) {
@@ -247,11 +673,12 @@ export default function OpsPage({ active }) {
       }
 
       const handleAddNewBoat = () => {
-        const newBoatName = prompt('Ingresa el nombre del nuevo bote:')
-        if (newBoatName && currentRowIdx !== null) {
-          setRows((prev) => prev.map((x, i) => (i === currentRowIdx ? { ...x, nombre: newBoatName.trim() } : x)))
-        }
-        closePanel()
+        openAddBoteModal((newBoatName) => {
+          if (newBoatName && currentRowIdx !== null) {
+            setRows((prev) => prev.map((x, i) => (i === currentRowIdx ? { ...x, nombre: newBoatName } : x)))
+          }
+          closePanel()
+        })
       }
 
       const onSaveBotes = () => {
@@ -273,6 +700,8 @@ export default function OpsPage({ active }) {
           const prevById = new Map(prevBotes.map((b) => [String(b?.id || ''), b]))
           const nextBotes = clean.map((r, i) => {
             const prev = prevById.get(r.sourceId)
+            const prevDensTipo = prev?.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto'
+            const keepDensidad = prev && prevDensTipo === r.densTipo
             return {
               id: `B${i + 1}`,
               nombre: r.nombre,
@@ -280,7 +709,7 @@ export default function OpsPage({ active }) {
               zona: r.zona,
               densTipo: r.densTipo,
               lpMuestras: prev?.lpMuestras && typeof prev.lpMuestras === 'object' ? prev.lpMuestras : {},
-              transectos: Array.isArray(prev?.transectos) ? prev.transectos : [],
+              transectos: keepDensidad ? (Array.isArray(prev?.transectos) ? prev.transectos : []) : [],
             }
           })
           return { ...cur, botes: nextBotes }
@@ -289,16 +718,49 @@ export default function OpsPage({ active }) {
         toast('Botes actualizados', 'green')
       }
 
+      const masterBotes = useMemo(() => {
+        const arr = db?.botesMaestro
+        return Array.isArray(arr) ? arr : []
+      }, [db?.botesMaestro])
+
       const filteredBotes = useMemo(() => {
-        const term = searchTerm.toLowerCase()
-        return BOTES.filter(
+        const term = String(searchTerm || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, ' ')
+          .trim()
+        return masterBotes.filter(
           (b) =>
-            b.caleta === opCaleta &&
-            (b.nombre.toLowerCase().includes(term) ||
-              b.nrpa.toLowerCase().includes(term) ||
-              b.nmatricula.toLowerCase().includes(term))
+            String(b?.caleta || '')
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/[^a-z0-9]+/g, ' ')
+              .trim() === caletaKey &&
+            (String(b?.nombre || '')
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/[^a-z0-9]+/g, ' ')
+              .trim()
+              .includes(term) ||
+              String(b?.nrpa || '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]+/g, ' ')
+                .trim()
+                .includes(term) ||
+              String(b?.nmatricula || '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]+/g, ' ')
+                .trim()
+                .includes(term))
         )
-      }, [searchTerm, opCaleta])
+      }, [searchTerm, caletaKey, masterBotes])
 
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -339,7 +801,18 @@ export default function OpsPage({ active }) {
                       <input className="ii" placeholder="Nombre buzo" value={r.buzo} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, buzo: e.target.value } : x)))} />
                     </td>
                     <td style={{ minWidth: 190 }}>
-                      <select className="is" value={r.densTipo} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, densTipo: e.target.value } : x)))}>
+                      <select 
+                        className="is" 
+                        value={r.densTipo} 
+                        onChange={(e) => {
+                          const newDensTipo = e.target.value
+                          if (r.densTipo !== newDensTipo) {
+                            const ok = confirm('Al cambiar la unidad de muestreo, solo se perderán los datos de densidad (los datos de peso-longitud se mantendrán). ¿Continuar?')
+                            if (!ok) return
+                          }
+                          setRows((p) => p.map((x, i) => (i === idx ? { ...x, densTipo: newDensTipo } : x)))
+                        }}
+                      >
                         <option value="transecto">Transecto</option>
                         <option value="cuadrante">Cuadrante</option>
                       </select>
@@ -469,6 +942,7 @@ export default function OpsPage({ active }) {
 
     const Body = () => {
       const [s, setS] = useState(form)
+      const [tab, setTab] = useState('op')
 
       const amerbOpts = sectorAmerb
         .filter((a) => a.region === s.region)
@@ -484,7 +958,7 @@ export default function OpsPage({ active }) {
       const opaOpts = opa
         .filter((o) => o.region === s.region)
         .slice()
-        .sort((a, b) => String(a.nombrecorto || a.nombre || '').localeCompare(String(b.nombrecorto || b.nombre || '')))
+        .sort((a, b) => String(a.nombre || a.nombrecorto || '').localeCompare(String(b.nombre || b.nombrecorto || '')))
         .slice(0, 4000)
 
       const onSave = () => {
@@ -539,6 +1013,17 @@ export default function OpsPage({ active }) {
 
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="btabs">
+            <div className={`btab${tab === 'op' ? ' on' : ''}`} onClick={() => setTab('op')}>
+              Operación
+            </div>
+            <div className={`btab${tab === 'botes' ? ' on' : ''}`} onClick={() => setTab('botes')}>
+              Botes
+            </div>
+          </div>
+
+          {tab === 'op' ? (
+            <>
           <div className="i2">
             <div className="ig">
               <label className="il">Región</label>
@@ -616,7 +1101,7 @@ export default function OpsPage({ active }) {
             <SearchableSelect
               label="Organización (OPA)"
               value={s.opaId}
-              options={opaOpts.map((o) => ({ value: String(o.id), label: o.nombrecorto || o.nombre }))}
+              options={opaOpts.map((o) => ({ value: String(o.id), label: o.nombre || o.nombrecorto }))}
               placeholder="Buscar organización..."
               onChange={(id) => {
                 const f = opaOpts.find((x) => String(x.id) === String(id))
@@ -655,6 +1140,10 @@ export default function OpsPage({ active }) {
           <button className="btn" style={{ border: '1.5px solid var(--red)', background: 'transparent', color: 'var(--red)' }} onClick={onDelete}>
             ELIMINAR OPERACION
           </button>
+            </>
+          ) : (
+            <BotesEditor opId={op.id} opFallback={{ ...op, sector: s.sector, caleta: s.sector }} onCancel={() => setTab('op')} />
+          )}
         </div>
       )
     }
@@ -693,7 +1182,7 @@ export default function OpsPage({ active }) {
       const opaOpts = opa
         .filter((o) => o.region === s.region)
         .slice()
-        .sort((a, b) => String(a.nombrecorto || a.nombre || '').localeCompare(String(b.nombrecorto || b.nombre || '')))
+        .sort((a, b) => String(a.nombre || a.nombrecorto || '').localeCompare(String(b.nombre || b.nombrecorto || '')))
         .slice(0, 4000)
 
       const onSave = () => {
@@ -724,7 +1213,7 @@ export default function OpsPage({ active }) {
         })
         closeModal()
         toast('Operación creada', 'green')
-        setTimeout(() => openBotesTable(opId), 50)
+        setTimeout(() => openBotesTable(opId, { id: opId, sector: s.sector, caleta: s.sector, sectorAmerb: s.sectorAmerb }), 50)
       }
 
       return (
@@ -812,7 +1301,7 @@ export default function OpsPage({ active }) {
             <SearchableSelect
               label="Organización (OPA)"
               value={s.opaId}
-              options={opaOpts.map((o) => ({ value: String(o.id), label: o.nombrecorto || o.nombre }))}
+              options={opaOpts.map((o) => ({ value: String(o.id), label: o.nombre || o.nombrecorto }))}
               placeholder="Buscar organización..."
               onChange={(id) => {
                 const f = opaOpts.find((x) => String(x.id) === String(id))
@@ -1056,12 +1545,6 @@ export default function OpsPage({ active }) {
                     <div style={{ fontFamily: 'var(--ff-d)', fontSize: 14, fontWeight: 800, color: 'var(--navy)' }}>
                       Botes
                     </div>
-                    <button
-                      className="btn b-teal b-sm"
-                      onClick={() => openBotesTable(op.id)}
-                    >
-                      Agregar bote
-                    </button>
                   </div>
 
                   {(op.botes || []).length === 0 ? (

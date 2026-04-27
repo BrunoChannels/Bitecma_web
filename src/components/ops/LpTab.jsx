@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { addSample, ensureEspecie, removeEspecie, removeSample, updateSample } from '../../services/lpMuestrasService.js'
+import { addSample, ensureKind, removeEspecie, removeKind, removeSample, updateSample } from '../../services/lpMuestrasService.js'
 import SpeciesGrid from '../common/SpeciesGrid.jsx'
 
 function typeForSamples(samples) {
@@ -9,6 +9,37 @@ function typeForSamples(samples) {
   if (hasD) return 'D'
   if (hasPeso) return 'LP'
   return 'L'
+}
+
+function normKind(kind) {
+  const k = String(kind || '').trim().toUpperCase()
+  if (k === 'L-P' || k === 'LP') return 'LP'
+  if (k === 'D') return 'D'
+  return 'L'
+}
+
+function normalizeEntry(entry) {
+  if (Array.isArray(entry)) {
+    const out = {}
+    ;(entry || []).forEach((m) => {
+      const k = typeForSamples([m])
+      if (!out[k]) out[k] = []
+      out[k].push(m)
+    })
+    return out
+  }
+  if (entry && typeof entry === 'object') {
+    if (Array.isArray(entry.ms)) {
+      const k = normKind(entry.type || 'LP')
+      return { [k]: Array.isArray(entry.ms) ? entry.ms : [] }
+    }
+    const out = {}
+    ;['LP', 'L', 'D'].forEach((k) => {
+      if (Array.isArray(entry[k])) out[k] = entry[k]
+    })
+    return out
+  }
+  return {}
 }
 
 function normKey(s) {
@@ -70,11 +101,27 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
     const Body = () => {
       const initial = spIds
       const [sel, setSel] = useState(() => initial.slice())
+      const [kindsBySpId, setKindsBySpId] = useState(() => {
+        const out = {}
+        initial.forEach((id) => {
+          const sp = byId.get(Number(id))
+          const isAlga = isAlgaSpecies(sp)
+          const entry = normalizeEntry(lpMap?.[id])
+          if (isAlga) out[id] = { D: true }
+          else {
+            const hasLP = Array.isArray(entry.LP) && entry.LP.length > 0
+            const hasL = Array.isArray(entry.L) && entry.L.length > 0
+            out[id] = { LP: hasLP || (!hasLP && !hasL), L: hasL }
+          }
+        })
+        return out
+      })
 
       const prevSet = new Set(initial.map(Number))
       const nextSet = new Set((Array.isArray(sel) ? sel : []).map(Number).filter((x) => Number.isFinite(x)))
       const removed = [...prevSet].filter((x) => !nextSet.has(x))
-      const added = [...nextSet].filter((x) => !prevSet.has(x))
+
+      const sortedSel = [...nextSet].sort((a, b) => a - b)
 
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -85,7 +132,96 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
             </div>
           </div>
 
-          <SpeciesGrid especies={especiesAll} selectedIds={sel} onChange={setSel} multi columns={3} maxHeight={420} />
+          <SpeciesGrid
+            especies={especiesAll}
+            selectedIds={sel}
+            onChange={(ids) => {
+              const next = (Array.isArray(ids) ? ids : []).map(Number).filter((x) => Number.isFinite(x))
+              setSel(next)
+              setKindsBySpId((prev) => {
+                const out = {}
+                next.forEach((id) => {
+                  const prevCfg = prev?.[id]
+                  if (prevCfg) {
+                    out[id] = prevCfg
+                    return
+                  }
+                  const sp = byId.get(Number(id))
+                  out[id] = isAlgaSpecies(sp) ? { D: true } : { LP: true, L: false }
+                })
+                return out
+              })
+            }}
+            multi
+            columns={3}
+            maxHeight={320}
+          />
+
+          {sortedSel.length ? (
+            <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
+              <div style={{ fontFamily: 'var(--ff-d)', fontSize: 12, fontWeight: 800, color: 'var(--navy)', marginBottom: 8 }}>
+                Tipos de muestreo por especie
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {sortedSel.map((spId) => {
+                  const sp = byId.get(Number(spId))
+                  const isAlga = isAlgaSpecies(sp)
+                  const entry = normalizeEntry(lpMap?.[spId])
+                  const cntLP = Array.isArray(entry.LP) ? entry.LP.length : 0
+                  const cntL = Array.isArray(entry.L) ? entry.L.length : 0
+                  const cfg = kindsBySpId?.[spId] || (isAlga ? { D: true } : { LP: true, L: false })
+                  return (
+                    <div key={spId} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <strong>{sp?.com || spId}</strong>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{sp?.sci || ''}</div>
+                      </div>
+                      {isAlga ? (
+                        <div style={{ whiteSpace: 'nowrap', color: 'var(--text2)' }}>D</div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={!!cfg.LP}
+                              disabled={cntLP > 0}
+                              onChange={(e) => {
+                                const checked = e.target.checked
+                                setKindsBySpId((prev) => {
+                                  const cur = prev?.[spId] || { LP: true, L: false }
+                                  const nextCfg = { ...cur, LP: checked }
+                                  if (!nextCfg.LP && !nextCfg.L) nextCfg.LP = true
+                                  return { ...(prev || {}), [spId]: nextCfg }
+                                })
+                              }}
+                            />
+                            L-P{cntLP ? ` (${cntLP})` : ''}
+                          </label>
+                          <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={!!cfg.L}
+                              disabled={cntL > 0}
+                              onChange={(e) => {
+                                const checked = e.target.checked
+                                setKindsBySpId((prev) => {
+                                  const cur = prev?.[spId] || { LP: true, L: false }
+                                  const nextCfg = { ...cur, L: checked }
+                                  if (!nextCfg.LP && !nextCfg.L) nextCfg.LP = true
+                                  return { ...(prev || {}), [spId]: nextCfg }
+                                })
+                              }}
+                            />
+                            L{cntL ? ` (${cntL})` : ''}
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ) : null}
 
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
@@ -105,11 +241,21 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
                   const nextBotes = (cur.botes || []).map((x) => {
                     if (x.id !== bote.id) return x
                     let map = x.lpMuestras || {}
-                    added.forEach((id) => {
-                      map = ensureEspecie(map, id)
-                    })
                     removed.forEach((id) => {
                       map = removeEspecie(map, id)
+                    })
+                    ;[...nextSet].forEach((id) => {
+                      const sp = byId.get(Number(id))
+                      const isAlga = isAlgaSpecies(sp)
+                      if (isAlga) {
+                        map = ensureKind(map, id, 'D')
+                        return
+                      }
+                      const cfg = kindsBySpId?.[id] || { LP: true, L: false }
+                      if (cfg.LP) map = ensureKind(map, id, 'LP')
+                      else map = removeKind(map, id, 'LP')
+                      if (cfg.L) map = ensureKind(map, id, 'L')
+                      else map = removeKind(map, id, 'L')
                     })
                     return { ...x, lpMuestras: map }
                   })
@@ -131,12 +277,13 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
   const openIngreso = (especieId, forcedType) => {
     const spId = Number(especieId)
     const sp = byId.get(spId)
+    const kind0 = normKind(forcedType)
 
     const Body = () => {
-      const initialSamples = (bote?.lpMuestras || {})[spId] || []
+      const entry = normalizeEntry((bote?.lpMuestras || {})[spId])
+      const initialSamples = entry?.[kind0] || []
       const [samplesNow, setSamplesNow] = useState(() => (Array.isArray(initialSamples) ? initialSamples : []))
-      const inferred = typeForSamples(samplesNow)
-      const kind = forcedType || inferred
+      const kind = kind0
 
       const [draft, setDraft] = useState(() => (kind === 'LP' ? { l: '', p: '' } : kind === 'D' ? { d: '' } : { l: '' }))
       const [editIdx, setEditIdx] = useState(null)
@@ -152,7 +299,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
             const nextBotes = (cur.botes || []).map((x) => {
               if (x.id !== bote.id) return x
               const map = x.lpMuestras || {}
-              const next = editIdx == null ? addSample(map, spId, { l, p }) : updateSample(map, spId, editIdx, { l, p })
+              const next = editIdx == null ? addSample(map, spId, kind, { l, p }) : updateSample(map, spId, kind, editIdx, { l, p })
               return { ...x, lpMuestras: next }
             })
             return { ...cur, botes: nextBotes }
@@ -169,7 +316,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
             const nextBotes = (cur.botes || []).map((x) => {
               if (x.id !== bote.id) return x
               const map = x.lpMuestras || {}
-              const next = editIdx == null ? addSample(map, spId, { d }) : updateSample(map, spId, editIdx, { d })
+              const next = editIdx == null ? addSample(map, spId, kind, { d }) : updateSample(map, spId, kind, editIdx, { d })
               return { ...x, lpMuestras: next }
             })
             return { ...cur, botes: nextBotes }
@@ -186,7 +333,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
             const nextBotes = (cur.botes || []).map((x) => {
               if (x.id !== bote.id) return x
               const map = x.lpMuestras || {}
-              const next = editIdx == null ? addSample(map, spId, { l }) : updateSample(map, spId, editIdx, { l })
+              const next = editIdx == null ? addSample(map, spId, kind, { l }) : updateSample(map, spId, kind, editIdx, { l })
               return { ...x, lpMuestras: next }
             })
             return { ...cur, botes: nextBotes }
@@ -315,9 +462,12 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
               </thead>
               <tbody>
                 {samplesNow.length ? (
-                  samplesNow.map((m, idx) => (
+                  samplesNow
+                    .map((m, idx) => ({ m, idx }))
+                    .reverse()
+                    .map(({ m, idx }, displayIdx) => (
                     <tr key={idx}>
-                      <td>{idx + 1}</td>
+                      <td>{samplesNow.length - displayIdx}</td>
                       <td>{kind === 'D' ? m?.d ?? '' : m?.l ?? ''}</td>
                       {kind === 'LP' ? <td>{m?.p ?? ''}</td> : null}
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -349,7 +499,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
                               const nextBotes = (cur.botes || []).map((x) => {
                                 if (x.id !== bote.id) return x
                                 const map = x.lpMuestras || {}
-                                const next = removeSample(map, spId, idx)
+                                const next = removeSample(map, spId, kind, idx)
                                 return { ...x, lpMuestras: next }
                               })
                               return { ...cur, botes: nextBotes }
@@ -434,25 +584,30 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
               </tr>
             </thead>
             <tbody>
-              {spIds.map((spId) => {
+              {spIds.flatMap((spId) => {
                 const sp = byId.get(Number(spId))
-                const samples = lpMap?.[spId] || []
-                const kind = isAlgaSpecies(sp) ? 'D' : typeForSamples(samples)
-                return (
-                  <tr key={spId}>
-                    <td style={{ textAlign: 'left' }}>
-                      <strong>{sp?.com || spId}</strong>
-                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{sp?.sci || ''}</div>
-                    </td>
-                    <td>{Array.isArray(samples) ? samples.length : 0}</td>
-                    <td>{kind === 'LP' ? 'L-P' : kind === 'D' ? 'D' : 'L'}</td>
-                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <button className="btn b-teal b-sm" onClick={() => openIngreso(spId, isAlgaSpecies(sp) ? 'D' : null)}>
-                        Ingresar
-                      </button>
-                    </td>
-                  </tr>
-                )
+                const entry = normalizeEntry(lpMap?.[spId])
+                const isAlga = isAlgaSpecies(sp)
+                const kinds = isAlga ? ['D'] : ['LP', 'L']
+                const visibleKinds = kinds.filter((k) => Object.prototype.hasOwnProperty.call(entry, k))
+                return visibleKinds.map((kind) => {
+                  const samples = entry?.[kind] || []
+                  return (
+                    <tr key={`${spId}-${kind}`}>
+                      <td style={{ textAlign: 'left' }}>
+                        <strong>{sp?.com || spId}</strong>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{sp?.sci || ''}</div>
+                      </td>
+                      <td>{Array.isArray(samples) ? samples.length : 0}</td>
+                      <td style={{ minWidth: 120 }}>{kind === 'LP' ? 'L-P' : kind}</td>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <button className="btn b-teal b-sm" onClick={() => openIngreso(spId, kind)}>
+                          Ingresar
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })
               })}
             </tbody>
           </table>

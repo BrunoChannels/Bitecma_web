@@ -281,14 +281,38 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
       lpGroups.get(key).push(row)
     }
 
+    const normKind = (kind) => {
+      const k = String(kind || '').trim().toUpperCase()
+      if (k === 'L-P' || k === 'LP') return 'LP'
+      if (k === 'D') return 'D'
+      return 'L'
+    }
+    const eachLpSample = (entry, cb) => {
+      if (Array.isArray(entry)) {
+        entry.forEach((m) => cb(m, null))
+        return
+      }
+      if (entry && typeof entry === 'object') {
+        if (Array.isArray(entry.ms)) {
+          const k = normKind(entry.type || 'LP')
+          entry.ms.forEach((m) => cb(m, k))
+          return
+        }
+        ;['D', 'LP', 'L'].forEach((k) => {
+          const arr = entry?.[k]
+          if (Array.isArray(arr)) arr.forEach((m) => cb(m, k))
+        })
+      }
+    }
+
     ;(op.botes || []).forEach((b) => {
-      Object.entries(b.lpMuestras || {}).forEach(([spIdRaw, muestras]) => {
+      Object.entries(b.lpMuestras || {}).forEach(([spIdRaw, entry]) => {
         const spId = parseInt(spIdRaw)
         const sp = ESPECIES.find((e) => e.id == spId)
-        ;(muestras || []).forEach((m) => {
+        eachLpSample(entry, (m, forcedKind) => {
           const isAlga = isAlgaId(spId)
           const hasPeso = m && m.p !== undefined && m.p !== null && m.p !== ''
-          const kind = isAlga ? 'D' : hasPeso ? 'LP' : 'L'
+          const kind = forcedKind || (isAlga ? 'D' : hasPeso ? 'LP' : 'L')
           pushLP(kind, spId, {
             region: op.region,
             sector: op.sector,

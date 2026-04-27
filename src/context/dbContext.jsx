@@ -52,6 +52,22 @@ export function DbProvider({ children }) {
     })
   }, [])
 
+  const upsertBoteMaestro = useCallback((bote) => {
+    setDb((prev) => {
+      const botes = Array.isArray(prev.botesMaestro) ? prev.botesMaestro : []
+      const idx = botes.findIndex((x) => x.id === bote.id)
+      const nextBotes = idx >= 0 ? botes.map((x, i) => (i === idx ? bote : x)) : [bote, ...botes]
+      return { ...prev, botesMaestro: nextBotes }
+    })
+  }, [])
+
+  const deleteBoteMaestro = useCallback((boteId) => {
+    setDb((prev) => {
+      const botes = Array.isArray(prev.botesMaestro) ? prev.botesMaestro : []
+      return { ...prev, botesMaestro: botes.filter((x) => x.id !== boteId) }
+    })
+  }, [])
+
   const value = useMemo(
     () => ({
       db,
@@ -59,8 +75,10 @@ export function DbProvider({ children }) {
       upsertOperacion,
       deleteOperacion,
       updateOperacion,
+      upsertBoteMaestro,
+      deleteBoteMaestro,
     }),
-    [db, upsertOperacion, deleteOperacion, updateOperacion],
+    [db, upsertOperacion, deleteOperacion, updateOperacion, upsertBoteMaestro, deleteBoteMaestro],
   )
 
   return <DbContext.Provider value={value}>{children}</DbContext.Provider>

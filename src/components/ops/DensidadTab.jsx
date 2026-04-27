@@ -12,6 +12,7 @@ import {
   updateUnidad,
 } from '../../services/densidadService.js'
 import SpeciesGrid from '../common/SpeciesGrid.jsx'
+import { ensureKind } from '../../services/lpMuestrasService.js'
 
 function focusNextInput(from, root) {
   const container = root || document
@@ -270,6 +271,39 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                 })
                 closeModal()
                 toast?.('Transectos actualizados', 'green')
+
+                // Detectar si hay especies nuevas añadidas en este guardado masivo
+                const existingSpIds = new Set(
+                  (Array.isArray(bote?.transectos) ? bote.transectos : [])
+                    .filter((u) => String(u?.tipo || 'transecto') === 'transecto')
+                    .flatMap(u => Object.keys(u?.counts && typeof u.counts === 'object' ? u.counts : {}).map(Number))
+                )
+                const newSpIds = new Set(
+                  rows.flatMap(r => Array.isArray(r.especiesIds) ? r.especiesIds.map(Number) : [])
+                )
+                const newlyAdded = [...newSpIds].filter(id => !existingSpIds.has(id))
+
+                if (newlyAdded.length > 0) {
+                  setTimeout(() => {
+                    const transferir = window.confirm(
+                      '¿Deseas agregar también estas especies a la pestaña Peso-Longitud de este bote?'
+                    )
+                    if (transferir) {
+                      updateOperacion(op.id, (cur) => {
+                        const nextBotes = (cur.botes || []).map((x) => {
+                          if (x.id !== bote.id) return x
+                          let map = x.lpMuestras || {}
+                          newlyAdded.forEach((id) => {
+                            map = ensureKind(map, id, 'LP')
+                          })
+                          return { ...x, lpMuestras: map }
+                        })
+                        return { ...cur, botes: nextBotes }
+                      })
+                      toast?.('Especies agregadas a Peso-Longitud', 'blue')
+                    }
+                  }, 150)
+                }
               }}
             >
               Guardar
@@ -929,8 +963,32 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                                   })
                                   return { ...cur, botes: nextBotes }
                                 })
+
                                 closeModal()
                                 toast?.('Especies actualizadas', 'green')
+
+                                // Preguntar si desea pasar las agregadas a Peso-Longitud
+                                if (added.length > 0) {
+                                  setTimeout(() => {
+                                    const transferir = window.confirm(
+                                      '¿Deseas agregar también estas especies a la pestaña Peso-Longitud de este bote?'
+                                    )
+                                    if (transferir) {
+                                      updateOperacion(op.id, (cur) => {
+                                        const nextBotes = (cur.botes || []).map((x) => {
+                                          if (x.id !== bote.id) return x
+                                          let map = x.lpMuestras || {}
+                                          added.forEach((id) => {
+                                            map = ensureKind(map, id, 'LP')
+                                          })
+                                          return { ...x, lpMuestras: map }
+                                        })
+                                        return { ...cur, botes: nextBotes }
+                                      })
+                                      toast?.('Especies agregadas a Peso-Longitud', 'blue')
+                                    }
+                                  }, 150)
+                                }
                               }}
                             >
                               Confirmar
