@@ -109,8 +109,8 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
           const entry = normalizeEntry(lpMap?.[id])
           if (isAlga) out[id] = { D: true }
           else {
-            const hasLP = Array.isArray(entry.LP) && entry.LP.length > 0
-            const hasL = Array.isArray(entry.L) && entry.L.length > 0
+            const hasLP = Object.prototype.hasOwnProperty.call(entry, 'LP')
+            const hasL = Object.prototype.hasOwnProperty.call(entry, 'L')
             out[id] = { LP: hasLP || (!hasLP && !hasL), L: hasL }
           }
         })
@@ -147,7 +147,15 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
                     return
                   }
                   const sp = byId.get(Number(id))
-                  out[id] = isAlgaSpecies(sp) ? { D: true } : { LP: true, L: false }
+                  const isAlga = isAlgaSpecies(sp)
+                  const entry = normalizeEntry(lpMap?.[id])
+                  if (isAlga) {
+                    out[id] = { D: true }
+                  } else {
+                    const hasLP = Object.prototype.hasOwnProperty.call(entry, 'LP')
+                    const hasL = Object.prototype.hasOwnProperty.call(entry, 'L')
+                    out[id] = { LP: hasLP || (!hasLP && !hasL), L: hasL }
+                  }
                 })
                 return out
               })

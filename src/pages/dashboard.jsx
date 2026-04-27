@@ -35,7 +35,12 @@ export default function DashboardPage({ active }) {
           (a, b) =>
             a +
             Object.values(b?.lpMuestras || {}).reduce(
-              (x, arr) => x + (Array.isArray(arr) ? arr.length : 0),
+              (x, entry) =>
+                x +
+                Object.values(entry || {}).reduce(
+                  (y, arr) => y + (Array.isArray(arr) ? arr.length : 0),
+                  0,
+                ),
               0,
             ),
           0,
@@ -55,10 +60,10 @@ export default function DashboardPage({ active }) {
     for (const op of ops) {
       for (const bote of op?.botes || []) {
         const lp = bote?.lpMuestras && typeof bote.lpMuestras === 'object' ? bote.lpMuestras : {}
-        for (const [k, arr] of Object.entries(lp)) {
+        for (const [k, entry] of Object.entries(lp)) {
           const spId = Number(k)
           if (!Number.isFinite(spId)) continue
-          const n = Array.isArray(arr) ? arr.length : 0
+          const n = Object.values(entry || {}).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0)
           counts.set(spId, (counts.get(spId) || 0) + n)
         }
       }
