@@ -116,7 +116,7 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
       const isCoordHeader = (h) => h === 'X' || h === 'Y' || h === 'LONG' || h === 'LAT'
       const isDensHeader = (h) => /^DENS /i.test(h)
       const isIcHeader = (h) => h === 'IC'
-      const isAreaHeader = (h) => /^AREA /i.test(h)
+      const isAreaHeader = (h) => /^AREA(\s|$)/i.test(h)
       const intFmt = '0'
       const densFmt = '0.0000'
       const icFmt = '0.0000000000'
@@ -179,15 +179,42 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
     const hasAnyTx = allTx.some((x) => x.t?.tipo !== 'cuadrante')
     const hasAnyCuad = allTx.some((x) => x.t?.tipo === 'cuadrante')
     const mixedTypes = hasAnyTx && hasAnyCuad
-    const numColName = hasAnyCuad && !hasAnyTx ? 'NUM CUADRANTE' : 'NUM TRANSECTO'
-    const areaColName = hasAnyCuad && !hasAnyTx ? 'AREA CUADRANTE' : 'AREA TRANSECTO'
     const allSpIds = [
       ...new Set(allTx.flatMap((x) => Object.keys(x.t?.counts || {}).map(Number)).filter((x) => !isNaN(x))),
     ].sort((a, b) => a - b)
     const allSp = allSpIds.map((id) => ESPECIES.find((e) => e.id == id)).filter(Boolean)
 
+    const txSpeciesIds = new Set()
+    const cuadSpeciesIds = new Set()
+    allTx.forEach(({ t }) => {
+      const tipo = String(t?.tipo || 'transecto')
+      const countIds = Object.keys(t?.counts || {})
+        .map(Number)
+        .filter((x) => Number.isFinite(x))
+      if (tipo === 'cuadrante') {
+        const especieId = Number(t?.especieId)
+        if (Number.isFinite(especieId)) cuadSpeciesIds.add(especieId)
+        countIds.forEach((id) => cuadSpeciesIds.add(id))
+        return
+      }
+      countIds.forEach((id) => txSpeciesIds.add(id))
+    })
+
+    const getCountCell = (t, spId) => {
+      const tipo = String(t?.tipo || 'transecto')
+      const counts = t?.counts && typeof t.counts === 'object' ? t.counts : {}
+      const hasOwn = Object.prototype.hasOwnProperty.call(counts, spId)
+      if (tipo === 'cuadrante') {
+        const especieId = Number(t?.especieId)
+        const isRowSpecies = Number.isFinite(especieId) ? especieId === spId : hasOwn
+        if (!isRowSpecies) return ''
+        return Number(counts?.[spId] ?? 0)
+      }
+      if (mixedTypes && !txSpeciesIds.has(spId) && cuadSpeciesIds.has(spId)) return ''
+      return Number(counts?.[spId] ?? 0)
+    }
+
     const densHeader = [
-      ...(mixedTypes ? ['TIPO UNIDAD'] : []),
       'REGION',
       'NOMBRE SECTOR',
       'TIPO DE ORGANIZACIÓN',
@@ -200,8 +227,9 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
       'ZONA MUESTREO',
       'BOTE',
       'BUZO',
-      numColName,
-      areaColName,
+      'TIPO UNIDAD',
+      'NUM',
+      'AREA',
       ...allSp.map((s) => `NUM ${String(s.com || '').toUpperCase()}`),
       'TIPO SUSTRATO',
       'CUBIERTA BIOLOGICA',
@@ -214,7 +242,7 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
     ]
 
     const densAoa = [densHeader]
-    const colArea = densHeader.indexOf(areaColName)
+    const colArea = densHeader.indexOf('AREA')
     const colCountsStart = densHeader.indexOf(`NUM ${String(allSp[0]?.com || '').toUpperCase()}`)
 
     ;(op.botes || []).forEach((b) => {
@@ -225,7 +253,7 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
         const mes = /^\d{4}-\d{2}-\d{2}$/.test(f) ? f.slice(5, 7) : ''
         const año = /^\d{4}-\d{2}-\d{2}$/.test(f) ? f.slice(0, 4) : year
         const row = []
-        if (mixedTypes) row.push(t.tipo === 'cuadrante' ? 'Cuadrante' : 'Transecto')
+        const tipoUnidad = t.tipo === 'cuadrante' ? 'Cuadrante' : 'Transecto'
         row.push(
           op.region,
           op.sector,
@@ -239,10 +267,11 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
           b.zona,
           b.nombre,
           b.buzo,
+          tipoUnidad,
           t.num,
           t.area,
         )
-        allSpIds.forEach((id) => row.push(Number(t.counts?.[id] ?? 0)))
+        allSpIds.forEach((id) => row.push(getCountCell(t, id)))
         row.push(String(t.sustrato || ''), String(t.cubierta || ''))
 
         const r = densAoa.length
@@ -251,9 +280,15 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
           const areaRef = XLSX.utils.encode_cell({ r, c: colArea })
           const countRef = XLSX.utils.encode_cell({ r, c: countCol })
           const area = Number(t.area) || 0
-          const cnt = Number(t.counts?.[id] ?? 0)
+          const cntCell = getCountCell(t, id)
+          const cnt = cntCell === '' ? '' : Number(cntCell)
           const dens = area > 0 ? cnt / area : 0
-          row.push({ t: 'n', f: `IFERROR(${countRef}/${areaRef},0)`, v: dens, z: '0.0000' })
+          row.push({
+            t: 'n',
+            f: `IF(ISBLANK(${countRef}),"",IFERROR(${countRef}/${areaRef},0))`,
+            v: cntCell === '' ? '' : dens,
+            z: '0.0000',
+          })
         })
 
         row.push(

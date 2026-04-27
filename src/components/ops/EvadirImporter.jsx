@@ -390,7 +390,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       const iBuzo = idxBy(['buzo'])
       const iNumCuad = idxBy([/num.*cuadr/])
       const iNumTran = idxBy([/num.*transec/, /num.*transe/])
-      const iNum = iNumCuad >= 0 ? iNumCuad : iNumTran
+      const iNum = iNumCuad >= 0 ? iNumCuad : iNumTran >= 0 ? iNumTran : idxBy([/^num$/])
       const iAreaCuad = idxBy([/area.*cuadr/])
       const iAreaTran = idxBy([/area.*transec/, /area.*transe/])
       const iArea = iAreaCuad >= 0 ? iAreaCuad : iAreaTran >= 0 ? iAreaTran : idxBy([/^area$/])
