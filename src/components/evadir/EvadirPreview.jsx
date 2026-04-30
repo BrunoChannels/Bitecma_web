@@ -29,13 +29,16 @@ function defaultColWidth(h) {
 }
 
 export default function EvadirPreview({ db, op }) {
-  const { sheets } = useMemo(() => buildEvadirPreviewSheets({ db, op }), [db, op])
+  const especies = db?.especies
+  const { sheets } = useMemo(() => buildEvadirPreviewSheets({ db: { especies }, op }), [especies, op])
   const [tab, setTab] = useState(() => sheets[0]?.name || 'EVADIR')
+  const [rowLimit, setRowLimit] = useState(250)
 
   const active = sheets.find((s) => s.name === tab) || sheets[0] || null
   const aoa = active?.aoa || []
   const header = Array.isArray(aoa?.[0]) ? aoa[0] : []
   const rows = aoa.slice(1)
+  const visibleRows = rows.slice(0, Math.max(0, rowLimit))
   const [colWidths, setColWidths] = useState(() => (Array.isArray(sheets?.[0]?.aoa?.[0]) ? sheets[0].aoa[0] : []).map(defaultColWidth))
 
   const activeColWidths =
@@ -92,6 +95,7 @@ export default function EvadirPreview({ db, op }) {
             className={`btn b-sm ${s.name === tab ? 'b-teal' : 'b-out'}`}
             onClick={() => {
               setTab(s.name)
+              setRowLimit(250)
               const nextHeader = Array.isArray(s?.aoa?.[0]) ? s.aoa[0] : []
               setColWidths(nextHeader.map(defaultColWidth))
             }}
@@ -100,6 +104,22 @@ export default function EvadirPreview({ db, op }) {
           </button>
         ))}
       </div>
+
+      {rows.length > rowLimit ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ color: 'var(--text3)', fontSize: 12 }}>
+            Mostrando {Math.min(rowLimit, rows.length)} de {rows.length} filas
+          </div>
+          <button className="btn b-out b-sm" onClick={() => setRowLimit((n) => Math.min(rows.length, n + 250))}>
+            Mostrar más
+          </button>
+          <button className="btn b-out b-sm" onClick={() => setRowLimit(rows.length)}>
+            Mostrar todo
+          </button>
+        </div>
+      ) : rows.length ? (
+        <div style={{ color: 'var(--text3)', fontSize: 12 }}>Mostrando {rows.length} filas</div>
+      ) : null}
 
       <div className="evp-wrap">
         <table className="tbl evp-tbl">
@@ -120,7 +140,7 @@ export default function EvadirPreview({ db, op }) {
           </thead>
           <tbody>
             {rows.length ? (
-              rows.map((r, ridx) => (
+              visibleRows.map((r, ridx) => (
                 <tr key={ridx}>
                   {header.map((h, cidx) => (
                     <td key={cidx}>{formatCell(h, r?.[cidx])}</td>

@@ -14,7 +14,7 @@ export default function SearchableSelect({
   const [q, setQ] = useState('')
   const wrapRef = useRef(null)
 
-  const opts = Array.isArray(options) ? options : []
+  const opts = useMemo(() => (Array.isArray(options) ? options : []), [options])
   const selected = useMemo(() => opts.find((o) => String(o.value) === String(value)) || null, [opts, value])
 
   const filtered = useMemo(() => {
@@ -135,4 +135,3 @@ export default function SearchableSelect({
     </div>
   )
 }
-

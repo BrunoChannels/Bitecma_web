@@ -1,16 +1,17 @@
-import AdminPage from './pages/admin.jsx'
-import BotesPage from './pages/botes.jsx'
-import DashboardPage from './pages/dashboard.jsx'
-import EspeciesPage from './pages/especies.jsx'
-import EvadirPage from './pages/evadir.jsx'
-import HistoricoPage from './pages/historico.jsx'
-import InformePage from './pages/informe.jsx'
+import { Suspense, lazy, useMemo } from 'react'
 import LoginScreen from './pages/login.jsx'
-import OpsPage from './pages/ops.jsx'
-import OrgsPage from './pages/orgs.jsx'
-import PerfilPage from './pages/perfil.jsx'
-import SectoresPage from './pages/sectores.jsx'
 
+const AdminPage = lazy(() => import('./pages/admin.jsx'))
+const BotesPage = lazy(() => import('./pages/botes.jsx'))
+const DashboardPage = lazy(() => import('./pages/dashboard.jsx'))
+const EspeciesPage = lazy(() => import('./pages/especies.jsx'))
+const EvadirPage = lazy(() => import('./pages/evadir.jsx'))
+const HistoricoPage = lazy(() => import('./pages/historico.jsx'))
+const InformePage = lazy(() => import('./pages/informe.jsx'))
+const OpsPage = lazy(() => import('./pages/ops.jsx'))
+const OrgsPage = lazy(() => import('./pages/orgs.jsx'))
+const PerfilPage = lazy(() => import('./pages/perfil.jsx'))
+const SectoresPage = lazy(() => import('./pages/sectores.jsx'))
 import Topbar from './components/topbar.jsx'
 import Sidebar from './components/sidebar.jsx'
 import { AppProvider, useApp } from './context/appContext.jsx'
@@ -57,6 +58,25 @@ function ModalHost() {
 
 function AppShell() {
   const { page, isAuthed } = useApp()
+
+  const pageToComp = useMemo(
+    () => ({
+      dashboard: DashboardPage,
+      ops: OpsPage,
+      evadir: EvadirPage,
+      historico: HistoricoPage,
+      informe: InformePage,
+      especies: EspeciesPage,
+      sectores: SectoresPage,
+      orgs: OrgsPage,
+      botes: BotesPage,
+      perfil: PerfilPage,
+      admin: AdminPage,
+    }),
+    [],
+  )
+  const ActivePage = pageToComp[page] || DashboardPage
+
   return (
     <>
       <ToastHost />
@@ -69,17 +89,9 @@ function AppShell() {
         <div className="app-body">
           <Sidebar />
           <div className="main">
-            <DashboardPage active={page === 'dashboard'} />
-            <OpsPage active={page === 'ops'} />
-            <EvadirPage active={page === 'evadir'} />
-            <HistoricoPage active={page === 'historico'} />
-            <InformePage active={page === 'informe'} />
-            <EspeciesPage active={page === 'especies'} />
-            <SectoresPage active={page === 'sectores'} />
-            <OrgsPage active={page === 'orgs'} />
-            <BotesPage active={page === 'botes'} />
-            <PerfilPage active={page === 'perfil'} />
-            <AdminPage active={page === 'admin'} />
+            <Suspense fallback={<div style={{ padding: 14, color: 'var(--text3)' }}>Cargando…</div>}>
+              <ActivePage active />
+            </Suspense>
           </div>
         </div>
       </div>

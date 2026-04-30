@@ -19,8 +19,8 @@ export default function DashboardPage({ active }) {
   const { navigate } = useApp()
   const { db } = useDb()
 
-  const especies = Array.isArray(db?.especies) ? db.especies : []
-  const ops = Array.isArray(db?.operaciones) ? db.operaciones : []
+  const especies = useMemo(() => (Array.isArray(db?.especies) ? db.especies : []), [db])
+  const ops = useMemo(() => (Array.isArray(db?.operaciones) ? db.operaciones : []), [db])
 
   const totalOps = ops.length
   const totalUnidades = ops.reduce(

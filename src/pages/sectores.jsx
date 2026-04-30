@@ -1,8 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useDb } from '../context/dbContext.jsx'
 
 export default function SectoresPage({ active }) {
-  const { db } = useDb()
+  const { db, ensureSectoresAmerbLoaded } = useDb()
+  useEffect(() => {
+    if (!active) return
+    ensureSectoresAmerbLoaded?.()
+  }, [active, ensureSectoresAmerbLoaded])
+
   const regiones = useMemo(() => {
     const arr = db?.regionesChile
     return Array.isArray(arr) ? arr : []

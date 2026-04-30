@@ -4,7 +4,6 @@ import { useDb } from '../context/dbContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
 import { useApp } from '../context/appContext.jsx'
 import { getOperacionMetricas } from '../services/operacionesService.js'
-import { BOTES } from '../data/botes'
 import SvgIcon from '../components/svgIcon.jsx'
 import BoteCard from '../components/ops/BoteCard.jsx'
 import EvadirPreview from '../components/evadir/EvadirPreview.jsx'
@@ -56,6 +55,15 @@ function fmtDMY(iso) {
   return `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`
 }
 
+function normKey(v) {
+  return String(v || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
 function toRoman(n) {
   const num = Math.trunc(Number(n) || 0)
   if (num <= 0) return ''
@@ -86,7 +94,7 @@ function toRoman(n) {
 }
 
  export default function OpsPage({ active }) {
-  const { db, upsertOperacion, updateOperacion, deleteOperacion, upsertBoteMaestro } = useDb()
+  const { db, ensureBotesMaestroLoaded, ensureSectoresAmerbLoaded, ensureOpaLoaded, upsertOperacion, updateOperacion, deleteOperacion, upsertBoteMaestro } = useDb()
   const { toast, openModal, closeModal } = useUi()
   const { canWrite, isViewer, navigate } = useApp()
   const { filtered, meses, sector, setSector, mes, setMes, texto, setTexto, operaciones } =
@@ -101,6 +109,13 @@ function toRoman(n) {
     toast('Acceso restringido: Visualizador no puede entrar a Operaciones', 'red')
     navigate('dashboard')
   }, [active, isViewer, navigate, toast])
+
+  useEffect(() => {
+    if (!active) return
+    ensureBotesMaestroLoaded?.()
+    ensureSectoresAmerbLoaded?.()
+    ensureOpaLoaded?.()
+  }, [active, ensureBotesMaestroLoaded, ensureSectoresAmerbLoaded, ensureOpaLoaded])
 
   const toggleExpanded = (opId) => {
     setExpanded((prev) => {
@@ -312,12 +327,7 @@ function toRoman(n) {
     const base = opBase || opFallback || null
     const seed = Array.isArray(base?.botes) ? base.botes : []
     const opCaleta = String(base?.sector || base?.caleta || '').trim()
-    const caletaKey = String(opCaleta || '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, ' ')
-      .trim()
+    const caletaKey = normKey(opCaleta)
 
     const [rows, setRows] = useState(() => {
       if (seed.length) {
@@ -418,49 +428,28 @@ function toRoman(n) {
       if (typeof onSaved === 'function') onSaved()
     }
 
-    const masterBotes = useMemo(() => {
-      const arr = db?.botesMaestro
-      return Array.isArray(arr) ? arr : []
-    }, [db?.botesMaestro])
+    const botesMaestro = db?.botesMaestro
+    const masterBotesIndexed = useMemo(() => {
+      const masterBotes = Array.isArray(botesMaestro) ? botesMaestro : []
+      return masterBotes.map((b) => ({
+        boat: b,
+        caletaKey: normKey(b?.caleta),
+        nombreKey: normKey(b?.nombre),
+        nrpaKey: normKey(b?.nrpa),
+        nmatriculaKey: normKey(b?.nmatricula),
+      }))
+    }, [botesMaestro])
 
     const filteredBotes = useMemo(() => {
-      const term = String(searchTerm || '')
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, ' ')
-        .trim()
-      return masterBotes.filter(
-        (b) =>
-          String(b?.caleta || '')
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-z0-9]+/g, ' ')
-            .trim() === caletaKey &&
-          (String(b?.nombre || '')
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-z0-9]+/g, ' ')
-            .trim()
-            .includes(term) ||
-            String(b?.nrpa || '')
-              .toLowerCase()
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '')
-              .replace(/[^a-z0-9]+/g, ' ')
-              .trim()
-              .includes(term) ||
-            String(b?.nmatricula || '')
-              .toLowerCase()
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '')
-              .replace(/[^a-z0-9]+/g, ' ')
-              .trim()
-              .includes(term))
-      )
-    }, [searchTerm, caletaKey, masterBotes])
+      const term = normKey(searchTerm)
+      return masterBotesIndexed
+        .filter(
+          (x) =>
+            x.caletaKey === caletaKey &&
+            (x.nombreKey.includes(term) || x.nrpaKey.includes(term) || x.nmatriculaKey.includes(term)),
+        )
+        .map((x) => x.boat)
+    }, [searchTerm, caletaKey, masterBotesIndexed])
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -612,12 +601,7 @@ function toRoman(n) {
       const opBase = (operaciones || []).find((o) => String(o?.id) === String(opId)) || opFallback || null
       const seed = Array.isArray(opBase?.botes) ? opBase.botes : []
       const opCaleta = String(opBase?.sector || opBase?.caleta || '').trim()
-      const caletaKey = String(opCaleta || '')
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, ' ')
-        .trim()
+      const caletaKey = normKey(opCaleta)
 
       const [rows, setRows] = useState(() => {
         if (seed.length) {
@@ -718,49 +702,28 @@ function toRoman(n) {
         toast('Botes actualizados', 'green')
       }
 
-      const masterBotes = useMemo(() => {
-        const arr = db?.botesMaestro
-        return Array.isArray(arr) ? arr : []
-      }, [db?.botesMaestro])
+      const botesMaestro = db?.botesMaestro
+      const masterBotesIndexed = useMemo(() => {
+        const masterBotes = Array.isArray(botesMaestro) ? botesMaestro : []
+        return masterBotes.map((b) => ({
+          boat: b,
+          caletaKey: normKey(b?.caleta),
+          nombreKey: normKey(b?.nombre),
+          nrpaKey: normKey(b?.nrpa),
+          nmatriculaKey: normKey(b?.nmatricula),
+        }))
+      }, [botesMaestro])
 
       const filteredBotes = useMemo(() => {
-        const term = String(searchTerm || '')
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/[^a-z0-9]+/g, ' ')
-          .trim()
-        return masterBotes.filter(
-          (b) =>
-            String(b?.caleta || '')
-              .toLowerCase()
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '')
-              .replace(/[^a-z0-9]+/g, ' ')
-              .trim() === caletaKey &&
-            (String(b?.nombre || '')
-              .toLowerCase()
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '')
-              .replace(/[^a-z0-9]+/g, ' ')
-              .trim()
-              .includes(term) ||
-              String(b?.nrpa || '')
-                .toLowerCase()
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '')
-                .replace(/[^a-z0-9]+/g, ' ')
-                .trim()
-                .includes(term) ||
-              String(b?.nmatricula || '')
-                .toLowerCase()
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '')
-                .replace(/[^a-z0-9]+/g, ' ')
-                .trim()
-                .includes(term))
-        )
-      }, [searchTerm, caletaKey, masterBotes])
+        const term = normKey(searchTerm)
+        return masterBotesIndexed
+          .filter(
+            (x) =>
+              x.caletaKey === caletaKey &&
+              (x.nombreKey.includes(term) || x.nrpaKey.includes(term) || x.nmatriculaKey.includes(term)),
+          )
+          .map((x) => x.boat)
+      }, [searchTerm, caletaKey, masterBotesIndexed])
 
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

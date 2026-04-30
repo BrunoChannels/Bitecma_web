@@ -1,10 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useDb } from '../context/dbContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
 
 export default function BotesPage({ active }) {
-  const { db, upsertBoteMaestro } = useDb()
+  const { db, ensureBotesMaestroLoaded, upsertBoteMaestro } = useDb()
   const { openModal, closeModal, toast } = useUi()
+
+  useEffect(() => {
+    if (!active) return
+    ensureBotesMaestroLoaded?.()
+  }, [active, ensureBotesMaestroLoaded])
   const regiones = useMemo(() => {
     const arr = db?.regionesChile
     return Array.isArray(arr) ? arr : []

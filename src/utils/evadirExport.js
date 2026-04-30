@@ -1,14 +1,4 @@
-function normNumber(v) {
-  if (v === null || v === undefined || v === '') return null
-  if (typeof v === 'number') return Number.isFinite(v) ? v : null
-  const n = Number(String(v).trim().replace(',', '.'))
-  return Number.isFinite(n) ? n : null
-}
-
-function numOrBlank(v) {
-  const n = normNumber(v)
-  return n === null ? '' : n
-}
+import { getTxCoordValue, numOrBlank } from '../services/evadirPreviewService.js'
 
 function safeFilePart(s) {
   const raw = String(s || '')
@@ -29,28 +19,9 @@ function safeFilePart(s) {
   return out.replace(/\s+/g, ' ').trim()
 }
 
-function getTxCoordValue(t, key) {
-  if (!t) return ''
-  const map = {
-    x: ['coordX', 'x'],
-    y: ['coordY', 'y'],
-    lon: ['coordLong', 'lon'],
-    lat: ['coordLat', 'lat'],
-  }
-  const candidates = map[key] || []
-  for (const k of candidates) {
-    const v = t[k]
-    if (v === null || v === undefined) continue
-    if (typeof v === 'number' && Number.isFinite(v)) return String(v)
-    const s = String(v).trim()
-    if (s !== '') return s
-  }
-  return ''
-}
-
 export async function exportEvadirXlsx({ db, opId, toast }) {
   const op = (db?.operaciones || []).find((o) => o.id === opId)
-  const ESPECIES = db?.especies || []
+  const ESPECIES = Array.isArray(db?.especies) ? db.especies : []
   if (!op) {
     toast?.('Operación no encontrada', 'red')
     return
@@ -179,10 +150,20 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
     const hasAnyTx = allTx.some((x) => x.t?.tipo !== 'cuadrante')
     const hasAnyCuad = allTx.some((x) => x.t?.tipo === 'cuadrante')
     const mixedTypes = hasAnyTx && hasAnyCuad
+    const speciesById = (() => {
+      const m = new Map()
+      for (const e of ESPECIES) {
+        const id = Number(e?.id)
+        if (!Number.isFinite(id)) continue
+        m.set(id, e)
+      }
+      return m
+    })()
+
     const allSpIds = [
       ...new Set(allTx.flatMap((x) => Object.keys(x.t?.counts || {}).map(Number)).filter((x) => !isNaN(x))),
     ].sort((a, b) => a - b)
-    const allSp = allSpIds.map((id) => ESPECIES.find((e) => e.id == id)).filter(Boolean)
+    const allSp = allSpIds.map((id) => speciesById.get(id)).filter(Boolean)
 
     const txSpeciesIds = new Set()
     const cuadSpeciesIds = new Set()
@@ -343,7 +324,7 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
     ;(op.botes || []).forEach((b) => {
       Object.entries(b.lpMuestras || {}).forEach(([spIdRaw, entry]) => {
         const spId = parseInt(spIdRaw)
-        const sp = ESPECIES.find((e) => e.id == spId)
+        const sp = speciesById.get(spId)
         eachLpSample(entry, (m, forcedKind) => {
           const isAlga = isAlgaId(spId)
           const hasPeso = m && m.p !== undefined && m.p !== null && m.p !== ''
@@ -394,7 +375,7 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
     ;[...lpGroups.entries()].forEach(([key, rows]) => {
       const [kind, spIdRaw] = key.split(':')
       const spId = parseInt(spIdRaw)
-      const sp = ESPECIES.find((e) => e.id == spId)
+      const sp = speciesById.get(spId)
       const com = String(sp?.com || sp?.sci || spIdRaw)
       if (kind === 'LP') {
         const header = [

@@ -1,16 +1,16 @@
-function normNumber(v) {
+export function normNumber(v) {
   if (v === null || v === undefined || v === '') return null
   if (typeof v === 'number') return Number.isFinite(v) ? v : null
   const n = Number(String(v).trim().replace(',', '.'))
   return Number.isFinite(n) ? n : null
 }
 
-function numOrBlank(v) {
+export function numOrBlank(v) {
   const n = normNumber(v)
   return n === null ? '' : n
 }
 
-function getTxCoordValue(t, key) {
+export function getTxCoordValue(t, key) {
   if (!t) return ''
   const map = {
     x: ['coordX', 'x'],
@@ -35,6 +35,16 @@ export function buildEvadirPreviewSheets({ db, op }) {
   const ESPECIES = Array.isArray(db?.especies) ? db.especies : []
   if (!op) return { sheets: [], meta: null }
 
+  const speciesById = (() => {
+    const m = new Map()
+    for (const e of ESPECIES) {
+      const id = Number(e?.id)
+      if (!Number.isFinite(id)) continue
+      m.set(id, e)
+    }
+    return m
+  })()
+
   const allTx = (op.botes || []).flatMap((b) => (b.transectos || []).map((t) => ({ b, t })))
   const hasAnyTx = allTx.some((x) => x.t?.tipo !== 'cuadrante')
   const hasAnyCuad = allTx.some((x) => x.t?.tipo === 'cuadrante')
@@ -43,7 +53,7 @@ export function buildEvadirPreviewSheets({ db, op }) {
   const allSpIds = [
     ...new Set(allTx.flatMap((x) => Object.keys(x.t?.counts || {}).map(Number)).filter((x) => !isNaN(x))),
   ].sort((a, b) => a - b)
-  const allSp = allSpIds.map((id) => ESPECIES.find((e) => e.id == id)).filter(Boolean)
+  const allSp = allSpIds.map((id) => speciesById.get(id)).filter(Boolean)
 
   const txSpeciesIds = new Set()
   const cuadSpeciesIds = new Set()
@@ -190,7 +200,7 @@ export function buildEvadirPreviewSheets({ db, op }) {
   ;(op.botes || []).forEach((b) => {
     Object.entries(b.lpMuestras || {}).forEach(([spIdRaw, entry]) => {
       const spId = parseInt(spIdRaw)
-      const sp = ESPECIES.find((e) => e.id == spId)
+      const sp = speciesById.get(spId)
       eachLpSample(entry, (m, forcedKind) => {
         const isAlga = isAlgaId(spId)
         const hasPeso = m && m.p !== undefined && m.p !== null && m.p !== ''
@@ -222,7 +232,7 @@ export function buildEvadirPreviewSheets({ db, op }) {
   ;[...lpGroups.entries()].forEach(([key, rows]) => {
     const [kind, spIdRaw] = key.split(':')
     const spId = parseInt(spIdRaw)
-    const sp = ESPECIES.find((e) => e.id == spId)
+    const sp = speciesById.get(spId)
     const com = String(sp?.com || sp?.sci || spIdRaw)
     if (kind === 'LP') {
       const header = [

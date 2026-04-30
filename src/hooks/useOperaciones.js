@@ -4,7 +4,7 @@ import { filterOperaciones } from '../services/operacionesService.js'
 
 export function useOperaciones() {
   const { db } = useDb()
-  const ops = db?.operaciones || []
+  const ops = useMemo(() => (Array.isArray(db?.operaciones) ? db.operaciones : []), [db])
 
   const [sector, setSector] = useState('')
   const [mes, setMes] = useState('')
@@ -45,4 +45,3 @@ export function useOperaciones() {
     meses,
   }
 }
-
