@@ -1,10 +1,37 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import DensidadTab from './DensidadTab.jsx'
 import LpTab from './LpTab.jsx'
 
 export default function BoteCard({ op, bote, especies, updateOperacion, toast, openModal, closeModal }) {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState('dens')
+
+  const densSpecies = useMemo(() => {
+    const arr = Array.isArray(especies) ? especies : []
+    const byId = new Map(arr.map((e) => [Number(e?.id), e]))
+    const transectos = Array.isArray(bote?.transectos) ? bote.transectos : []
+    const ids = new Set()
+
+    transectos.forEach((t) => {
+      const counts = t?.counts && typeof t.counts === 'object' ? t.counts : {}
+      Object.keys(counts)
+        .map(Number)
+        .filter((x) => Number.isFinite(x))
+        .forEach((id) => ids.add(id))
+
+      if (t?.tipo === 'cuadrante') {
+        const spId = Number(t?.especieId)
+        if (Number.isFinite(spId)) ids.add(spId)
+      }
+    })
+
+    return [...ids]
+      .sort((a, b) => a - b)
+      .map((id) => byId.get(id))
+      .filter(Boolean)
+      .map((sp) => String(sp?.com || sp?.sci || '').trim())
+      .filter(Boolean)
+  }, [bote, especies])
 
   const totalUnidades = Array.isArray(bote?.transectos) ? bote.transectos.length : 0
   const totalMuestras = (() => {
@@ -40,6 +67,20 @@ export default function BoteCard({ op, bote, especies, updateOperacion, toast, o
             <div className="bote-meta">
               {bote?.buzo || '—'} · {bote?.densTipo === 'cuadrante' ? 'Cuadrantes' : 'Transectos'}
             </div>
+            {densSpecies.length ? (
+              <div className="bote-meta" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                {densSpecies.slice(0, 6).map((name, idx) => (
+                  <span key={`${name}-${idx}`} className="pill p-blu" style={{ fontSize: 10 }}>
+                    {name}
+                  </span>
+                ))}
+                {densSpecies.length > 6 ? (
+                  <span className="pill p-amb" style={{ fontSize: 10 }}>
+                    +{densSpecies.length - 6}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>

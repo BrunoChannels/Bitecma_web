@@ -297,6 +297,7 @@ input[type=number].lp-num-inp{-moz-appearance:textfield;appearance:textfield;}
 .evp-resizer{position:absolute;top:0;right:0;width:10px;height:100%;cursor:col-resize;user-select:none;}
 .evp-resizer:hover{background:rgba(10,143,126,.12);}
 .evp{display:flex;flex-direction:column;gap:10px;height:100%;min-height:0;}
+.evp-sticky thead th{position:sticky;top:0;z-index:3;}
 
 /* Info boxes y progreso */
 .info-box{padding:11px 13px;border-radius:9px;font-size:12px;margin-bottom:13px;display:flex;gap:9px;align-items:flex-start;}

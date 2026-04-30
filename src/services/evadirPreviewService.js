@@ -10,6 +10,25 @@ export function numOrBlank(v) {
   return n === null ? '' : n
 }
 
+function coordCell(v) {
+  if (v === null || v === undefined || v === '') return ''
+
+  if (typeof v === 'number' && Number.isFinite(v)) return v.toFixed(4)
+
+  const s0 = String(v).trim()
+  if (s0 === '') return ''
+
+  const s = s0.replace(',', '.')
+  if (/^-?\d+$/.test(s)) return `${s}.0000`
+
+  const m = s.match(/^(-?\d+)\.(\d+)$/)
+  if (!m) return s0
+
+  const dec = m[2]
+  const dec4 = `${dec}0000`.slice(0, 4)
+  return `${m[1]}.${dec4}`
+}
+
 export function getTxCoordValue(t, key) {
   if (!t) return ''
   const map = {
@@ -75,14 +94,20 @@ export function buildEvadirPreviewSheets({ db, op }) {
     const tipo = String(t?.tipo || 'transecto')
     const counts = t?.counts && typeof t.counts === 'object' ? t.counts : {}
     const hasOwn = Object.prototype.hasOwnProperty.call(counts, spId)
+    const raw = hasOwn ? counts?.[spId] : undefined
+    const n = raw === '' ? null : Number(raw)
+
+    const isBlank = !hasOwn || raw === null || raw === undefined || raw === '' || !Number.isFinite(n)
     if (tipo === 'cuadrante') {
       const especieId = Number(t?.especieId)
       const isRowSpecies = Number.isFinite(especieId) ? especieId === spId : hasOwn
       if (!isRowSpecies) return ''
-      return Number(counts?.[spId] ?? 0)
+      if (isBlank) return ''
+      return n
     }
     if (mixedTypes && !txSpeciesIds.has(spId) && cuadSpeciesIds.has(spId)) return ''
-    return Number(counts?.[spId] ?? 0)
+    if (isBlank) return ''
+    return n
   }
 
   const densHeader = [
@@ -94,17 +119,16 @@ export function buildEvadirPreviewSheets({ db, op }) {
     'DIA',
     'MES',
     'AÑO',
-    'NUM SEG ESBA',
     'ZONA MUESTREO',
     'BOTE',
     'BUZO',
     'TIPO UNIDAD',
     'NUM',
     'AREA',
-    ...allSp.map((s) => `NUM ${String(s.com || '').toUpperCase()}`),
+    ...allSp.map((s) => `NUM ${String(s.com || s.sci || '').toUpperCase()}`),
     'TIPO SUSTRATO',
     'CUBIERTA BIOLOGICA',
-    ...allSp.map((s) => `DENS ${String(s.com || '').toUpperCase()} (N° IND/M2)`),
+    ...allSp.map((s) => `DENS ${String(s.com || s.sci || '').toUpperCase()} (N° IND/M2)`),
     'X',
     'Y',
     'LONG',
@@ -131,7 +155,6 @@ export function buildEvadirPreviewSheets({ db, op }) {
         dia,
         mes,
         año,
-        op.numSeg ?? '',
         b.zona,
         b.nombre,
         b.buzo,
@@ -153,10 +176,10 @@ export function buildEvadirPreviewSheets({ db, op }) {
         row.push(dens)
       })
       row.push(
-        numOrBlank(getTxCoordValue(t, 'x')),
-        numOrBlank(getTxCoordValue(t, 'y')),
-        numOrBlank(getTxCoordValue(t, 'lon')),
-        numOrBlank(getTxCoordValue(t, 'lat')),
+        coordCell(getTxCoordValue(t, 'x')),
+        coordCell(getTxCoordValue(t, 'y')),
+        coordCell(getTxCoordValue(t, 'lon')),
+        coordCell(getTxCoordValue(t, 'lat')),
         String(t.datum || 'WGS 84'),
       )
       densAoa.push(row)
@@ -218,7 +241,7 @@ export function buildEvadirPreviewSheets({ db, op }) {
           zona: b.zona,
           bote: b.nombre,
           buzo: b.buzo,
-          especie: sp?.sci || sp?.com || '',
+          especie: sp?.com || sp?.sci || '',
           l: m?.l ?? m?.d ?? '',
           p: m?.p ?? '',
           d: m?.d ?? m?.l ?? '',

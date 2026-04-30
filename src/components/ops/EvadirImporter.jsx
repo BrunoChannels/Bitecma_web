@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import EvadirPreview from '../evadir/EvadirPreview.jsx'
 import SpeciesGrid from '../common/SpeciesGrid.jsx'
 import { addSample } from '../../services/lpMuestrasService.js'
@@ -764,6 +764,14 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         if (!unresolvedGroups.length) return true
         return await new Promise((resolve) => {
           const BodyResolve = () => {
+            const doneRef = useRef(false)
+            useEffect(() => {
+              return () => {
+                if (doneRef.current) return
+                resolve(false)
+              }
+            }, [])
+
             const [idx, setIdx] = useState(0)
             const g = unresolvedGroups[idx]
             const sid = Number(g?.resolvedSpeciesId || 0)
@@ -814,6 +822,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
                   <button
                     className="btn b-out"
                     onClick={() => {
+                      doneRef.current = true
                       closeModal()
                       resolve(false)
                     }}
@@ -835,6 +844,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
                           setIdx((p) => p + 1)
                           return
                         }
+                        doneRef.current = true
                         closeModal()
                         resolve(true)
                       }}
@@ -893,31 +903,43 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       }
 
       const okPreview = await new Promise((resolve) => {
-        const BodyPreview = () => (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <EvadirPreview db={db} op={opDraft} />
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button
-                className="btn b-out"
-                onClick={() => {
-                  closeModal()
-                  resolve(false)
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                className="btn b-teal"
-                onClick={() => {
-                  closeModal()
-                  resolve(true)
-                }}
-              >
-                Aceptar y subir operación
-              </button>
+        const BodyPreview = () => {
+          const doneRef = useRef(false)
+          useEffect(() => {
+            return () => {
+              if (doneRef.current) return
+              resolve(false)
+            }
+          }, [])
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <EvadirPreview db={db} op={opDraft} />
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button
+                  className="btn b-out"
+                  onClick={() => {
+                    doneRef.current = true
+                    closeModal()
+                    resolve(false)
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="btn b-teal"
+                  onClick={() => {
+                    doneRef.current = true
+                    closeModal()
+                    resolve(true)
+                  }}
+                >
+                  Aceptar y subir operación
+                </button>
+              </div>
             </div>
-          </div>
-        )
+          )
+        }
         openModal('Previsualización importación EVADIR', <BodyPreview />, 'full')
       })
       if (!okPreview) return
