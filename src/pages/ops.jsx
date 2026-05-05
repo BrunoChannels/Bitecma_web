@@ -94,7 +94,20 @@ function toRoman(n) {
 }
 
  export default function OpsPage({ active }) {
-  const { db, ensureBotesMaestroLoaded, ensureSectoresAmerbLoaded, ensureOpaLoaded, upsertOperacion, updateOperacion, deleteOperacion, upsertBoteMaestro } = useDb()
+  const {
+    db,
+    ensureRegionesLoaded,
+    ensureOperacionesLoaded,
+    ensureBotesMaestroLoaded,
+    ensureSectoresAmerbLoaded,
+    ensureOpaLoaded,
+    upsertOperacion,
+    updateOperacion,
+    deleteOperacion,
+    saveOperacion,
+    deleteOperacionApi,
+    upsertBoteMaestro,
+  } = useDb()
   const { toast, openModal, closeModal } = useUi()
   const { canWrite, isViewer, navigate } = useApp()
   const { filtered, meses, sector, setSector, mes, setMes, texto, setTexto, operaciones } =
@@ -113,9 +126,18 @@ function toRoman(n) {
   useEffect(() => {
     if (!active) return
     ensureBotesMaestroLoaded?.()
+    ensureRegionesLoaded?.()
+    ensureOperacionesLoaded?.()
     ensureSectoresAmerbLoaded?.()
     ensureOpaLoaded?.()
-  }, [active, ensureBotesMaestroLoaded, ensureSectoresAmerbLoaded, ensureOpaLoaded])
+  }, [
+    active,
+    ensureBotesMaestroLoaded,
+    ensureRegionesLoaded,
+    ensureOperacionesLoaded,
+    ensureSectoresAmerbLoaded,
+    ensureOpaLoaded,
+  ])
 
   const toggleExpanded = (opId) => {
     setExpanded((prev) => {
@@ -187,20 +209,35 @@ function toRoman(n) {
     updateOperacion(opId, updater)
   }
 
-  const safeUpsertOperacion = (opData) => {
+  const safeUpsertOperacion = async (opData, mode) => {
     if (!canWrite) {
       toast('Modo solo lectura', 'blue')
-      return
+      return null
     }
     upsertOperacion(opData)
+    try {
+      const saved = await saveOperacion(opData, { mode })
+      if (saved) upsertOperacion(saved)
+      return saved
+    } catch (err) {
+      toast(String(err?.message || 'Error guardando operación'), 'red')
+      return null
+    }
   }
 
-  const safeDeleteOperacion = (opId) => {
+  const safeDeleteOperacion = async (opId) => {
     if (!canWrite) {
       toast('Modo solo lectura', 'blue')
-      return
+      return false
     }
-    deleteOperacion(opId)
+    try {
+      await deleteOperacionApi(opId)
+      deleteOperacion(opId)
+      return true
+    } catch (err) {
+      toast(String(err?.message || 'Error eliminando operación'), 'red')
+      return false
+    }
   }
 
   const openAddBoteModal = (onBoatCreated) => {
@@ -218,7 +255,7 @@ function toRoman(n) {
 
       const caletas = caletasByRegion[form.region] || []
 
-      const onSave = () => {
+      const onSave = async () => {
         if (!form.nombre.trim()) {
           toast('Ingresa el nombre del bote', 'red')
           return
@@ -229,19 +266,22 @@ function toRoman(n) {
         }
 
         const newBote = {
-          id: Date.now().toString(),
-          region: form.region,
+          region_rom: form.region,
           nombre: form.nombre.toUpperCase().trim(),
           nrpa: form.nrpa.trim(),
           nmatricula: form.nmatricula.trim(),
           caleta: form.caleta.toUpperCase().trim()
         }
 
-        upsertBoteMaestro(newBote)
-        toast('Bote agregado correctamente', 'green')
-        closeModal()
-        if (typeof onBoatCreated === 'function') {
-          onBoatCreated(newBote.nombre)
+        try {
+          const saved = await upsertBoteMaestro(newBote)
+          toast('Bote agregado correctamente', 'green')
+          closeModal()
+          if (typeof onBoatCreated === 'function') {
+            onBoatCreated(String(saved?.nombre || newBote.nombre || '').trim())
+          }
+        } catch (err) {
+          toast(String(err?.message || 'Error guardando bote'), 'red')
         }
       }
 
@@ -924,7 +964,7 @@ function toRoman(n) {
         .sort((a, b) => String(a.nombre || a.nombrecorto || '').localeCompare(String(b.nombre || b.nombrecorto || '')))
         .slice(0, 4000)
 
-      const onSave = () => {
+      const onSave = async () => {
         const segRaw = String(s.numSeg || '').trim()
         const segNum = segRaw === '' ? null : parseInt(segRaw, 10)
         if (segRaw !== '' && !Number.isFinite(segNum)) {
@@ -940,8 +980,9 @@ function toRoman(n) {
           return
         }
 
-        safeUpdateOperacion(op.id, (cur) => ({
-          ...cur,
+        const curOp = (Array.isArray(operaciones) ? operaciones : []).find((o) => String(o?.id) === String(op?.id)) || op
+        const nextOp = {
+          ...(curOp || {}),
           region: s.region,
           sectorAmerbId: s.sectorAmerbId,
           sectorAmerb: s.sectorAmerb,
@@ -952,19 +993,24 @@ function toRoman(n) {
           numSeg: segNum,
           fechaInicio: s.fechaInicio,
           fechaFin: s.fechaFin,
-        }))
+        }
+
+        safeUpdateOperacion(op.id, nextOp)
+        const saved = await safeUpsertOperacion(nextOp, 'update')
+        if (!saved) return
         closeModal()
         toast('Operación actualizada', 'green')
       }
 
-      const onDelete = () => {
+      const onDelete = async () => {
         const ok1 = confirm(
           `Vas a eliminar la operación ${op.id}. Se perderán todos los datos de transectos/cuadrantes, botes y muestras. ¿Continuar?`,
         )
         if (!ok1) return
         const ok2 = confirm(`Confirmación final: ¿Eliminar definitivamente ${op.id}?`)
         if (!ok2) return
-        safeDeleteOperacion(op.id)
+        const ok = await safeDeleteOperacion(op.id)
+        if (!ok) return
         setExpanded((prev) => {
           const next = new Set(prev)
           next.delete(op.id)
@@ -1148,7 +1194,7 @@ function toRoman(n) {
         .sort((a, b) => String(a.nombre || a.nombrecorto || '').localeCompare(String(b.nombre || b.nombrecorto || '')))
         .slice(0, 4000)
 
-      const onSave = () => {
+      const onSave = async () => {
         const segRaw = String(s.numSeg || '').trim()
         const segNum = segRaw === '' ? null : parseInt(segRaw, 10)
         if (segRaw !== '' && !Number.isFinite(segNum)) {
@@ -1160,7 +1206,8 @@ function toRoman(n) {
           return
         }
         const opId = nextOpId(operaciones, y)
-        safeUpsertOperacion({
+        const saved = await safeUpsertOperacion(
+          {
           id: opId,
           region: s.region,
           sectorAmerbId: s.sectorAmerbId,
@@ -1173,7 +1220,10 @@ function toRoman(n) {
           fechaInicio: s.fechaInicio,
           fechaFin: s.fechaFin,
           botes: [],
-        })
+        },
+          'create',
+        )
+        if (!saved) return
         closeModal()
         toast('Operación creada', 'green')
         setTimeout(() => openBotesTable(opId, { id: opId, sector: s.sector, caleta: s.sector, sectorAmerb: s.sectorAmerb }), 50)

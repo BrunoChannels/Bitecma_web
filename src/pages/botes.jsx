@@ -3,13 +3,14 @@ import { useDb } from '../context/dbContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
 
 export default function BotesPage({ active }) {
-  const { db, ensureBotesMaestroLoaded, upsertBoteMaestro } = useDb()
+  const { db, ensureRegionesLoaded, ensureBotesMaestroLoaded, upsertBoteMaestro } = useDb()
   const { openModal, closeModal, toast } = useUi()
 
   useEffect(() => {
     if (!active) return
+    ensureRegionesLoaded?.()
     ensureBotesMaestroLoaded?.()
-  }, [active, ensureBotesMaestroLoaded])
+  }, [active, ensureRegionesLoaded, ensureBotesMaestroLoaded])
   const regiones = useMemo(() => {
     const arr = db?.regionesChile
     return Array.isArray(arr) ? arr : []
@@ -54,7 +55,7 @@ export default function BotesPage({ active }) {
 
       const caletas = caletasByRegion[form.region] || []
 
-      const onSave = () => {
+      const onSave = async () => {
         if (!form.nombre.trim()) {
           toast('Ingresa el nombre del bote', 'red')
           return
@@ -65,17 +66,20 @@ export default function BotesPage({ active }) {
         }
 
         const newBote = {
-          id: Date.now().toString(),
-          region: form.region,
+          region_rom: form.region,
           nombre: form.nombre.toUpperCase().trim(),
           nrpa: form.nrpa.trim(),
           nmatricula: form.nmatricula.trim(),
-          caleta: form.caleta.toUpperCase().trim()
+          caleta: form.caleta.toUpperCase().trim(),
         }
 
-        upsertBoteMaestro(newBote)
-        toast('Bote agregado correctamente', 'green')
-        closeModal()
+        try {
+          await upsertBoteMaestro(newBote)
+          toast('Bote agregado correctamente', 'green')
+          closeModal()
+        } catch (err) {
+          toast(String(err?.message || 'Error guardando bote'), 'red')
+        }
       }
 
       return (
