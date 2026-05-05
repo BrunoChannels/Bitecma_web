@@ -563,9 +563,61 @@ class Operacion
 
     public static function delete(PDO $db, $id)
     {
-        $stmt = $db->prepare("DELETE FROM operaciones WHERE id = :id");
-        $stmt->execute([':id' => (string)$id]);
-        return $stmt->rowCount() > 0;
+        $opId = (string)$id;
+        if ($opId === '') return false;
+
+        $stmtExists = $db->prepare("SELECT id FROM operaciones WHERE id = :id LIMIT 1");
+        $stmtExists->execute([':id' => $opId]);
+        $found = $stmtExists->fetch();
+        if (!$found) return false;
+
+        $stmtB = $db->prepare("SELECT id FROM operacion_botes WHERE operacion_id = :id");
+        $stmtB->execute([':id' => $opId]);
+        $boatIds = array_map(function ($r) {
+            return (int)$r['id'];
+        }, $stmtB->fetchAll());
+
+        $boatIds = array_values(array_filter($boatIds, function ($x) {
+            return $x > 0;
+        }));
+
+        $unitIds = [];
+        if ($boatIds) {
+            $phB = implode(',', array_fill(0, count($boatIds), '?'));
+            $stmtU = $db->prepare("SELECT id FROM densidad_unidades WHERE operacion_bote_id IN ($phB)");
+            $stmtU->execute($boatIds);
+            $unitIds = array_map(function ($r) {
+                return (int)$r['id'];
+            }, $stmtU->fetchAll());
+            $unitIds = array_values(array_filter($unitIds, function ($x) {
+                return $x > 0;
+            }));
+        }
+
+        if ($unitIds) {
+            $phU = implode(',', array_fill(0, count($unitIds), '?'));
+            $stmtDelCounts = $db->prepare("DELETE FROM densidad_unidad_counts WHERE unidad_id IN ($phU)");
+            $stmtDelCounts->execute($unitIds);
+        }
+
+        if ($boatIds) {
+            $phB = implode(',', array_fill(0, count($boatIds), '?'));
+
+            $stmtDelUnidades = $db->prepare("DELETE FROM densidad_unidades WHERE operacion_bote_id IN ($phB)");
+            $stmtDelUnidades->execute($boatIds);
+
+            $stmtDelMuestras = $db->prepare("DELETE FROM muestras WHERE operacion_bote_id IN ($phB)");
+            $stmtDelMuestras->execute($boatIds);
+
+            $stmtDelBotes = $db->prepare("DELETE FROM operacion_botes WHERE operacion_id = :id");
+            $stmtDelBotes->execute([':id' => $opId]);
+        } else {
+            $stmtDelBotes = $db->prepare("DELETE FROM operacion_botes WHERE operacion_id = :id");
+            $stmtDelBotes->execute([':id' => $opId]);
+        }
+
+        $stmtDelOp = $db->prepare("DELETE FROM operaciones WHERE id = :id");
+        $stmtDelOp->execute([':id' => $opId]);
+        return $stmtDelOp->rowCount() > 0;
     }
 }
-

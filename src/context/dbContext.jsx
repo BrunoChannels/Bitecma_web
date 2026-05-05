@@ -56,6 +56,24 @@ export function DbProvider({ children }) {
     [apiUrl],
   )
 
+  const normalizeSectorAmerb = useCallback((s) => {
+    const raw = s && typeof s === 'object' ? s : {}
+    const id = raw?.id != null ? Number(raw.id) : null
+    const regionNum = raw?.region != null ? Number(raw.region) : raw?.region_id != null ? Number(raw.region_id) : null
+    const name = String(raw?.nombreamerb ?? raw?.nombre ?? '').trim()
+    const comuna = String(raw?.comuna ?? '').trim()
+
+    return {
+      ...raw,
+      id: Number.isFinite(id) ? id : raw?.id,
+      region: Number.isFinite(regionNum) ? regionNum : raw?.region,
+      region_id: Number.isFinite(regionNum) ? regionNum : raw?.region_id,
+      nombreamerb: name || raw?.nombreamerb || raw?.nombre || '',
+      nombre: name || raw?.nombre || raw?.nombreamerb || '',
+      comuna,
+    }
+  }, [])
+
   const ensureRegionesLoaded = useCallback(async () => {
     if (regionesLoadRef.current.done) return
     if (regionesLoadRef.current.promise) return regionesLoadRef.current.promise
@@ -131,7 +149,8 @@ export function DbProvider({ children }) {
     sectoresAmerbLoadRef.current.promise = apiFetch('/sectores')
       .then((json) => {
         const arr = json?.data
-        setDb((prev) => ({ ...prev, sectoresAmerb: Array.isArray(arr) ? arr : [] }))
+        const next = Array.isArray(arr) ? arr.map(normalizeSectorAmerb) : []
+        setDb((prev) => ({ ...prev, sectoresAmerb: next }))
         sectoresAmerbLoadRef.current.done = true
       })
       .finally(() => {

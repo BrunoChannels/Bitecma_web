@@ -3,7 +3,6 @@ import { useOperaciones } from '../hooks/useOperaciones.js'
 import { useDb } from '../context/dbContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
 import { useApp } from '../context/appContext.jsx'
-import { getOperacionMetricas } from '../services/operacionesService.js'
 import SvgIcon from '../components/svgIcon.jsx'
 import BoteCard from '../components/ops/BoteCard.jsx'
 import EvadirPreview from '../components/evadir/EvadirPreview.jsx'
@@ -62,6 +61,54 @@ function normKey(v) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
+}
+
+function getOperacionEspeciesComunes(op, especiesById) {
+  const botes = Array.isArray(op?.botes) ? op.botes : []
+  const ids = new Set()
+
+  botes.forEach((b) => {
+    const transectos = Array.isArray(b?.transectos) ? b.transectos : []
+    transectos.forEach((t) => {
+      const counts = t?.counts && typeof t.counts === 'object' ? t.counts : {}
+      Object.keys(counts)
+        .map(Number)
+        .filter((x) => Number.isFinite(x))
+        .forEach((id) => ids.add(id))
+
+      if (t?.tipo === 'cuadrante') {
+        const spId = Number(t?.especieId)
+        if (Number.isFinite(spId)) ids.add(spId)
+      }
+    })
+
+    const lpMap = b?.lpMuestras && typeof b.lpMuestras === 'object' ? b.lpMuestras : {}
+    Object.keys(lpMap)
+      .map(Number)
+      .filter((x) => Number.isFinite(x))
+      .forEach((id) => ids.add(id))
+  })
+
+  const names = [...ids]
+    .map((id) => {
+      const sp = especiesById?.get?.(Number(id))
+      return String(sp?.com || sp?.sci || '').trim()
+    })
+    .filter(Boolean)
+
+  const seen = new Set()
+  const uniq = []
+  names
+    .slice()
+    .sort((a, b) => a.localeCompare(b))
+    .forEach((n) => {
+      const k = normKey(n)
+      if (!k || seen.has(k)) return
+      seen.add(k)
+      uniq.push(n)
+    })
+
+  return uniq
 }
 
 function toRoman(n) {
@@ -156,7 +203,11 @@ function toRoman(n) {
     () => new Map(regiones.map((r) => [String(r?.id), String(r?.nom || r?.rom || r?.id || '')])),
     [regiones],
   )
-  const opaShortById = useMemo(() => new Map(opa.map((o) => [String(o?.id), String(o?.nombrecorto || o?.nombre || '')])), [opa])
+  const especiesById = useMemo(() => {
+    const m = new Map()
+    ;(Array.isArray(db?.especies) ? db.especies : []).forEach((e) => m.set(Number(e?.id), e))
+    return m
+  }, [db?.especies])
 
   const regionButtons = useMemo(() => {
     const ops = Array.isArray(operaciones) ? operaciones : []
@@ -217,8 +268,12 @@ function toRoman(n) {
     upsertOperacion(opData)
     try {
       const saved = await saveOperacion(opData, { mode })
-      if (saved) upsertOperacion(saved)
-      return saved
+      if (saved) {
+        const merged = { ...(opData || {}), ...(saved || {}) }
+        upsertOperacion(merged)
+        return merged
+      }
+      return null
     } catch (err) {
       toast(String(err?.message || 'Error guardando operación'), 'red')
       return null
@@ -1504,25 +1559,31 @@ function toRoman(n) {
 
             {filteredByRegion.map((op) => {
           const open = String(expanded || '') === String(op?.id ?? '')
-          const { totalTx, totalLPMuestras } = getOperacionMetricas(op)
           const year = getOperacionYear(op)
           const segLabel = getOperacionSegLabel(op)
           const regionLabel = regionNameById.get(String(op?.region ?? '')) || String(op?.region || '—')
-          const orgShort = opaShortById.get(String(op?.opaId ?? '')) || String(op?.org || '—')
+          const caletaLabel = String(op?.sector || op?.caleta || '').trim() || '—'
+          const sectorAmerbLabel = String(op?.sectorAmerb || '').trim() || caletaLabel || '—'
+          const especiesComunes = getOperacionEspeciesComunes(op, especiesById)
           return (
             <div className="op-card card mb" key={op.id} style={{ padding: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 800, color: 'var(--text)' }}>
-                    {year || '—'}, {segLabel}, {op.sector || '—'}
+                    {year || '—'}, {segLabel}, {sectorAmerbLabel}
                   </div>
                   <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                     <span className="pill p-teal">Región {regionLabel}</span>
-                    <span className="pill p-blu">{orgShort}</span>
+                    <span className="pill p-blu">{caletaLabel}</span>
                     <span className="pill p-grn">{fmtDMY(op.fechaInicio)}</span>
-                    <span className="pill p-pur">{(op.botes || []).length} botes</span>
-                    <span className="pill p-pur">{totalTx} unidades densidad</span>
-                    <span className="pill p-amb">{totalLPMuestras} muestras L-P</span>
+                    {especiesComunes.slice(0, 6).map((name, idx) => (
+                      <span key={`${name}-${idx}`} className="pill p-pur">
+                        {name}
+                      </span>
+                    ))}
+                    {especiesComunes.length > 6 ? (
+                      <span className="pill p-amb">+{especiesComunes.length - 6}</span>
+                    ) : null}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>

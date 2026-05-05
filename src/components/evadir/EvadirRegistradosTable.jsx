@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useEvadirRegistrados } from '../../hooks/useEvadirRegistrados.js'
 import { fmtDMY } from '../../services/evadirService.js'
 import { useDb } from '../../context/dbContext.jsx'
@@ -7,12 +7,100 @@ import { exportEvadirXlsx } from '../../utils/evadirExport.js'
 import EvadirPreview from './EvadirPreview.jsx'
 
 export default function EvadirRegistradosTable() {
-  const { db } = useDb()
+  const { db, apiEnabled, ensurePerfilesLoaded } = useDb()
   const { toast, openModal, closeModal } = useUi()
   const { rows } = useEvadirRegistrados()
   const regiones = Array.isArray(db?.regionesChile) ? db.regionesChile : []
   const [q, setQ] = useState('')
   const [regionId, setRegionId] = useState('')
+
+  useEffect(() => {
+    if (!apiEnabled) return
+    ensurePerfilesLoaded?.()
+  }, [apiEnabled, ensurePerfilesLoaded])
+
+  const perfilById = useMemo(() => {
+    const map = new Map()
+    ;(Array.isArray(db?.perfiles) ? db.perfiles : []).forEach((p) => {
+      const id = p?.id
+      if (id == null) return
+      map.set(String(id), p)
+    })
+    return map
+  }, [db?.perfiles])
+
+  const opById = useMemo(() => {
+    const map = new Map()
+    ;(Array.isArray(db?.operaciones) ? db.operaciones : []).forEach((o) => {
+      const id = o?.id
+      if (!id) return
+      map.set(String(id), o)
+    })
+    return map
+  }, [db?.operaciones])
+
+  const resolveNombrePersona = (v) => {
+    if (v == null) return ''
+
+    if (typeof v === 'object') {
+      const nombre = String(v?.nombre || v?.name || '').trim()
+      if (nombre) return nombre
+      const nombres = String(v?.nombres || '').trim()
+      const apellidos = String(v?.apellidos || '').trim()
+      const full = String(`${nombres} ${apellidos}`).trim()
+      if (full) return full
+      const correo = String(v?.correo || v?.email || '').trim()
+      if (correo) return correo
+      return ''
+    }
+
+    const raw = String(v).trim()
+    if (!raw) return ''
+    const p = perfilById.get(raw)
+    if (p) return resolveNombrePersona(p)
+    return raw
+  }
+
+  const getCreadorLabel = (op) => {
+    const o = op && typeof op === 'object' ? op : {}
+
+    const importer =
+      o?.importedByName ??
+      o?.imported_by_name ??
+      o?.importedBy ??
+      o?.imported_by ??
+      o?.importador ??
+      o?.importadoPor ??
+      o?.importado_por ??
+      o?.importedByUser ??
+      o?.imported_by_user ??
+      o?.importedById ??
+      o?.imported_by_id ??
+      o?.importUserId ??
+      o?.import_user_id ??
+      null
+
+    const creator =
+      o?.createdByName ??
+      o?.created_by_name ??
+      o?.createdBy ??
+      o?.created_by ??
+      o?.creador ??
+      o?.creadoPor ??
+      o?.creado_por ??
+      o?.usuario ??
+      o?.user ??
+      o?.usuarioId ??
+      o?.usuario_id ??
+      o?.userId ??
+      o?.user_id ??
+      o?.owner ??
+      o?.ownerId ??
+      null
+
+    const nombre = resolveNombrePersona(importer || creator)
+    return nombre || '—'
+  }
 
   const filtered = useMemo(() => {
     const qq = String(q || '').toLowerCase().trim()
@@ -56,7 +144,7 @@ export default function EvadirRegistradosTable() {
           <tr>
             <th>Sector</th>
             <th>SEG/ESBA</th>
-            <th>Operación origen</th>
+            <th>Creador</th>
             <th>Fecha</th>
             <th>Transectos/Cuadrantes</th>
             <th>Botes</th>
@@ -72,6 +160,8 @@ export default function EvadirRegistradosTable() {
             </tr>
           ) : (
             filtered.map((r) => {
+              const op = opById.get(String(r?.id || '')) || null
+              const creador = getCreadorLabel(op)
               const txCqUI =
                 r.totalTx > 0 || r.totalCq > 0 ? (
                   <>
@@ -94,7 +184,7 @@ export default function EvadirRegistradosTable() {
                 <tr key={r.id}>
                   <td>{r.sector}</td>
                   <td>SEG-{r.numSeg}</td>
-                  <td>{r.id}</td>
+                  <td>{creador}</td>
                   <td>{fmtDMY(r.fechaInicio)}</td>
                   <td>{txCqUI}</td>
                   <td>{r.totalBotes}</td>
@@ -102,7 +192,6 @@ export default function EvadirRegistradosTable() {
                     <button
                       className="btn b-out b-xs"
                       onClick={() => {
-                        const op = (db?.operaciones || []).find((o) => o.id === r.id) || null
                         openModal(
                           'Previsualización EVADIR',
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

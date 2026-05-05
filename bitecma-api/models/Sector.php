@@ -63,6 +63,7 @@ class Sector
     {
         $cur = self::find($db, $id);
         if (!$cur) return null;
+
         $nombre = array_key_exists('nombre', $data) || array_key_exists('nombreamerb', $data)
             ? trim((string)($data['nombre'] ?? $data['nombreamerb'] ?? ''))
             : (string)($cur['nombre'] ?? '');
@@ -91,12 +92,12 @@ class Sector
         ]);
 
         return self::find($db, $id);
+    }
 
     public static function delete(PDO $db, $id)
     {
-        $t = self::table($db);
         $stmt = $db->prepare("DELETE FROM sectores_amerb WHERE id = :id");
+        $stmt->execute([':id' => (int)$id]);
         return $stmt->rowCount() > 0;
     }
-}
 }

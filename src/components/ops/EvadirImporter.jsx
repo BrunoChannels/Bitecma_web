@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import EvadirPreview from '../evadir/EvadirPreview.jsx'
 import SpeciesGrid from '../common/SpeciesGrid.jsx'
 import { addSample } from '../../services/lpMuestrasService.js'
+import { useApp } from '../../context/appContext.jsx'
 
 function normText(v) {
   return String(v || '')
@@ -92,6 +93,7 @@ function todayISO() {
 export default function EvadirImporter({ db, canWrite, toast, openModal, closeModal, operaciones, nextOpId, safeUpsertOperacion }) {
   const evadirInputRef = useRef(null)
   const [isImportingEvadir, setIsImportingEvadir] = useState(false)
+  const { user } = useApp()
 
   const importEvadirFromXlsx = async (file) => {
     if (!file) return
@@ -902,9 +904,12 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         botes: botesOut,
       }
 
-      const okPreview = await new Promise((resolve) => {
+      const okUploaded = await new Promise((resolve) => {
         const BodyPreview = () => {
           const doneRef = useRef(false)
+          const [isUploading, setIsUploading] = useState(false)
+          const [errMsg, setErrMsg] = useState('')
+
           useEffect(() => {
             return () => {
               if (doneRef.current) return
@@ -912,12 +917,81 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
             }
           }, [])
 
+          const onConfirm = async () => {
+            if (isUploading) return
+            setIsUploading(true)
+            setErrMsg('')
+
+            const opsArr = Array.isArray(operaciones) ? operaciones : []
+            const existing = opsArr.find((o) => String(o?.id) === String(opId)) || null
+            const exists = !!existing
+
+            const currentUserId = user?.id ?? user?.userId ?? user?.usuarioId ?? user?.usuario_id ?? null
+            const currentUserName = String(user?.nombre || user?.name || user?.correo || user?.email || '').trim()
+
+            const existingCreatorId =
+              existing?.createdById ??
+              existing?.created_by_id ??
+              existing?.createdBy ??
+              existing?.created_by ??
+              existing?.creadorId ??
+              existing?.creador_id ??
+              null
+
+            const existingCreatorName =
+              existing?.createdByName ??
+              existing?.created_by_name ??
+              existing?.creadorNombre ??
+              existing?.creador_nombre ??
+              existing?.creadorName ??
+              null
+
+            const shouldSetCreatorToCurrent = !existingCreatorId && !existingCreatorName
+
+            const payload = {
+              ...opDraft,
+              importedById: currentUserId,
+              importedByName: currentUserName,
+              ...(shouldSetCreatorToCurrent ? { createdById: currentUserId, createdByName: currentUserName } : {}),
+              ...(!shouldSetCreatorToCurrent && existingCreatorId != null ? { createdById: existingCreatorId } : {}),
+              ...(!shouldSetCreatorToCurrent && existingCreatorName ? { createdByName: String(existingCreatorName).trim() } : {}),
+            }
+
+            const saved = await safeUpsertOperacion(payload, exists ? 'update' : 'create')
+            if (!saved) {
+              setErrMsg('No se pudo guardar la operación. Revisa conexión/API e inténtalo nuevamente.')
+              setIsUploading(false)
+              return
+            }
+
+            if (unmatchedEvadirColsUsed.size) {
+              const list = Array.from(unmatchedEvadirColsUsed.entries())
+                .map(([k]) => k)
+                .slice(0, 3)
+                .join(', ')
+              toast(`Operación importada (${opId}). Columnas EVADIR no mapeadas: ${list}`, 'blue')
+            } else {
+              toast(`Operación importada (${opId}) correctamente`, 'green')
+            }
+
+            doneRef.current = true
+            closeModal()
+            resolve(true)
+          }
+
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <EvadirPreview db={db} op={opDraft} />
+              {errMsg ? (
+                <div className="info-box amber" style={{ marginBottom: 0 }}>
+                  <span>i</span>
+                  <div>{errMsg}</div>
+                </div>
+              ) : null}
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <button
                   className="btn b-out"
+                  disabled={isUploading}
                   onClick={() => {
                     doneRef.current = true
                     closeModal()
@@ -926,15 +1000,8 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
                 >
                   Cancelar
                 </button>
-                <button
-                  className="btn b-teal"
-                  onClick={() => {
-                    doneRef.current = true
-                    closeModal()
-                    resolve(true)
-                  }}
-                >
-                  Aceptar y subir operación
+                <button className="btn b-teal" disabled={isUploading} onClick={onConfirm}>
+                  {isUploading ? 'Subiendo…' : 'Aceptar y subir operación'}
                 </button>
               </div>
             </div>
@@ -942,21 +1009,9 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         }
         openModal('Previsualización importación EVADIR', <BodyPreview />, 'full')
       })
-      if (!okPreview) return
-
-      safeUpsertOperacion(opDraft)
-
-      if (unmatchedEvadirColsUsed.size) {
-        const list = Array.from(unmatchedEvadirColsUsed.entries())
-          .map(([k]) => k)
-          .slice(0, 3)
-          .join(', ')
-        toast(`Operación importada (${opId}). Columnas EVADIR no mapeadas: ${list}`, 'blue')
-      } else {
-        toast(`Operación importada (${opId}) correctamente`, 'green')
-      }
-    } catch {
-      toast('No se pudo leer el Excel', 'red')
+      if (!okUploaded) return
+    } catch (err) {
+      toast(String(err?.message || 'No se pudo importar el Excel'), 'red')
     } finally {
       setIsImportingEvadir(false)
     }

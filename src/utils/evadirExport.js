@@ -351,7 +351,21 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
       })
     })
 
-    const addSheetFromRows = (sheetBaseName, header, rows, buildRowFn, addIc) => {
+    const applyItalicToColumnCells = (ws, aoa, colIdx) => {
+      if (!ws || !Number.isFinite(colIdx) || colIdx < 0) return
+      const rowCount = Array.isArray(aoa) ? aoa.length : 0
+      if (rowCount <= 1) return
+      for (let r = 1; r < rowCount; r++) {
+        const addr = XLSX.utils.encode_cell({ r, c: colIdx })
+        const cell = ws?.[addr]
+        if (!cell) continue
+        const curStyle = cell.s && typeof cell.s === 'object' ? cell.s : {}
+        const curFont = curStyle.font && typeof curStyle.font === 'object' ? curStyle.font : {}
+        cell.s = { ...curStyle, font: { ...curFont, italic: true } }
+      }
+    }
+
+    const addSheetFromRows = (sheetBaseName, header, rows, buildRowFn, addIc, italicSpecies) => {
       const aoa = [header, ...rows.map(buildRowFn)]
       const ws = XLSX.utils.aoa_to_sheet(aoa)
       if (addIc) {
@@ -369,6 +383,7 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
         }
       }
       applySheetStyles(ws, aoa)
+      if (italicSpecies) applyItalicToColumnCells(ws, aoa, header.indexOf('ESPECIE'))
       XLSX.utils.book_append_sheet(wb, ws, makeSheetName(sheetBaseName))
     }
 
@@ -424,6 +439,7 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
             ]
           },
           true,
+          true,
         )
       } else if (kind === 'L') {
         const header = [
@@ -463,6 +479,7 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
             numOrBlank(r.l),
           ],
           false,
+          true,
         )
       } else if (kind === 'D') {
         const header = [
@@ -501,6 +518,7 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
             r.especie,
             numOrBlank(r.d),
           ],
+          false,
           false,
         )
       }

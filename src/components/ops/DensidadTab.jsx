@@ -105,6 +105,39 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
 
       const canSave = rows.some((r) => Array.isArray(r.especiesIds) && r.especiesIds.length)
 
+      if (pick) {
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>
+              Especies — Transecto {pick.num}
+            </div>
+            <SpeciesGrid
+              especies={especiesAll}
+              selectedIds={pick.sel}
+              onChange={(ids) => setPick((p) => ({ ...p, sel: ids }))}
+              multi
+              columns={3}
+              maxHeight={420}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn b-out" style={{ flex: 1 }} onClick={() => setPick(null)}>
+                Volver
+              </button>
+              <button
+                className="btn b-teal"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  setRows((prev) => prev.map((x) => (x.num === pick.num ? { ...x, especiesIds: pick.sel } : x)))
+                  setPick(null)
+                }}
+              >
+                Aplicar a Transecto {pick.num}
+              </button>
+            </div>
+          </div>
+        )
+      }
+
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div className="info-box blue">
@@ -190,37 +223,6 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
               </tbody>
             </table>
           </div>
-
-          {pick ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>
-                Especies — Transecto {pick.num}
-              </div>
-              <SpeciesGrid
-                especies={especiesAll}
-                selectedIds={pick.sel}
-                onChange={(ids) => setPick((p) => ({ ...p, sel: ids }))}
-                multi
-                columns={3}
-                maxHeight={320}
-              />
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn b-out" style={{ flex: 1 }} onClick={() => setPick(null)}>
-                  Cerrar
-                </button>
-                <button
-                  className="btn b-teal"
-                  style={{ flex: 1 }}
-                  onClick={() => {
-                    setRows((prev) => prev.map((x) => (x.num === pick.num ? { ...x, especiesIds: pick.sel } : x)))
-                    setPick(null)
-                  }}
-                >
-                  Aplicar a Transecto {pick.num}
-                </button>
-              </div>
-            </div>
-          ) : null}
 
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
@@ -329,6 +331,29 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
       const canSave = String(form.especieId || '').trim() !== '' && Number(form.cantidad) > 0
       const selectedSp = byId.get(Number(form.especieId))
 
+      if (showPick) {
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>Especie del cuadrante</div>
+            <SpeciesGrid
+              especies={especiesAll}
+              selectedIds={form.especieId ? [Number(form.especieId)] : []}
+              onChange={(ids) => {
+                const id = ids?.[0]
+                setForm((s) => ({ ...s, especieId: id ? String(id) : '' }))
+                setShowPick(false)
+              }}
+              multi={false}
+              columns={3}
+              maxHeight={420}
+            />
+            <button className="btn b-out" onClick={() => setShowPick(false)}>
+              Volver
+            </button>
+          </div>
+        )
+      }
+
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="i2">
@@ -352,30 +377,11 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
             </div>
             <div className="ig">
               <label className="il">Especie</label>
-              <button className="btn b-out" onClick={() => setShowPick((v) => !v)}>
+              <button className="btn b-out" onClick={() => setShowPick(true)}>
                 {selectedSp ? `${selectedSp.com} — ${selectedSp.sci}` : 'Seleccionar especie'}
               </button>
             </div>
           </div>
-          {showPick ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <SpeciesGrid
-                especies={especiesAll}
-                selectedIds={form.especieId ? [Number(form.especieId)] : []}
-                onChange={(ids) => {
-                  const id = ids?.[0]
-                  setForm((s) => ({ ...s, especieId: id ? String(id) : '' }))
-                  setShowPick(false)
-                }}
-                multi={false}
-                columns={3}
-                maxHeight={320}
-              />
-              <button className="btn b-out" onClick={() => setShowPick(false)}>
-                Cancelar
-              </button>
-            </div>
-          ) : null}
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
               Cancelar

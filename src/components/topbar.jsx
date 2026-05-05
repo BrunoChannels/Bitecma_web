@@ -168,35 +168,6 @@ export default function Topbar() {
       </div>
       <div className="tb-spacer"></div>
       <div className="tb-actions">
-        <button
-          className="tb-btn"
-          onClick={() =>
-            openModal(
-              'Notificaciones',
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                <div className="info-box amber">
-                  Advertencia
-                  <div>
-                    <strong>2 outliers en EVADIR HUAPE B</strong>
-                    <br />
-                    T-4 y T-10 — Revisar densidad
-                  </div>
-                </div>
-                <div className="info-box teal">
-                  Operación completada
-                  <div>
-                    <strong>OP-2026-002 — AMARGOS</strong>
-                    <br />
-                    5 transectos · 2 botes · muestras L-P ingresadas
-                  </div>
-                </div>
-              </div>,
-            )
-          }
-        >
-          <SvgIcon name="bell" aria-hidden="true" />
-          <span className="tb-badge">2</span>
-        </button>
         <button className="tb-btn" onClick={() => openModal('Configuración', <ConfigModalBody />, 'wide')}>
           <SvgIcon name="gear" aria-hidden="true" />
         </button>
