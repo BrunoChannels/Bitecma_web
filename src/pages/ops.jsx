@@ -156,7 +156,7 @@ function toRoman(n) {
     upsertBoteMaestro,
   } = useDb()
   const { toast, openModal, closeModal } = useUi()
-  const { canWrite, isViewer, navigate } = useApp()
+  const { canWrite, isAdmin } = useApp()
   const { filtered, meses, sector, setSector, mes, setMes, texto, setTexto, operaciones } =
     useOperaciones()
 
@@ -193,18 +193,25 @@ function toRoman(n) {
         const parsed = JSON.parse(raw)
         if (parsed && typeof parsed === 'object') apply(parsed)
       }
-    } catch {
+    } catch (err) {
+      void err
     }
     window.addEventListener('bitecma:lp-jump', handler)
     return () => window.removeEventListener('bitecma:lp-jump', handler)
   }, [setMes, setSector, setTexto])
 
   useEffect(() => {
-    if (!active) return
-    if (!isViewer) return
-    toast('Acceso restringido: Visualizador no puede entrar a Operaciones', 'red')
-    navigate('dashboard')
-  }, [active, isViewer, navigate, toast])
+    const handler = (ev) => {
+      const token = String(ev?.detail?.token ?? '')
+      if (!token) return
+      setLpJump((cur) => {
+        if (!cur) return null
+        return String(cur?.token ?? '') === token ? null : cur
+      })
+    }
+    window.addEventListener('bitecma:lp-jump-consumed', handler)
+    return () => window.removeEventListener('bitecma:lp-jump-consumed', handler)
+  }, [])
 
   useEffect(() => {
     if (!active) return
@@ -289,10 +296,7 @@ function toRoman(n) {
   }, [regionSel, sector, sectoresInRegion, setSector])
 
   const safeUpdateOperacion = (opId, updater) => {
-    if (!canWrite) {
-      toast('Modo solo lectura', 'blue')
-      return
-    }
+    if (!canWrite) return
     updateOperacion(opId, updater)
   }
 
@@ -317,8 +321,8 @@ function toRoman(n) {
   }
 
   const safeDeleteOperacion = async (opId) => {
-    if (!canWrite) {
-      toast('Modo solo lectura', 'blue')
+    if (!isAdmin) {
+      toast('Solo el administrador puede eliminar operaciones', 'blue')
       return false
     }
     try {
@@ -1237,9 +1241,11 @@ function toRoman(n) {
             </button>
           </div>
 
-          <button className="btn" style={{ border: '1.5px solid var(--red)', background: 'transparent', color: 'var(--red)' }} onClick={onDelete}>
-            ELIMINAR OPERACION
-          </button>
+          {isAdmin ? (
+            <button className="btn" style={{ border: '1.5px solid var(--red)', background: 'transparent', color: 'var(--red)' }} onClick={onDelete}>
+              ELIMINAR OPERACION
+            </button>
+          ) : null}
             </>
           ) : (
             <BotesEditor opId={op.id} opFallback={{ ...op, sector: s.sector, caleta: s.sector }} onCancel={() => setTab('op')} />
@@ -1456,7 +1462,6 @@ function toRoman(n) {
   }
 
   return (
-    isViewer ? null : (
     <div className={`page${active ? ' active' : ''}`} id="pg-ops">
       <div className="ph">
         <div>
@@ -1470,16 +1475,18 @@ function toRoman(n) {
           </p>
         </div>
         <div className="ph-a">
-          <EvadirImporter
-            db={db}
-            canWrite={canWrite}
-            toast={toast}
-            openModal={openModal}
-            closeModal={closeModal}
-            operaciones={operaciones}
-            nextOpId={nextOpId}
-            safeUpsertOperacion={safeUpsertOperacion}
-          />
+          {canWrite ? (
+            <EvadirImporter
+              db={db}
+              canWrite={canWrite}
+              toast={toast}
+              openModal={openModal}
+              closeModal={closeModal}
+              operaciones={operaciones}
+              nextOpId={nextOpId}
+              safeUpsertOperacion={safeUpsertOperacion}
+            />
+          ) : null}
           <button
             className="btn b-teal b-sm"
             disabled={!canWrite}
@@ -1602,7 +1609,16 @@ function toRoman(n) {
           const sectorAmerbLabel = String(op?.sectorAmerb || '').trim() || caletaLabel || '—'
           const especiesComunes = getOperacionEspeciesComunes(op, especiesById)
           return (
-            <div className="op-card card mb" key={op.id} data-op-id={op.id} style={{ padding: 12 }}>
+            <div
+              className="op-card card mb"
+              key={op.id}
+              data-op-id={op.id}
+              style={{ padding: 12, cursor: open ? 'default' : 'pointer' }}
+              onClick={() => {
+                if (open) return
+                toggleExpanded(op.id)
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 800, color: 'var(--text)' }}>
@@ -1623,12 +1639,19 @@ function toRoman(n) {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <button className="btn b-out b-sm" onClick={() => toggleExpanded(op.id)}>
+                  <button
+                    className="btn b-out b-sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleExpanded(op.id)
+                    }}
+                  >
                     {open ? 'Ocultar' : 'Abrir'}
                   </button>
                   <button
                     className="btn b-teal b-sm"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation()
                       openModal(
                         'Previsualización EVADIR',
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1643,9 +1666,18 @@ function toRoman(n) {
                   >
                     Previsualizar EVADIR
                   </button>
-                  <button className="tb-btn" title="Editar" onClick={() => openEditOp(op)}>
-                    <SvgIcon name="edit" aria-hidden="true" />
-                  </button>
+                  {canWrite ? (
+                    <button
+                      className="tb-btn"
+                      title="Editar"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openEditOp(op)
+                      }}
+                    >
+                      <SvgIcon name="edit" aria-hidden="true" />
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
@@ -1678,6 +1710,7 @@ function toRoman(n) {
                           bote={b}
                           especies={db?.especies || []}
                           updateOperacion={safeUpdateOperacion}
+                          canWrite={canWrite}
                           toast={toast}
                           openModal={openModal}
                           closeModal={closeModal}
@@ -1694,6 +1727,5 @@ function toRoman(n) {
         )}
       </div>
     </div>
-    )
   )
 }

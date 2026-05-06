@@ -36,7 +36,7 @@ function focusNextTransectSpeciesInput(from, root) {
   next.select?.()
 }
 
-export default function DensidadTab({ op, bote, especies, updateOperacion, toast, openModal, closeModal }) {
+export default function DensidadTab({ op, bote, especies, updateOperacion, canWrite, toast, openModal, closeModal }) {
   const rootRef = useRef(null)
   const [openUnits, setOpenUnits] = useState(() => new Set())
 
@@ -66,6 +66,10 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
   }
 
   const openCrearTransectos = () => {
+    if (!canWrite) {
+      toast('Modo solo lectura', 'blue')
+      return
+    }
     const Body = () => {
       const startNum = nextUnidadNum(bote?.transectos)
       const seeded = (Array.isArray(bote?.transectos) ? bote.transectos : [])
@@ -319,6 +323,10 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
   }
 
   const openCrearCuadrantes = () => {
+    if (!canWrite) {
+      toast('Modo solo lectura', 'blue')
+      return
+    }
     const Body = () => {
       const [form, setForm] = useState(() => ({
         cantidad: 30,
@@ -585,6 +593,10 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                               </div>
                             </div>
                           )
+                        }
+                        if (!canWrite) {
+                          toast('Modo solo lectura', 'blue')
+                          return
                         }
                         openModal(`Seleccionar especie — Cuadrante ${num}`, <Body />, 'wide')
                       }}
@@ -1002,6 +1014,10 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, toast
                           </div>
                         </div>
                       )
+                    }
+                    if (!canWrite) {
+                      toast('Modo solo lectura', 'blue')
+                      return
                     }
                     openModal(`Seleccionar especies — Transecto ${num}`, <Body />, 'wide')
                   }}

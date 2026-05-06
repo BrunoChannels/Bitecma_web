@@ -79,7 +79,7 @@ function isAlgaSpecies(sp) {
   return ALGA_COM.has(normKey(sp?.com)) || ALGA_SCI.has(normKey(sp?.sci))
 }
 
-export default function LpTab({ op, bote, especies, updateOperacion, toast, openModal, closeModal, lpJump }) {
+export default function LpTab({ op, bote, especies, updateOperacion, canWrite, toast, openModal, closeModal, lpJump }) {
   const especiesAll = useMemo(() => {
     const arr = Array.isArray(especies) ? especies : []
     return arr.slice().sort((a, b) => String(a?.com || '').localeCompare(String(b?.com || '')))
@@ -98,6 +98,10 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
     .sort((a, b) => a - b)
 
   const openSeleccionarEspecies = () => {
+    if (!canWrite) {
+      toast('Modo solo lectura', 'blue')
+      return
+    }
     const Body = () => {
       const initial = spIds
       const [sel, setSel] = useState(() => initial.slice())
@@ -283,6 +287,10 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
   }
 
   const openIngreso = (especieId, forcedType, focus) => {
+    if (!canWrite) {
+      toast('Modo solo lectura', 'blue')
+      return
+    }
     const spId = Number(especieId)
     const sp = byId.get(spId)
     const kind0 = normKind(forcedType)
@@ -612,6 +620,11 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
     if (!Number.isFinite(spId)) return
     if (l == null || p == null) return
     openIngreso(spId, 'LP', lpJump)
+    try {
+      window.dispatchEvent(new CustomEvent('bitecma:lp-jump-consumed', { detail: { token } }))
+    } catch {
+      return
+    }
   }, [lpJump?.token])
 
   return (

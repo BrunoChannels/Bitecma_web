@@ -7,7 +7,7 @@ import { useApp } from '../context/appContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
 
 export default function Sidebar() {
-  const { page, navigate, logout, isViewer } = useApp()
+  const { page, navigate, logout } = useApp()
   const { closeSidebar } = useUi()
 
   const go = (to) => {
@@ -27,12 +27,10 @@ export default function Sidebar() {
         Dashboard
       </div>
       <div className="sb-sec">Trabajo de Campo</div>
-      {!isViewer ? (
-        <div className={`nav ${page === 'ops' ? 'on' : ''}`} id="nav-ops" onClick={() => go('ops')}>
-          <SvgIcon className="nav-icon" name="folder" aria-hidden="true" />
-          Operaciones
-        </div>
-      ) : null}
+      <div className={`nav ${page === 'ops' ? 'on' : ''}`} id="nav-ops" onClick={() => go('ops')}>
+        <SvgIcon className="nav-icon" name="folder" aria-hidden="true" />
+        Operaciones
+      </div>
       <div className={`nav ${page === 'evadir' ? 'on' : ''}`} id="nav-evadir" onClick={() => go('evadir')}>
         <SvgIcon className="nav-icon" name="table" aria-hidden="true" />
         EVADIR
