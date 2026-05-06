@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.bitecma.app-debug-51:/xml_backup_rules.xml.flat",
+        "source": "com.bitecma.app-main-53:/xml/backup_rules.xml"
+    },
+    {
+        "merged": "com.bitecma.app-debug-51:/xml_data_extraction_rules.xml.flat",
+        "source": "com.bitecma.app-main-53:/xml/data_extraction_rules.xml"
+    }
+]
