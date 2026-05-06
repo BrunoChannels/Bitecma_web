@@ -162,6 +162,42 @@ function toRoman(n) {
 
   const [expanded, setExpanded] = useState('')
   const [regionSel, setRegionSel] = useState('')
+  const [lpJump, setLpJump] = useState(null)
+
+  useEffect(() => {
+    const apply = (d) => {
+      const opId = String(d?.opId ?? '')
+      if (!opId) return
+      const region = d?.region ?? ''
+      setRegionSel(String(region ?? ''))
+      setSector('')
+      setMes('')
+      setTexto('')
+      setExpanded(opId)
+      setLpJump(d)
+      setTimeout(() => {
+        const safe = opId.replace(/"/g, '\\"')
+        const el = document.querySelector(`[data-op-id="${safe}"]`)
+        el?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+      }, 0)
+    }
+    const handler = (ev) => {
+      const d = ev?.detail && typeof ev.detail === 'object' ? ev.detail : null
+      if (!d) return
+      apply(d)
+    }
+    try {
+      const raw = sessionStorage.getItem('bitecma_lp_jump')
+      if (raw) {
+        sessionStorage.removeItem('bitecma_lp_jump')
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed === 'object') apply(parsed)
+      }
+    } catch {
+    }
+    window.addEventListener('bitecma:lp-jump', handler)
+    return () => window.removeEventListener('bitecma:lp-jump', handler)
+  }, [setMes, setSector, setTexto])
 
   useEffect(() => {
     if (!active) return
@@ -1566,7 +1602,7 @@ function toRoman(n) {
           const sectorAmerbLabel = String(op?.sectorAmerb || '').trim() || caletaLabel || '—'
           const especiesComunes = getOperacionEspeciesComunes(op, especiesById)
           return (
-            <div className="op-card card mb" key={op.id} style={{ padding: 12 }}>
+            <div className="op-card card mb" key={op.id} data-op-id={op.id} style={{ padding: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 800, color: 'var(--text)' }}>
@@ -1645,6 +1681,7 @@ function toRoman(n) {
                           toast={toast}
                           openModal={openModal}
                           closeModal={closeModal}
+                          lpJump={lpJump}
                         />
                       ))
                   )}

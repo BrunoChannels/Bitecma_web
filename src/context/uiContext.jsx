@@ -48,6 +48,26 @@ export function UiProvider({ children }) {
   }, [theme])
   const toggleTheme = useCallback(() => setTheme((t) => (t === 'dark' ? 'light' : 'dark')), [])
 
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const openSidebar = useCallback(() => setSidebarOpen(true), [])
+  const closeSidebar = useCallback(() => setSidebarOpen(false), [])
+  const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window?.matchMedia) return
+    const mq = window.matchMedia('(max-width: 767.98px)')
+    const onChange = () => {
+      if (mq.matches) setSidebarOpen(false)
+    }
+    onChange()
+    if (mq.addEventListener) mq.addEventListener('change', onChange)
+    else mq.addListener(onChange)
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', onChange)
+      else mq.removeListener(onChange)
+    }
+  }, [])
+
   const value = useMemo(
     () => ({
       toastState,
@@ -58,8 +78,12 @@ export function UiProvider({ children }) {
       theme,
       setTheme,
       toggleTheme,
+      sidebarOpen,
+      openSidebar,
+      closeSidebar,
+      toggleSidebar,
     }),
-    [toastState, toast, modalState, openModal, closeModal, theme, toggleTheme],
+    [toastState, toast, modalState, openModal, closeModal, theme, toggleTheme, sidebarOpen, openSidebar, closeSidebar, toggleSidebar],
   )
 
   return <UiContext.Provider value={value}>{children}</UiContext.Provider>

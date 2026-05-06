@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { addSample, ensureKind, removeEspecie, removeKind, removeSample, updateSample } from '../../services/lpMuestrasService.js'
 import SpeciesGrid from '../common/SpeciesGrid.jsx'
 
@@ -79,7 +79,7 @@ function isAlgaSpecies(sp) {
   return ALGA_COM.has(normKey(sp?.com)) || ALGA_SCI.has(normKey(sp?.sci))
 }
 
-export default function LpTab({ op, bote, especies, updateOperacion, toast, openModal, closeModal }) {
+export default function LpTab({ op, bote, especies, updateOperacion, toast, openModal, closeModal, lpJump }) {
   const especiesAll = useMemo(() => {
     const arr = Array.isArray(especies) ? especies : []
     return arr.slice().sort((a, b) => String(a?.com || '').localeCompare(String(b?.com || '')))
@@ -282,7 +282,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
     openModal(`Especies a muestrear (L-P) — Bote ${bote?.nombre || bote?.id}`, <Body />, 'wide')
   }
 
-  const openIngreso = (especieId, forcedType) => {
+  const openIngreso = (especieId, forcedType, focus) => {
     const spId = Number(especieId)
     const sp = byId.get(spId)
     const kind0 = normKind(forcedType)
@@ -292,12 +292,44 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
       const initialSamples = entry?.[kind0] || []
       const [samplesNow, setSamplesNow] = useState(() => (Array.isArray(initialSamples) ? initialSamples : []))
       const kind = kind0
+      const [flashIdx, setFlashIdx] = useState(null)
 
       const [draft, setDraft] = useState(() => (kind === 'LP' ? { l: '', p: '' } : kind === 'D' ? { d: '' } : { l: '' }))
       const [editIdx, setEditIdx] = useState(null)
       const lRef = useRef(null)
       const pRef = useRef(null)
       const dRef = useRef(null)
+
+      useEffect(() => {
+        const token = focus?.token ?? null
+        if (!token) return
+        if (kind !== 'LP') return
+        const tl = Number(focus?.l)
+        const tp = Number(focus?.p)
+        if (!Number.isFinite(tl) || !Number.isFinite(tp)) return
+        const tol = 1e-9
+        let targetIdx = Number.isFinite(Number(focus?.sampleIdx)) ? Number(focus.sampleIdx) : null
+        if (targetIdx == null) {
+          for (let i = 0; i < samplesNow.length; i++) {
+            const m = samplesNow[i]
+            const l = Number(m?.l)
+            const p = Number(m?.p)
+            if (!Number.isFinite(l) || !Number.isFinite(p)) continue
+            if (Math.abs(l - tl) <= tol && Math.abs(p - tp) <= tol) {
+              targetIdx = i
+              break
+            }
+          }
+        }
+        if (targetIdx == null) return
+        setFlashIdx(targetIdx)
+        setTimeout(() => {
+          const el = document.querySelector(`[data-lp-sample-idx="${targetIdx}"]`)
+          el?.scrollIntoView?.({ block: 'center' })
+        }, 0)
+        const t = setTimeout(() => setFlashIdx(null), 2600)
+        return () => clearTimeout(t)
+      }, [focus?.token])
 
       const addOrUpdate = () => {
         if (kind === 'LP') {
@@ -474,7 +506,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
                     .map((m, idx) => ({ m, idx }))
                     .reverse()
                     .map(({ m, idx }, displayIdx) => (
-                    <tr key={idx}>
+                    <tr key={idx} data-lp-sample-idx={idx} className={idx === flashIdx ? 'lp-flash' : ''}>
                       <td>{samplesNow.length - displayIdx}</td>
                       <td>{kind === 'D' ? m?.d ?? '' : m?.l ?? ''}</td>
                       {kind === 'LP' ? <td>{m?.p ?? ''}</td> : null}
@@ -566,6 +598,22 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
     openModal(`Ingreso ${sp?.com || spId}`, <Body />, 'wide')
   }
 
+  useEffect(() => {
+    const token = lpJump?.token ?? null
+    if (!token) return
+    const opId = String(lpJump?.opId ?? '')
+    if (!opId || String(op?.id ?? '') !== opId) return
+    const boteId = lpJump?.boteId != null && String(lpJump.boteId) !== '' ? String(lpJump.boteId) : null
+    const matchBote = boteId ? String(bote?.id ?? '') === boteId : true
+    if (!matchBote) return
+    const spId = Number(lpJump?.especieId)
+    const l = lpJump?.l
+    const p = lpJump?.p
+    if (!Number.isFinite(spId)) return
+    if (l == null || p == null) return
+    openIngreso(spId, 'LP', lpJump)
+  }, [lpJump?.token])
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 10 }}>
@@ -600,13 +648,21 @@ export default function LpTab({ op, bote, especies, updateOperacion, toast, open
                 const visibleKinds = kinds.filter((k) => Object.prototype.hasOwnProperty.call(entry, k))
                 return visibleKinds.map((kind) => {
                   const samples = entry?.[kind] || []
+                  const cnt = Array.isArray(samples) ? samples.length : 0
+                  const cntLP = Array.isArray(entry?.LP) ? entry.LP.length : 0
+                  const muestrasText =
+                    kind === 'L' && cntLP > 0
+                      ? cnt > 0
+                        ? `${cnt} + ${cntLP}`
+                        : String(cntLP)
+                      : String(cnt)
                   return (
                     <tr key={`${spId}-${kind}`}>
                       <td style={{ textAlign: 'left' }}>
                         <strong>{sp?.com || spId}</strong>
                         <div style={{ fontSize: 11, color: 'var(--text3)' }}>{sp?.sci || ''}</div>
                       </td>
-                      <td>{Array.isArray(samples) ? samples.length : 0}</td>
+                      <td>{muestrasText}</td>
                       <td style={{ minWidth: 120 }}>{kind === 'LP' ? 'L-P' : kind}</td>
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <button className="btn b-teal b-sm" onClick={() => openIngreso(spId, kind)}>

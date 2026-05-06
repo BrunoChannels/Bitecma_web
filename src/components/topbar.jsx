@@ -134,7 +134,7 @@ function ConfigModalBody() {
 
 export default function Topbar() {
   const { navigate, user, page, role } = useApp()
-  const { openModal } = useUi()
+  const { openModal, toggleSidebar } = useUi()
   const currentLabel =
     {
       dashboard: 'Dashboard',
@@ -152,6 +152,9 @@ export default function Topbar() {
 
   return (
     <div className="topbar">
+      <button className="tb-btn tb-menu d-md-none" onClick={toggleSidebar} aria-label="Abrir menú">
+        ≡
+      </button>
       <div className="tb-logo" onClick={() => navigate('dashboard')}>
         <div className="tb-logo-icon">
           <img src={logoUrl} alt="BITECMA" />

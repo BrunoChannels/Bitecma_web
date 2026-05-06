@@ -47,7 +47,7 @@ export default function SpeciesGrid({ especies, selectedIds, onChange, multi = t
         onChange={(e) => setQ(e.target.value)}
         style={{ marginBottom: 10 }}
       />
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${Math.max(140, Math.round(480 / Math.max(1, Number(columns) || 3)))}px, 1fr))`, gap: 10 }}>
         {filtered.map((e) => {
           const id = Number(e?.id)
           const active = selectedSet.has(id)

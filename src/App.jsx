@@ -58,6 +58,7 @@ function ModalHost() {
 
 function AppShell() {
   const { page, isAuthed } = useApp()
+  const { sidebarOpen, closeSidebar } = useUi()
 
   const pageToComp = useMemo(
     () => ({
@@ -87,7 +88,10 @@ function AppShell() {
       <div id="scr-app" className={`screen${isAuthed ? ' active' : ''}`}>
         <Topbar />
         <div className="app-body">
-          <Sidebar />
+          <div className={`sb-wrap${sidebarOpen ? ' open' : ''}`}>
+            <Sidebar />
+          </div>
+          <div className={`sb-backdrop${sidebarOpen ? ' open' : ''}`} onClick={closeSidebar} />
           <div className="main">
             <Suspense fallback={<div style={{ padding: 14, color: 'var(--text3)' }}>Cargando…</div>}>
               <ActivePage active />

@@ -325,11 +325,18 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
       Object.entries(b.lpMuestras || {}).forEach(([spIdRaw, entry]) => {
         const spId = parseInt(spIdRaw)
         const sp = speciesById.get(spId)
+        const hasExplicitL =
+          entry &&
+          typeof entry === 'object' &&
+          !Array.isArray(entry) &&
+          !Array.isArray(entry.ms) &&
+          Object.prototype.hasOwnProperty.call(entry, 'L')
+
         eachLpSample(entry, (m, forcedKind) => {
           const isAlga = isAlgaId(spId)
           const hasPeso = m && m.p !== undefined && m.p !== null && m.p !== ''
           const kind = forcedKind || (isAlga ? 'D' : hasPeso ? 'LP' : 'L')
-          pushLP(kind, spId, {
+          const row = {
             region: op.region,
             sector: op.sector,
             tipoOrg: op.tipoOrg,
@@ -346,7 +353,9 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
             l: m?.l ?? m?.d ?? '',
             p: m?.p ?? '',
             d: m?.d ?? m?.l ?? '',
-          })
+          }
+          pushLP(kind, spId, row)
+          if (!isAlga && hasExplicitL && kind === 'LP') pushLP('L', spId, row)
         })
       })
     })

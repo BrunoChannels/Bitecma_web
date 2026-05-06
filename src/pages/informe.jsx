@@ -15,7 +15,7 @@ export default function InformePage({ active }) {
           </button>
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '310px 1fr', gap: 14 }}>
+      <div className="inf-layout">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="card">
             <div className="isec">Operación de referencia</div>

@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { buildEvadirPreviewSheets } from '../../services/evadirPreviewService.js'
+import { useUi } from '../../context/uiContext.jsx'
+import { useApp } from '../../context/appContext.jsx'
 
 function normKey(v) {
   return String(v || '')
@@ -41,6 +43,279 @@ function fmt(v, kind) {
 
   const s = String(v).trim()
   return s === '' ? '—' : s
+}
+
+function toNumber(v) {
+  if (v === null || v === undefined || v === '') return null
+  const raw = typeof v === 'object' ? v?.v : v
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
+  const n = Number(String(raw).trim().replace(',', '.'))
+  return Number.isFinite(n) ? n : null
+}
+
+function LpScatter({ points, width = 520, height = 170, title = 'Relación Peso - Longitud', onJump }) {
+  const pad = { l: 54, r: 10, t: 24, b: 44 }
+  const w = Math.max(240, width)
+  const h = Math.max(160, height)
+  const [sel, setSel] = useState(null)
+
+  const stats = useMemo(() => {
+    const pts = Array.isArray(points) ? points : []
+    let maxX = 0
+    let maxY = 0
+    let minXPos = Infinity
+    let minYPos = Infinity
+    const forReg = []
+
+    pts.forEach((p) => {
+      const x = toNumber(p?.x)
+      const y = toNumber(p?.y)
+      if (x === null || y === null) return
+      if (x > maxX) maxX = x
+      if (y > maxY) maxY = y
+      if (x > 0 && x < minXPos) minXPos = x
+      if (y > 0 && y < minYPos) minYPos = y
+      if (x > 0 && y > 0) forReg.push({ x, y })
+    })
+
+    const xMax = maxX > 0 ? Math.ceil(maxX * 1.05) : 1
+    const yMax = maxY > 0 ? Math.ceil(maxY * 1.05) : 1
+
+    const reg = (() => {
+      const n = forReg.length
+      if (n < 2) return null
+
+      let sumX = 0
+      let sumY = 0
+      let sumXX = 0
+      let sumXY = 0
+      forReg.forEach(({ x, y }) => {
+        const lx = Math.log(x)
+        const ly = Math.log(y)
+        sumX += lx
+        sumY += ly
+        sumXX += lx * lx
+        sumXY += lx * ly
+      })
+
+      const denom = n * sumXX - sumX * sumX
+      if (!Number.isFinite(denom) || denom === 0) return null
+
+      const b = (n * sumXY - sumX * sumY) / denom
+      const a0 = (sumY - b * sumX) / n
+      const a = Math.exp(a0)
+
+      let ssTot = 0
+      let ssRes = 0
+      const yBar = sumY / n
+      forReg.forEach(({ x, y }) => {
+        const ly = Math.log(y)
+        const lyHat = a0 + b * Math.log(x)
+        ssTot += Math.pow(ly - yBar, 2)
+        ssRes += Math.pow(ly - lyHat, 2)
+      })
+      const r2 = ssTot > 0 ? 1 - ssRes / ssTot : null
+
+      return { a, b, r2 }
+    })()
+
+    return { xMax, yMax, reg }
+  }, [points])
+
+  const plot = useMemo(() => {
+    const pts = Array.isArray(points) ? points : []
+    const x0 = pad.l
+    const y0 = h - pad.b
+    const x1 = w - pad.r
+    const y1 = pad.t
+
+    const sx = (x) => x0 + (x / stats.xMax) * (x1 - x0)
+    const sy = (y) => y0 - (y / stats.yMax) * (y0 - y1)
+
+    const ticks = (max, n = 5) => {
+      const out = []
+      for (let i = 0; i <= n; i++) out.push((max * i) / n)
+      return out
+    }
+    const xTicks = ticks(stats.xMax, 5)
+    const yTicks = ticks(stats.yMax, 5)
+
+    const circles = pts
+      .map((p, i) => ({ p, i, x: toNumber(p?.x), y: toNumber(p?.y) }))
+      .filter((it) => it.x !== null && it.y !== null)
+      .map((it) => ({
+        key: it.i,
+        cx: sx(it.x),
+        cy: sy(it.y),
+        x: it.x,
+        y: it.y,
+        meta: it.p,
+      }))
+
+    const line = (() => {
+      if (!stats.reg) return null
+      const { a, b } = stats.reg
+      const steps = 40
+      const xs = Array.from({ length: steps + 1 }, (_, i) => (stats.xMax * i) / steps)
+      const d = xs
+        .filter((x) => x > 0)
+        .map((x, idx) => {
+          const y = a * Math.pow(x, b)
+          const cmd = idx === 0 ? 'M' : 'L'
+          return `${cmd}${sx(x).toFixed(2)},${sy(y).toFixed(2)}`
+        })
+        .join(' ')
+      return d || null
+    })()
+
+    return { circles, line, sx, sy, xTicks, yTicks, x0, x1, y0, y1 }
+  }, [points, stats, w, h])
+
+  const labelEq = stats.reg
+    ? `y = ${stats.reg.a.toFixed(4)}x^${stats.reg.b.toFixed(4)}`
+    : null
+  const labelR2 = stats.reg && stats.reg.r2 !== null ? `R² = ${stats.reg.r2.toFixed(4)}` : null
+
+  const selected = useMemo(() => {
+    if (!sel) return null
+    const x = toNumber(sel?.x)
+    const y = toNumber(sel?.y)
+    if (x === null || y === null) return null
+    const cx = plot.sx(x)
+    const cy = plot.sy(y)
+
+    const boxW = 132
+    const boxH = 38
+    const margin = 6
+    let bx = cx + 10
+    let by = cy - boxH - 10
+    if (bx + boxW > plot.x1) bx = cx - boxW - 10
+    if (bx < plot.x0) bx = plot.x0 + margin
+    if (by < plot.y1) by = cy + 10
+    if (by + boxH > plot.y0) by = plot.y0 - boxH - margin
+
+    return { cx, cy, bx, by, boxW, boxH, x, y, meta: sel }
+  }, [sel, plot])
+
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10, background: 'var(--bg)' }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>{title}</div>
+        {labelEq || labelR2 ? (
+          <div style={{ textAlign: 'right', fontSize: 12, lineHeight: 1.15, color: 'rgba(0,0,0,0.75)' }}>
+            {labelEq ? <div>{labelEq}</div> : null}
+            {labelR2 ? <div>{labelR2}</div> : null}
+          </div>
+        ) : null}
+      </div>
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        width="100%"
+        height={h}
+        preserveAspectRatio="xMidYMid meet"
+        style={{ display: 'block' }}
+        onClick={() => setSel(null)}
+      >
+        <rect x="0" y="0" width={w} height={h} fill="white" stroke="rgba(0,0,0,0.06)" />
+
+        {plot.xTicks.slice(1).map((t, i) => {
+          const x = plot.sx(t)
+          return <line key={`gx-${i}`} x1={x} y1={pad.t} x2={x} y2={h - pad.b} stroke="rgba(0,0,0,0.08)" />
+        })}
+        {plot.yTicks.slice(1).map((t, i) => {
+          const y = plot.sy(t)
+          return <line key={`gy-${i}`} x1={pad.l} y1={y} x2={w - pad.r} y2={y} stroke="rgba(0,0,0,0.08)" />
+        })}
+
+        <line x1={pad.l} y1={h - pad.b} x2={w - pad.r} y2={h - pad.b} stroke="rgba(0,0,0,0.35)" />
+        <line x1={pad.l} y1={pad.t} x2={pad.l} y2={h - pad.b} stroke="rgba(0,0,0,0.35)" />
+
+        {plot.xTicks.map((t, i) => {
+          const x = plot.sx(t)
+          const txt = Number.isInteger(t) ? String(t) : t.toFixed(0)
+          return (
+            <g key={`xt-${i}`}>
+              <line x1={x} y1={h - pad.b} x2={x} y2={h - pad.b + 4} stroke="rgba(0,0,0,0.35)" />
+              <text x={x} y={h - pad.b + 16} textAnchor="middle" fontSize="10" fill="rgba(0,0,0,0.65)">
+                {txt}
+              </text>
+            </g>
+          )
+        })}
+        {plot.yTicks.map((t, i) => {
+          const y = plot.sy(t)
+          const txt = Number.isInteger(t) ? String(t) : t.toFixed(0)
+          return (
+            <g key={`yt-${i}`}>
+              <line x1={pad.l - 4} y1={y} x2={pad.l} y2={y} stroke="rgba(0,0,0,0.35)" />
+              <text x={pad.l - 8} y={y + 3} textAnchor="end" fontSize="10" fill="rgba(0,0,0,0.65)">
+                {txt}
+              </text>
+            </g>
+          )
+        })}
+
+        {plot.line ? <path d={plot.line} fill="none" stroke="#2F6FDC" strokeWidth="2" strokeDasharray="4 4" /> : null}
+        {plot.circles.map((c) => (
+          <circle
+            key={c.key}
+            cx={c.cx}
+            cy={c.cy}
+            r="3"
+            fill="#2F6FDC"
+            opacity="0.85"
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => {
+              e.stopPropagation()
+              setSel(c.meta)
+            }}
+          />
+        ))}
+
+        {selected ? (
+          <g
+            style={{ cursor: typeof onJump === 'function' ? 'pointer' : 'default' }}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (typeof onJump !== 'function') return
+              onJump(selected.meta)
+            }}
+          >
+            <rect
+              x={selected.bx}
+              y={selected.by}
+              width={selected.boxW}
+              height={selected.boxH}
+              rx="6"
+              ry="6"
+              fill="white"
+              stroke="rgba(0,0,0,0.22)"
+            />
+            <text x={selected.bx + 10} y={selected.by + 16} fontSize="11" fill="rgba(0,0,0,0.82)">
+              {`L: ${selected.x}`}
+            </text>
+            <text x={selected.bx + 10} y={selected.by + 32} fontSize="11" fill="rgba(0,0,0,0.82)">
+              {`P: ${selected.y}`}
+            </text>
+          </g>
+        ) : null}
+
+        <text x={w / 2} y={h - 6} textAnchor="middle" fontSize="12" fill="rgba(0,0,0,0.75)">
+          Longitud (mm)
+        </text>
+        <text
+          x={18}
+          y={h / 2}
+          textAnchor="middle"
+          fontSize="12"
+          fill="rgba(0,0,0,0.75)"
+          transform={`rotate(-90 18 ${h / 2})`}
+        >
+          Peso (g)
+        </text>
+      </svg>
+    </div>
+  )
 }
 
 function headerIndexMap(header) {
@@ -127,11 +402,33 @@ function countSamplesFromOp(op) {
 }
 
 export default function EvadirPreview({ db, op }) {
+  const { closeModal } = useUi()
+  const { navigate } = useApp()
   const especies = db?.especies
   const { sheets } = useMemo(() => buildEvadirPreviewSheets({ db: { especies }, op }), [especies, op])
   const [tab, setTab] = useState(() => sheets[0]?.name || 'EVADIR')
   const [rowLimit, setRowLimit] = useState(250)
   const [unidadFilter, setUnidadFilter] = useState('todos')
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false
+    const mm = window.matchMedia ? window.matchMedia('(max-width: 768px)') : null
+    return !!mm?.matches
+  })
+  const [showLpChart, setShowLpChart] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!window.matchMedia) return
+    const mm = window.matchMedia('(max-width: 768px)')
+    const handler = () => setIsMobile(!!mm.matches)
+    handler()
+    if (typeof mm.addEventListener === 'function') mm.addEventListener('change', handler)
+    else if (typeof mm.addListener === 'function') mm.addListener(handler)
+    return () => {
+      if (typeof mm.removeEventListener === 'function') mm.removeEventListener('change', handler)
+      else if (typeof mm.removeListener === 'function') mm.removeListener(handler)
+    }
+  }, [])
 
   const opHeader = useMemo(() => {
     const id = String(op?.id || '—')
@@ -253,6 +550,52 @@ export default function EvadirPreview({ db, op }) {
     return rows.slice(0, limit)
   }, [rows, isLpTab, isLTab, isDTab, rowLimit])
 
+  const lpPreview = useMemo(() => {
+    if (!isLpTab) return null
+    const ESPECIES = Array.isArray(especies) ? especies : []
+    const spKeyToId = (() => {
+      const m = new Map()
+      ESPECIES.forEach((e) => {
+        const id = Number(e?.id)
+        if (!Number.isFinite(id)) return
+        const com = String(e?.com || '').trim()
+        const sci = String(e?.sci || '').trim()
+        if (com) m.set(normKey(com), id)
+        if (sci) m.set(normKey(sci), id)
+      })
+      return m
+    })()
+    const tabName = String(tab || '')
+    const tabSpecies = tabName.toUpperCase().startsWith('LP ') ? tabName.slice(3).trim() : ''
+    const defaultEspecieId = tabSpecies ? spKeyToId.get(normKey(tabSpecies)) ?? null : null
+
+    const idxL = headerMap.get('LONGITUD MM') ?? -1
+    const idxP = headerMap.get('PESO G') ?? -1
+    const idxB = headerMap.get('BOTE') ?? -1
+    const idxBu = headerMap.get('BUZO') ?? -1
+    const idxZ = headerMap.get('ZONA') ?? -1
+    const idxEsp = headerMap.get('ESPECIE') ?? -1
+    if (idxL < 0 || idxP < 0) return { maxL: null, maxP: null, points: [] }
+    let maxL = null
+    let maxP = null
+    const points = []
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]
+      const l = toNumber(r?.[idxL])
+      const p = toNumber(r?.[idxP])
+      if (l !== null) maxL = maxL === null ? l : Math.max(maxL, l)
+      if (p !== null) maxP = maxP === null ? p : Math.max(maxP, p)
+      if (l === null || p === null) continue
+      const boteNombre = idxB >= 0 ? String(r?.[idxB] ?? '').trim() : ''
+      const buzo = idxBu >= 0 ? String(r?.[idxBu] ?? '').trim() : ''
+      const zona = idxZ >= 0 ? toNumber(r?.[idxZ]) : null
+      const espName = idxEsp >= 0 ? String(r?.[idxEsp] ?? '').trim() : ''
+      const especieId = spKeyToId.get(normKey(espName)) ?? defaultEspecieId ?? null
+      points.push({ x: l, y: p, boteNombre, buzo, zona, especieId })
+    }
+    return { maxL, maxP, points }
+  }, [isLpTab, headerMap, rows, especies, tab])
+
   const showRowControls = rows.length > rowLimit
 
   if (!op) {
@@ -266,34 +609,205 @@ export default function EvadirPreview({ db, op }) {
 
   return (
     <div className="evp" style={{ height: '70vh', minHeight: 520, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div className="info-box blue" style={{ flex: '0 0 auto' }}>
-        <span>i</span>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div>
-            <strong>{opHeader.id}</strong> · SEG-{opHeader.seg} · {opHeader.sector} · Región {opHeader.region}
+      {isLpTab && lpPreview ? (
+        <div style={{ display: isMobile ? 'block' : 'flex', gap: 10, alignItems: 'stretch', flex: '0 0 auto' }}>
+          <div className="info-box blue" style={{ flex: isMobile ? '0 0 auto' : 1, margin: 0 }}>
+            <span>i</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div>
+                <strong>{opHeader.id}</strong> · SEG-{opHeader.seg} · {opHeader.sector} · Región {opHeader.region}
+              </div>
+              <div style={{ color: 'var(--text3)', fontSize: 12 }}>
+                {opHeader.tipoOrg} · {opHeader.org} · {opHeader.fecha}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <span className="pill p-blu" style={{ fontSize: 10 }}>
+                  Botes {resumen.totalBotes}
+                </span>
+                <span className="pill p-pur" style={{ fontSize: 10 }}>
+                  Unidades {resumen.totalUnidades}
+                </span>
+                <span className="pill p-grn" style={{ fontSize: 10 }}>
+                  T {resumen.totalTx}
+                </span>
+                <span className="pill p-amb" style={{ fontSize: 10 }}>
+                  C {resumen.totalCq}
+                </span>
+                <span className="pill p-teal" style={{ fontSize: 10 }}>
+                  LP {resumen.muestras.LP}
+                </span>
+              </div>
+              {isMobile ? (
+                <div>
+                  <button className="btn b-out b-sm" onClick={() => setShowLpChart((v) => !v)}>
+                    {showLpChart ? 'Ocultar gráfico' : 'Gráfico de dispersión'}
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
-          <div style={{ color: 'var(--text3)', fontSize: 12 }}>
-            {opHeader.tipoOrg} · {opHeader.org} · {opHeader.fecha}
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <span className="pill p-blu" style={{ fontSize: 10 }}>
-              Botes {resumen.totalBotes}
-            </span>
-            <span className="pill p-pur" style={{ fontSize: 10 }}>
-              Unidades {resumen.totalUnidades}
-            </span>
-            <span className="pill p-grn" style={{ fontSize: 10 }}>
-              T {resumen.totalTx}
-            </span>
-            <span className="pill p-amb" style={{ fontSize: 10 }}>
-              C {resumen.totalCq}
-            </span>
-            <span className="pill p-teal" style={{ fontSize: 10 }}>
-              LP {resumen.muestras.LP}
-            </span>
+          {!isMobile ? (
+            <div style={{ width: 520 }}>
+              <LpScatter
+                points={lpPreview.points}
+                onJump={(pt) => {
+                  if (!pt) return
+                  const opBotes = Array.isArray(op?.botes) ? op.botes : []
+                  const boteFound = opBotes.find((b) => {
+                    if (!b) return false
+                    if (normKey(b?.nombre) !== normKey(pt?.boteNombre)) return false
+                    if (pt?.buzo && normKey(b?.buzo) !== normKey(pt?.buzo)) return false
+                    if (pt?.zona != null && Number(b?.zona) !== Number(pt?.zona)) return false
+                    return true
+                  })
+                  const boteId = boteFound?.id ?? null
+                  const especieId = pt?.especieId ?? null
+                  const tl = toNumber(pt?.x)
+                  const tp = toNumber(pt?.y)
+                  let sampleIdx = null
+                  if (boteFound && Number.isFinite(Number(especieId)) && tl !== null && tp !== null) {
+                    const raw = boteFound?.lpMuestras && typeof boteFound.lpMuestras === 'object' ? boteFound.lpMuestras : {}
+                    const entry = raw?.[Number(especieId)]
+                    let arr = []
+                    if (Array.isArray(entry)) arr = entry
+                    else if (entry && typeof entry === 'object') {
+                      if (Array.isArray(entry.ms)) arr = entry.ms
+                      else if (Array.isArray(entry.LP)) arr = entry.LP
+                    }
+                    const tol = 1e-9
+                    for (let i = 0; i < arr.length; i++) {
+                      const m = arr[i]
+                      const l = toNumber(m?.l)
+                      const p = toNumber(m?.p)
+                      if (l === null || p === null) continue
+                      if (Math.abs(l - tl) <= tol && Math.abs(p - tp) <= tol) {
+                        sampleIdx = i
+                        break
+                      }
+                    }
+                  }
+                  const token = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+                  const detail = {
+                    token,
+                    opId: op?.id ?? '',
+                    region: op?.region ?? '',
+                    boteId,
+                    boteNombre: pt?.boteNombre ?? '',
+                    buzo: pt?.buzo ?? '',
+                    zona: pt?.zona ?? null,
+                    especieId,
+                    l: tl,
+                    p: tp,
+                    sampleIdx,
+                  }
+                  try {
+                    sessionStorage.setItem('bitecma_lp_jump', JSON.stringify(detail))
+                    window.dispatchEvent(new CustomEvent('bitecma:lp-jump', { detail }))
+                  } catch {
+                    return
+                  }
+                  closeModal()
+                  navigate('ops')
+                }}
+              />
+            </div>
+          ) : showLpChart ? (
+            <div style={{ marginTop: 10 }}>
+              <LpScatter
+                points={lpPreview.points}
+                onJump={(pt) => {
+                  if (!pt) return
+                  const opBotes = Array.isArray(op?.botes) ? op.botes : []
+                  const boteFound = opBotes.find((b) => {
+                    if (!b) return false
+                    if (normKey(b?.nombre) !== normKey(pt?.boteNombre)) return false
+                    if (pt?.buzo && normKey(b?.buzo) !== normKey(pt?.buzo)) return false
+                    if (pt?.zona != null && Number(b?.zona) !== Number(pt?.zona)) return false
+                    return true
+                  })
+                  const boteId = boteFound?.id ?? null
+                  const especieId = pt?.especieId ?? null
+                  const tl = toNumber(pt?.x)
+                  const tp = toNumber(pt?.y)
+                  let sampleIdx = null
+                  if (boteFound && Number.isFinite(Number(especieId)) && tl !== null && tp !== null) {
+                    const raw = boteFound?.lpMuestras && typeof boteFound.lpMuestras === 'object' ? boteFound.lpMuestras : {}
+                    const entry = raw?.[Number(especieId)]
+                    let arr = []
+                    if (Array.isArray(entry)) arr = entry
+                    else if (entry && typeof entry === 'object') {
+                      if (Array.isArray(entry.ms)) arr = entry.ms
+                      else if (Array.isArray(entry.LP)) arr = entry.LP
+                    }
+                    const tol = 1e-9
+                    for (let i = 0; i < arr.length; i++) {
+                      const m = arr[i]
+                      const l = toNumber(m?.l)
+                      const p = toNumber(m?.p)
+                      if (l === null || p === null) continue
+                      if (Math.abs(l - tl) <= tol && Math.abs(p - tp) <= tol) {
+                        sampleIdx = i
+                        break
+                      }
+                    }
+                  }
+                  const token = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+                  const detail = {
+                    token,
+                    opId: op?.id ?? '',
+                    region: op?.region ?? '',
+                    boteId,
+                    boteNombre: pt?.boteNombre ?? '',
+                    buzo: pt?.buzo ?? '',
+                    zona: pt?.zona ?? null,
+                    especieId,
+                    l: tl,
+                    p: tp,
+                    sampleIdx,
+                  }
+                  try {
+                    sessionStorage.setItem('bitecma_lp_jump', JSON.stringify(detail))
+                    window.dispatchEvent(new CustomEvent('bitecma:lp-jump', { detail }))
+                  } catch {
+                    return
+                  }
+                  closeModal()
+                  navigate('ops')
+                }}
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="info-box blue" style={{ flex: '0 0 auto' }}>
+          <span>i</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div>
+              <strong>{opHeader.id}</strong> · SEG-{opHeader.seg} · {opHeader.sector} · Región {opHeader.region}
+            </div>
+            <div style={{ color: 'var(--text3)', fontSize: 12 }}>
+              {opHeader.tipoOrg} · {opHeader.org} · {opHeader.fecha}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <span className="pill p-blu" style={{ fontSize: 10 }}>
+                Botes {resumen.totalBotes}
+              </span>
+              <span className="pill p-pur" style={{ fontSize: 10 }}>
+                Unidades {resumen.totalUnidades}
+              </span>
+              <span className="pill p-grn" style={{ fontSize: 10 }}>
+                T {resumen.totalTx}
+              </span>
+              <span className="pill p-amb" style={{ fontSize: 10 }}>
+                C {resumen.totalCq}
+              </span>
+              <span className="pill p-teal" style={{ fontSize: 10 }}>
+                LP {resumen.muestras.LP}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: '0 0 auto' }}>
         {sheets.map((s) => (
@@ -304,6 +818,7 @@ export default function EvadirPreview({ db, op }) {
               setTab(s.name)
               setRowLimit(250)
               setUnidadFilter('todos')
+              setShowLpChart(false)
             }}
           >
             {s.name}
@@ -375,6 +890,7 @@ export default function EvadirPreview({ db, op }) {
             <thead>
               {isEvadirTab ? (
                 <tr>
+                  <th style={{ textAlign: 'left' }}>id</th>
                   <th>Bote</th>
                   <th>Buzo</th>
                   {unidadMode === 'mixed' && unidadFilter === 'todos' ? <th>Tipo unidad</th> : null}
@@ -394,14 +910,44 @@ export default function EvadirPreview({ db, op }) {
                 </tr>
               ) : isLpTab || isLTab ? (
                 <tr>
+                  <th style={{ textAlign: 'left' }}>id</th>
                   <th>Bote</th>
                   <th>Buzo</th>
                   <th>Especie</th>
-                  <th>Longitud mm</th>
-                  {isLpTab ? <th>Peso g</th> : null}
+                  <th>
+                    Longitud mm
+                    {isLpTab && lpPreview?.maxL !== null ? (
+                      <span
+                        style={{
+                          color: 'var(--text3)',
+                          fontWeight: 600,
+                          marginLeft: 8,
+                          paddingLeft: 8,
+                          borderLeft: '1px solid var(--border)',
+                        }}
+                      >{`max: ${Math.round(lpPreview.maxL)}`}</span>
+                    ) : null}
+                  </th>
+                  {isLpTab ? (
+                    <th>
+                      Peso g
+                      {lpPreview?.maxP !== null ? (
+                        <span
+                          style={{
+                            color: 'var(--text3)',
+                            fontWeight: 600,
+                            marginLeft: 8,
+                            paddingLeft: 8,
+                            borderLeft: '1px solid var(--border)',
+                          }}
+                        >{`max: ${Math.round(lpPreview.maxP)}`}</span>
+                      ) : null}
+                    </th>
+                  ) : null}
                 </tr>
               ) : isDTab ? (
                 <tr>
+                  <th style={{ textAlign: 'left' }}>id</th>
                   <th>Bote</th>
                   <th>Buzo</th>
                   <th>Especie</th>
@@ -421,6 +967,7 @@ export default function EvadirPreview({ db, op }) {
                     const spCols = evadirIndexes.sp
                     return (
                       <tr key={i}>
+                        <td style={{ color: 'var(--text1)', fontWeight: 700, textAlign: 'left' }}>{i + 1}</td>
                         <td>{fmt(r?.[idx.bote])}</td>
                         <td>{fmt(r?.[idx.buzo])}</td>
                         {unidadMode === 'mixed' && unidadFilter === 'todos' ? <td>{fmt(r?.[idx.tipoUnidad])}</td> : null}
@@ -443,7 +990,7 @@ export default function EvadirPreview({ db, op }) {
                 ) : (
                   <tr>
                     <td
-                      colSpan={5 + (unidadMode === 'mixed' && unidadFilter === 'todos' ? 1 : 0) + evadirIndexes.sp.length * 2 + 5}
+                      colSpan={6 + (unidadMode === 'mixed' && unidadFilter === 'todos' ? 1 : 0) + evadirIndexes.sp.length * 2 + 5}
                       style={{ textAlign: 'center', color: 'var(--text3)', padding: 14 }}
                     >
                       Sin datos
@@ -461,6 +1008,7 @@ export default function EvadirPreview({ db, op }) {
                     const idxD = headerMap.get('DIAM DISCO CM') ?? -1
                     return (
                       <tr key={i}>
+                        <td style={{ color: 'var(--text1)', fontWeight: 700, textAlign: 'left' }}>{i + 1}</td>
                         <td>{idxBote >= 0 ? fmt(r?.[idxBote]) : '—'}</td>
                         <td>{idxBuzo >= 0 ? fmt(r?.[idxBuzo]) : '—'}</td>
                         <td>{idxEsp >= 0 ? fmt(r?.[idxEsp]) : '—'}</td>
@@ -475,7 +1023,7 @@ export default function EvadirPreview({ db, op }) {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={isLpTab ? 5 : 4} style={{ textAlign: 'center', color: 'var(--text3)', padding: 14 }}>
+                    <td colSpan={isLpTab ? 6 : 5} style={{ textAlign: 'center', color: 'var(--text3)', padding: 14 }}>
                       Sin datos
                     </td>
                   </tr>
