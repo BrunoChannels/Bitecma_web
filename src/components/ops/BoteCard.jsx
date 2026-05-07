@@ -1,10 +1,47 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import DensidadTab from './DensidadTab.jsx'
 import LpTab from './LpTab.jsx'
+
+function normKey(v) {
+  return String(v || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 
 export default function BoteCard({ op, bote, especies, updateOperacion, canWrite, toast, openModal, closeModal, lpJump }) {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState('dens')
+  const rootRef = useRef(null)
+  const lastTokenRef = useRef(null)
+
+  useEffect(() => {
+    const token = lpJump?.token ?? null
+    if (!token || lastTokenRef.current === token) return
+
+    const opId = String(lpJump?.opId ?? '')
+    if (!opId || String(op?.id ?? '') !== opId) return
+
+    const byId = lpJump?.boteId != null && String(lpJump.boteId) !== '' ? String(lpJump.boteId) : null
+    const matchId = byId ? String(bote?.id ?? '') === byId : false
+    const matchName =
+      !byId &&
+      normKey(bote?.nombre) &&
+      normKey(bote?.nombre) === normKey(lpJump?.boteNombre) &&
+      (!lpJump?.buzo || normKey(bote?.buzo) === normKey(lpJump?.buzo)) &&
+      (lpJump?.zona == null || Number(bote?.zona) === Number(lpJump?.zona))
+
+    if (!matchId && !matchName) return
+
+    lastTokenRef.current = token
+    setOpen(true)
+    setTab('lp')
+    setTimeout(() => {
+      rootRef.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+    }, 0)
+  }, [lpJump?.token, op?.id, bote?.id, bote?.nombre, bote?.buzo, bote?.zona])
 
   const densSpecies = useMemo(() => {
     const arr = Array.isArray(especies) ? especies : []
@@ -53,7 +90,7 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
   })()
 
   return (
-    <div className="bote-card">
+    <div className="bote-card" ref={rootRef}>
       <div
         className={`bote-hd${open ? ' open-hd' : ''}`}
         onClick={() => setOpen((v) => !v)}

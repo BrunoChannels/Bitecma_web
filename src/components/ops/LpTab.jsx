@@ -603,7 +603,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
       )
     }
 
-    openModal(`Ingreso ${sp?.com || spId}`, <Body />, 'wide')
+    openModal(`${sp?.com || spId}`, <Body />, 'wide')
   }
 
   useEffect(() => {

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import OpsPage from '../../src/pages/ops.jsx'
-import { renderWithProviders } from '../utils/render.jsx'
+import { defaultUser, renderWithProviders } from '../utils/render.jsx'
 
 describe('Página Operaciones', () => {
   it('abre modal de nueva operación y valida campos requeridos', async () => {
@@ -97,6 +97,7 @@ describe('Página Operaciones', () => {
     const confirmSpy = vi.spyOn(globalThis, 'confirm').mockImplementation(() => false)
 
     renderWithProviders(<OpsPage active />, {
+      user: { ...defaultUser, rol: 'Admin' },
       dbSeed: {
         regionesChile: [{ id: 14, rom: 'XIV', nom: 'Los Ríos' }],
         sectoresAmerb: [],

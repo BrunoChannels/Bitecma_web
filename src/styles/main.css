@@ -359,7 +359,7 @@ input[type=number].lp-num-inp{-moz-appearance:textfield;appearance:textfield;}
 @media (max-width: 575.98px){
   .topbar{padding:0 12px;gap:9px;}
   .tb-bc{display:none;}
-  .tb-logo-text{display:none;}
+  .tb-logo-text{display:block;font-size:14px;line-height:1;white-space:nowrap;}
   .user-role{display:none;}
   .user-name{max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .tb-btn.tb-menu{font-size:18px;line-height:1;}
