@@ -14,6 +14,33 @@ import {
 import SpeciesGrid from '../common/SpeciesGrid.jsx'
 import { ensureKind } from '../../services/lpMuestrasService.js'
 
+/**
+ * Mueve el foco al siguiente input de densidad (navegación por Enter) dentro de un contenedor.
+ *
+ * @param {HTMLInputElement} from - Input origen (actual).
+ * @param {HTMLElement|Document|null} root - Contenedor donde buscar inputs; si es falsy usa `document`.
+ * @returns {void} No retorna valor.
+ *
+ * Lógica:
+ * 1) Encuentra todos los inputs con `data-nav="dens"`.
+ * 2) Ubica el índice del input actual (`from`).
+ * 3) Enfoca y selecciona el siguiente input si existe.
+ *
+ * Dependencias externas:
+ * - DOM: `querySelectorAll`, `focus`, `select`.
+ *
+ * Efectos secundarios:
+ * - Cambia el foco del documento.
+ *
+ * Manejo de errores:
+ * - Si no encuentra el input o no hay siguiente, no hace nada.
+ *
+ * @example
+ * onKeyDown={(e) => e.key==='Enter' && focusNextInput(e.currentTarget, rootRef.current)}
+ *
+ * Notas de mantenimiento:
+ * - Mantener atributos `data-nav` consistentes en los inputs que participan de esta navegación.
+ */
 function focusNextInput(from, root) {
   const container = root || document
   const inputs = Array.from(container.querySelectorAll('input[data-nav="dens"]'))
@@ -25,6 +52,32 @@ function focusNextInput(from, root) {
   next.select?.()
 }
 
+/**
+ * Mueve el foco al siguiente input de conteo por especie en transectos.
+ *
+ * @param {HTMLInputElement} from - Input origen.
+ * @param {HTMLElement|Document|null} root - Contenedor donde buscar inputs; si es falsy usa `document`.
+ * @returns {void} No retorna valor.
+ *
+ * Lógica:
+ * 1) Encuentra inputs con `data-nav="dens-transecto"`.
+ * 2) Ubica el siguiente input respecto al actual y lo enfoca.
+ *
+ * Dependencias externas:
+ * - DOM.
+ *
+ * Efectos secundarios:
+ * - Cambia foco.
+ *
+ * Manejo de errores:
+ * - Si no hay siguiente input, no hace nada.
+ *
+ * @example
+ * focusNextTransectSpeciesInput(e.currentTarget, rootRef.current)
+ *
+ * Notas de mantenimiento:
+ * - Usar este modo solo en inputs del grid de especies por transecto.
+ */
 function focusNextTransectSpeciesInput(from, root) {
   const container = root || document
   const inputs = Array.from(container.querySelectorAll('input[data-nav="dens-transecto"]'))
@@ -36,6 +89,51 @@ function focusNextTransectSpeciesInput(from, root) {
   next.select?.()
 }
 
+/**
+ * Pestaña de densidad para un bote: administra transectos/cuadrantes, especies y conteos.
+ *
+ * @param {object} props - Props del componente.
+ * @param {object} props.op - Operación actual (contiene `id`, `fechaInicio`, etc.).
+ * @param {object} props.bote - Bote actual (contiene `id`, `transectos`, `densTipo`, etc.).
+ * @param {Array<object>} props.especies - Catálogo de especies.
+ * @param {(opId: string, updater: (cur: any) => any) => void} props.updateOperacion - Actualiza operación (inmutable).
+ * @param {boolean} props.canWrite - Permiso de escritura.
+ * @param {(msg: string, color?: string) => void} props.toast - Notificador UI.
+ * @param {(title: string, body: import('react').JSX.Element, size?: string) => void} props.openModal - Abre modal.
+ * @param {() => void} props.closeModal - Cierra modal.
+ * @returns {import('react').JSX.Element} UI para gestionar densidad.
+ *
+ * Lógica (alto nivel):
+ * 1) Ordena unidades (transectos/cuadrantes) por número.
+ * 2) Permite expandir/cerrar detalles por unidad (`openUnits`).
+ * 3) Provee modales para:
+ *    - Crear transectos masivamente (con selección de especies por transecto).
+ *    - Crear cuadrantes (con especie asociada y parámetros).
+ *    - Editar especies de una unidad, conteos, coordenadas y metadatos.
+ * 4) Calcula densidad por especie usando `calcDensidad`.
+ * 5) Opcionalmente ofrece transferir especies agregadas a la pestaña Peso-Longitud (LP) mediante `ensureKind`.
+ *
+ * Dependencias externas:
+ * - [densidadService](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/services/densidadService.js): creación/edición de unidades y conteos.
+ * - [SpeciesGrid](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/components/common/SpeciesGrid.jsx).
+ * - [ensureKind](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/services/lpMuestrasService.js) para habilitar especies en LP.
+ *
+ * Efectos secundarios:
+ * - Actualiza operación/bote mediante `updateOperacion`.
+ * - Abre modales y puede disparar `confirm()` del navegador.
+ * - Cambia foco de inputs en navegación por Enter.
+ *
+ * Manejo de errores:
+ * - Bloquea acciones de escritura si `canWrite` es false.
+ * - Usa `confirm()` para operaciones destructivas (eliminar unidades, quitar especies).
+ *
+ * @example
+ * <DensidadTab op={op} bote={b} especies={db.especies} updateOperacion={updateOperacion} canWrite={canWrite} toast={toast} openModal={openModal} closeModal={closeModal} />
+ *
+ * Notas de mantenimiento:
+ * - Este archivo contiene mucha lógica UI; si crece, considerar extraer subcomponentes (modales/cards) para legibilidad.
+ * - Mantener consistencia de `densTipo` y estructura `transectos` con servicios.
+ */
 export default function DensidadTab({ op, bote, especies, updateOperacion, canWrite, toast, openModal, closeModal }) {
   const rootRef = useRef(null)
   const [openUnits, setOpenUnits] = useState(() => new Set())
@@ -56,6 +154,32 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
     return m
   }, [especiesAll])
 
+  /**
+   * Alterna la expansión (detalles) de una unidad por su número.
+   *
+   * @param {number} num - Número de unidad (transecto/cuadrante).
+   * @returns {void} No retorna valor.
+   *
+   * Lógica:
+   * 1) Clona el Set previo (`openUnits`).
+   * 2) Si existe `num`, lo elimina; si no, lo agrega.
+   * 3) Devuelve el nuevo Set para re-render.
+   *
+   * Dependencias externas:
+   * - `setOpenUnits` (estado local).
+   *
+   * Efectos secundarios:
+   * - Cambia estado local (UI).
+   *
+   * Manejo de errores:
+   * - No aplica.
+   *
+   * @example
+   * onClick={() => toggleUnit(3)}
+   *
+   * Notas de mantenimiento:
+   * - Mantener `num` como number consistente (se usa como clave en UI).
+   */
   const toggleUnit = (num) => {
     setOpenUnits((prev) => {
       const next = new Set(prev)
@@ -65,11 +189,67 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
     })
   }
 
+  /**
+   * Abre un modal para crear/editar transectos de forma masiva.
+   *
+   * @returns {void} No retorna valor.
+   *
+   * Lógica:
+   * 1) Valida `canWrite`; en modo lectura muestra toast y aborta.
+   * 2) Define un Body interno con una grilla de transectos (área, sustrato, cubierta, especies).
+   * 3) Permite replicar configuración del primer transecto y agregar/eliminar filas.
+   * 4) Al guardar, reconstruye la lista de transectos del bote preservando unidades no-transecto y conteos existentes cuando aplica.
+   * 5) Ofrece (opcional) transferir especies nuevas a Peso-Longitud vía `ensureKind`.
+   *
+   * Dependencias externas:
+   * - `openModal/closeModal`, `toast`, `updateOperacion`.
+   * - `nextUnidadNum` y utilidades de servicio.
+   * - `SpeciesGrid` para selección de especies por transecto.
+   * - `ensureKind` para habilitar especies en LP.
+   *
+   * Efectos secundarios:
+   * - Abre un modal y puede modificar el bote (transectos y/o lpMuestras).
+   *
+   * Manejo de errores:
+   * - Valida `canWrite` y `canSave` antes de persistir.
+   *
+   * @example
+   * <button onClick={openCrearTransectos}>Agregar Transecto</button>
+   *
+   * Notas de mantenimiento:
+   * - Mantener la preservación de conteos/coordenadas para no perder datos al guardar en bloque.
+   */
   const openCrearTransectos = () => {
     if (!canWrite) {
       toast('Modo solo lectura', 'blue')
       return
     }
+    /**
+     * Cuerpo del modal de creación masiva de transectos.
+     *
+     * @returns {import('react').JSX.Element} UI del modal.
+     *
+     * Lógica:
+     * 1) Inicializa filas desde transectos existentes (seed) o crea un set por defecto.
+     * 2) Permite seleccionar especies por transecto usando `SpeciesGrid` (modo pick).
+     * 3) Permite replicar fila 1 y agregar/eliminar transectos.
+     * 4) Valida `canSave` (al menos una especie seleccionada en algún transecto).
+     *
+     * Dependencias externas:
+     * - `SpeciesGrid`, `nextUnidadNum`.
+     *
+     * Efectos secundarios:
+     * - Actualiza estado local del modal (rows/pick).
+     *
+     * Manejo de errores:
+     * - No aplica.
+     *
+     * @example
+     * openModal('Agregar transectos', <Body />, 'wide')
+     *
+     * Notas de mantenimiento:
+     * - Mantener la representación `rows` alineada con el esquema de `transectos` del bote.
+     */
     const Body = () => {
       const startNum = nextUnidadNum(bote?.transectos)
       const seeded = (Array.isArray(bote?.transectos) ? bote.transectos : [])

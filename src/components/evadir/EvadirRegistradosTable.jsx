@@ -6,6 +6,39 @@ import { useUi } from '../../context/uiContext.jsx'
 import { exportEvadirXlsx } from '../../utils/evadirExport.js'
 import EvadirPreview from './EvadirPreview.jsx'
 
+/**
+ * Tabla de EVADIR registrados (histórico) con filtros y acciones (ver / exportar).
+ *
+ * @returns {import('react').JSX.Element} Tabla con filtros por texto y región.
+ *
+ * Lógica:
+ * 1) Obtiene DB (operaciones, perfiles, regiones) y flags de API desde el contexto.
+ * 2) Carga perfiles si la API está habilitada.
+ * 3) Construye maps (`perfilById`, `opById`) para resolver nombres y operaciones rápidamente.
+ * 4) Filtra filas por texto y región.
+ * 5) Renderiza tabla con botón “Ver” (modal con previsualización) y “CSV” (exportación).
+ *
+ * Dependencias externas:
+ * - [useEvadirRegistrados](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/hooks/useEvadirRegistrados.js): fuente de filas.
+ * - [useDb](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/context/dbContext.jsx): db, perfiles, operaciones.
+ * - [useUi](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/context/uiContext.jsx): modal/toast.
+ * - `exportEvadirXlsx` para exportación.
+ * - [EvadirPreview](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/components/evadir/EvadirPreview.jsx) para vista previa.
+ *
+ * Efectos secundarios:
+ * - Puede disparar carga de perfiles vía API.
+ * - Puede abrir modales y disparar descargas/exportaciones.
+ *
+ * Manejo de errores:
+ * - No gestiona errores explícitos aquí; delega en `ensurePerfilesLoaded`, `exportEvadirXlsx` y toasts.
+ *
+ * @example
+ * <EvadirRegistradosTable />
+ *
+ * Notas de mantenimiento:
+ * - Mantener `resolveNombrePersona` robusto ante esquemas mixtos de perfiles/usuarios.
+ * - Si crece el listado, considerar paginación o virtualización.
+ */
 export default function EvadirRegistradosTable() {
   const { db, apiEnabled, ensurePerfilesLoaded } = useDb()
   const { toast, openModal, closeModal } = useUi()
@@ -27,7 +60,7 @@ export default function EvadirRegistradosTable() {
       map.set(String(id), p)
     })
     return map
-  }, [db?.perfiles])
+  }, [db])
 
   const opById = useMemo(() => {
     const map = new Map()
@@ -37,8 +70,34 @@ export default function EvadirRegistradosTable() {
       map.set(String(id), o)
     })
     return map
-  }, [db?.operaciones])
+  }, [db])
 
+  /**
+   * Resuelve una representación legible de una persona (creador/importador) desde distintas formas de dato.
+   *
+   * @param {unknown} v - Valor a resolver (puede ser objeto perfil/usuario, ID, email o string libre).
+   * @returns {string} Nombre legible; string vacío si no hay información.
+   *
+   * Lógica:
+   * 1) Si es objeto, intenta `nombre/name`, luego `nombres+apellidos`, luego `correo/email`.
+   * 2) Si es string, intenta resolverlo como ID de perfil en `perfilById`.
+   * 3) Si no hay match, retorna el string crudo.
+   *
+   * Dependencias externas:
+   * - `perfilById` (memo) para resolver IDs a perfil.
+   *
+   * Efectos secundarios:
+   * - Ninguno.
+   *
+   * Manejo de errores:
+   * - Tolerante a `null/undefined` y esquemas mixtos.
+   *
+   * @example
+   * resolveNombrePersona({ nombres: 'Ana', apellidos: 'Pérez' }) // 'Ana Pérez'
+   *
+   * Notas de mantenimiento:
+   * - Si el backend estandariza campos, simplificar esta función.
+   */
   const resolveNombrePersona = (v) => {
     if (v == null) return ''
 
@@ -61,6 +120,32 @@ export default function EvadirRegistradosTable() {
     return raw
   }
 
+  /**
+   * Obtiene una etiqueta de “creador” para una operación, soportando múltiples claves posibles.
+   *
+   * @param {object|null} op - Operación (puede ser null si no está en DB local).
+   * @returns {string} Nombre del creador/importador, o '—' si no se puede resolver.
+   *
+   * Lógica:
+   * 1) Busca campos de importador (importedBy*) en distintas variantes de nombres.
+   * 2) Si no hay importador, busca campos de creador (createdBy*, creador*, user*, etc.).
+   * 3) Resuelve el nombre final con `resolveNombrePersona`.
+   *
+   * Dependencias externas:
+   * - `resolveNombrePersona`.
+   *
+   * Efectos secundarios:
+   * - Ninguno.
+   *
+   * Manejo de errores:
+   * - Tolerante a operaciones parcialmente cargadas.
+   *
+   * @example
+   * const label = getCreadorLabel(op)
+   *
+   * Notas de mantenimiento:
+   * - Si se normalizan nombres de campos (snake/camel), reducir lista de aliases.
+   */
   const getCreadorLabel = (op) => {
     const o = op && typeof op === 'object' ? op : {}
 

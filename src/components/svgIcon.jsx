@@ -1,3 +1,33 @@
+/**
+ * Renderiza un ícono SVG a partir de un nombre registrado.
+ *
+ * @param {object} props - Props del componente.
+ * @param {string} props.name - Clave del ícono a renderizar (debe existir en el mapa interno de íconos).
+ * @param {string} [props.className] - Clase(s) CSS para aplicar al elemento `<svg>`.
+ * @param {object} [props.rest] - Resto de props (por ejemplo: `aria-label`, `onClick`, `style`, etc.) que se propagan al `<svg>`.
+ * @returns {import('react').JSX.Element|null} SVG del ícono solicitado, o `null` si el nombre no existe.
+ *
+ * Lógica:
+ * 1) Busca el path SVG asociado a `name`.
+ * 2) Si no existe, retorna `null` para no renderizar nada.
+ * 3) Si existe, renderiza un `<svg>` con `viewBox` fijo y un `<path>` con el `d` correspondiente.
+ *
+ * Dependencias externas:
+ * - React (JSX). No utiliza hooks.
+ *
+ * Efectos secundarios:
+ * - Ninguno. Es un componente puro respecto a sus props.
+ *
+ * Manejo de errores:
+ * - Maneja íconos inexistentes devolviendo `null` (no lanza excepciones).
+ *
+ * @example
+ * <SvgIcon name="gear" className="nav-icon" aria-hidden="true" />
+ *
+ * Notas de mantenimiento:
+ * - Para agregar nuevos íconos, sumar una entrada en `ICONS` con la clave deseada y el `d` del `<path>`.
+ * - Mantener consistente el `viewBox` (24x24) para escalado uniforme.
+ */
 export default function SvgIcon({ name, className, ...rest }) {
   const p = ICONS[name]
   if (!p) return null

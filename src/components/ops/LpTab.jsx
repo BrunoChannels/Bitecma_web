@@ -2,6 +2,33 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { addSample, ensureKind, removeEspecie, removeKind, removeSample, updateSample } from '../../services/lpMuestrasService.js'
 import SpeciesGrid from '../common/SpeciesGrid.jsx'
 
+/**
+ * Infere el tipo de muestreo a partir de un arreglo de muestras.
+ *
+ * @param {Array<{ l?: any, p?: any, d?: any }>} samples - Muestras (pueden venir parciales o con strings).
+ * @returns {'LP'|'L'|'D'} Tipo inferido: `D` si hay diámetros, `LP` si hay peso, si no `L`.
+ *
+ * Lógica:
+ * 1) Normaliza `samples` a arreglo.
+ * 2) Detecta si existe alguna muestra con `d` (diámetro).
+ * 3) Si no hay `d`, detecta si existe alguna muestra con `p` (peso).
+ * 4) Retorna `D` > `LP` > `L` según prioridad.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No aplica; usa checks defensivos.
+ *
+ * @example
+ * typeForSamples([{ l: 120, p: 40 }]) // 'LP'
+ *
+ * Notas de mantenimiento:
+ * - Si el esquema de muestras cambia (por ejemplo, nuevas medidas), ajustar la prioridad.
+ */
 function typeForSamples(samples) {
   const arr = Array.isArray(samples) ? samples : []
   const hasPeso = arr.some((x) => x && x.p !== undefined && x.p !== null && x.p !== '')
@@ -11,6 +38,31 @@ function typeForSamples(samples) {
   return 'L'
 }
 
+/**
+ * Normaliza un "kind" de muestreo a una de las claves canónicas: `LP`, `L` o `D`.
+ *
+ * @param {unknown} kind - Identificador de tipo (ej.: "L-P", "lp", "D", etc.).
+ * @returns {'LP'|'L'|'D'} Tipo canónico.
+ *
+ * Lógica:
+ * 1) Convierte a string, trim y uppercase.
+ * 2) Mapea "L-P" o "LP" -> `LP`, "D" -> `D`, y por defecto `L`.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No aplica.
+ *
+ * @example
+ * normKind('l-p') // 'LP'
+ *
+ * Notas de mantenimiento:
+ * - Mantener sincronía con `lpMuestrasService` si aparecen nuevos aliases.
+ */
 function normKind(kind) {
   const k = String(kind || '').trim().toUpperCase()
   if (k === 'L-P' || k === 'LP') return 'LP'
@@ -18,6 +70,38 @@ function normKind(kind) {
   return 'L'
 }
 
+/**
+ * Normaliza la estructura de entrada de `lpMuestras` a un objeto { LP?, L?, D? }.
+ *
+ * El almacenamiento histórico soporta distintas formas:
+ * - Arreglo plano de muestras (se infiere tipo por muestra).
+ * - Objeto con `{ type, ms }`.
+ * - Objeto con arreglos separados `{ LP, L, D }`.
+ *
+ * @param {unknown} entry - Entrada cruda proveniente de `bote.lpMuestras[especieId]`.
+ * @returns {{ LP?: any[], L?: any[], D?: any[] }} Mapa por tipo con arreglos de muestras.
+ *
+ * Lógica:
+ * 1) Si es arreglo, agrupa por tipo inferido por muestra.
+ * 2) Si es objeto con `ms`, toma `type` (normalizado) y asigna `ms` a esa clave.
+ * 3) Si es objeto, copia claves `LP/L/D` que sean arreglos.
+ * 4) Si no coincide, retorna objeto vacío.
+ *
+ * Dependencias externas:
+ * - `typeForSamples` y `normKind`.
+ *
+ * Efectos secundarios:
+ * - Ninguno (retorna nueva estructura).
+ *
+ * Manejo de errores:
+ * - Usa checks defensivos; no lanza.
+ *
+ * @example
+ * normalizeEntry({ type: 'LP', ms: [{ l: 10, p: 2 }] }) // { LP: [...] }
+ *
+ * Notas de mantenimiento:
+ * - Esta función es clave para compatibilidad retroactiva de datos.
+ */
 function normalizeEntry(entry) {
   if (Array.isArray(entry)) {
     const out = {}
@@ -42,6 +126,33 @@ function normalizeEntry(entry) {
   return {}
 }
 
+/**
+ * Normaliza una clave de nombre (común/científico) para comparaciones con sets.
+ *
+ * @param {unknown} s - Texto a normalizar.
+ * @returns {string} Texto normalizado: minúsculas, sin diacríticos y trim.
+ *
+ * Lógica:
+ * 1) Convierte a string.
+ * 2) Lowercase + normalize NFD.
+ * 3) Elimina diacríticos.
+ * 4) Trim.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No aplica.
+ *
+ * @example
+ * normKey('Lessonia berteroana') // 'lessonia berteroana'
+ *
+ * Notas de mantenimiento:
+ * - Mantener consistente con otros normalizadores del proyecto.
+ */
 function normKey(s) {
   return String(s || '')
     .toLowerCase()
@@ -75,10 +186,78 @@ const ALGA_SCI = new Set(
   ].map(normKey),
 )
 
+/**
+ * Determina si una especie se considera "alga" para forzar el tipo de muestreo a diámetro (D).
+ *
+ * @param {object} sp - Especie (se espera que tenga `com` y/o `sci`).
+ * @returns {boolean} `true` si el nombre común o científico coincide con listas de algas conocidas.
+ *
+ * Lógica:
+ * 1) Normaliza `sp.com` y `sp.sci`.
+ * 2) Busca en `ALGA_COM` y `ALGA_SCI`.
+ *
+ * Dependencias externas:
+ * - `ALGA_COM`, `ALGA_SCI`, `normKey`.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Tolerante a `null/undefined`.
+ *
+ * @example
+ * isAlgaSpecies({ com: 'Cochayuyo' }) // true
+ *
+ * Notas de mantenimiento:
+ * - Ajustar listas si se agregan nuevas algas o alias.
+ */
 function isAlgaSpecies(sp) {
   return ALGA_COM.has(normKey(sp?.com)) || ALGA_SCI.has(normKey(sp?.sci))
 }
 
+/**
+ * Pestaña de ingreso de muestras Peso-Longitud (y variantes L o D) para un bote.
+ *
+ * @param {object} props - Props del componente.
+ * @param {object} props.op - Operación actual (contiene `id`).
+ * @param {object} props.bote - Bote actual (contiene `id`, `lpMuestras`, etc.).
+ * @param {Array<object>} props.especies - Catálogo de especies para resolver labels.
+ * @param {(opId: string, updater: (cur: any) => any) => void} props.updateOperacion - Actualiza la operación (inmutable).
+ * @param {boolean} props.canWrite - Si `false`, bloquea modificaciones.
+ * @param {(msg: string, color?: string) => void} props.toast - Notificaciones UI.
+ * @param {(title: string, body: import('react').JSX.Element, size?: string) => void} props.openModal - Abre un modal.
+ * @param {() => void} props.closeModal - Cierra el modal.
+ * @param {object|null} [props.lpJump] - Señal opcional para abrir automáticamente una especie y hacer foco en una muestra.
+ * @returns {import('react').JSX.Element} Elemento React de la pestaña.
+ *
+ * Lógica:
+ * 1) Ordena especies y crea `byId` para lookup.
+ * 2) Deriva especies habilitadas para muestreo desde `bote.lpMuestras`.
+ * 3) Permite seleccionar especies (y tipo LP/L) mediante un modal.
+ * 4) Permite ingresar/editar/eliminar muestras por especie y tipo (LP/L/D) en un modal.
+ * 5) Consume `lpJump` para saltar a una especie/muestra específica (integración con previsualización EVADIR).
+ *
+ * Dependencias externas:
+ * - [lpMuestrasService](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/services/lpMuestrasService.js): `addSample`, `updateSample`, `removeSample`, `ensureKind`, `removeKind`, `removeEspecie`.
+ * - [SpeciesGrid](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/components/common/SpeciesGrid.jsx).
+ * - React hooks: `useMemo`, `useState`, `useEffect`, `useRef`.
+ *
+ * Efectos secundarios:
+ * - Abre modales (UI).
+ * - Actualiza operación/bote (estado global).
+ * - Despacha eventos CustomEvent para confirmar consumo de `lpJump`.
+ *
+ * Manejo de errores:
+ * - Bloquea modificaciones si `canWrite` es false.
+ * - Usa `try/catch` al despachar eventos (por seguridad en entornos restringidos).
+ *
+ * @example
+ * <LpTab op={op} bote={b} especies={db.especies} updateOperacion={updateOperacion} canWrite={canWrite} toast={toast} openModal={openModal} closeModal={closeModal} />
+ *
+ * Notas de mantenimiento:
+ * - Mantener compatibilidad de `lpMuestras` vía `normalizeEntry`.
+ * - Mantener la detección de algas consistente con reglas de negocio.
+ */
 export default function LpTab({ op, bote, especies, updateOperacion, canWrite, toast, openModal, closeModal, lpJump }) {
   const especiesAll = useMemo(() => {
     const arr = Array.isArray(especies) ? especies : []
@@ -97,11 +276,67 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
     .filter((x) => Number.isFinite(x))
     .sort((a, b) => a - b)
 
+  /**
+   * Abre un modal para seleccionar especies habilitadas para muestreo (y tipo LP/L).
+   *
+   * @returns {void} No retorna valor.
+   *
+   * Lógica:
+   * 1) Si no hay permisos de escritura, muestra toast y sale.
+   * 2) Renderiza un Body interno con `SpeciesGrid` y configuraciones por especie.
+   * 3) Al confirmar:
+   *    - Elimina especies removidas (con confirmación).
+   *    - Asegura/quita kinds (LP/L o D para algas) usando helpers del servicio.
+   *    - Actualiza `bote.lpMuestras` a través de `updateOperacion`.
+   *
+   * Dependencias externas:
+   * - `openModal/closeModal` (UI).
+   * - `ensureKind`, `removeKind`, `removeEspecie` (servicio).
+   *
+   * Efectos secundarios:
+   * - Abre un modal y puede modificar datos del bote.
+   *
+   * Manejo de errores:
+   * - No captura errores del store; asume que el update es sincrónico y estable.
+   *
+   * @example
+   * <button onClick={openSeleccionarEspecies}>Seleccionar especies</button>
+   *
+   * Notas de mantenimiento:
+   * - Si se agregan nuevos kinds, extender la UI de configuración.
+   */
   const openSeleccionarEspecies = () => {
     if (!canWrite) {
       toast('Modo solo lectura', 'blue')
       return
     }
+    /**
+     * Cuerpo del modal “Seleccionar especies” para configurar qué se muestrea en el bote.
+     *
+     * @returns {import('react').JSX.Element} UI del modal con selección de especies y configuración de kinds.
+     *
+     * Lógica:
+     * 1) Inicializa selección con especies actuales (`spIds`) y construye una config `kindsBySpId`.
+     * 2) Permite agregar/quitar especies con `SpeciesGrid`.
+     * 3) Para no-algas, permite habilitar LP y/o L (deshabilita toggles si ya hay muestras).
+     * 4) Al confirmar, aplica cambios a `bote.lpMuestras` (ensure/remove) y elimina especies removidas (con confirmación).
+     *
+     * Dependencias externas:
+     * - `SpeciesGrid` (UI).
+     * - Helpers de `lpMuestrasService`: `ensureKind`, `removeKind`, `removeEspecie`.
+     *
+     * Efectos secundarios:
+     * - Actualiza estado global de la operación/bote vía `updateOperacion`.
+     *
+     * Manejo de errores:
+     * - No captura errores del store; se asume actualización exitosa.
+     *
+     * @example
+     * openModal('Especies a muestrear...', <Body />, 'wide')
+     *
+     * Notas de mantenimiento:
+     * - Mantener reglas de algas (forzar D) consistentes con `isAlgaSpecies`.
+     */
     const Body = () => {
       const initial = spIds
       const [sel, setSel] = useState(() => initial.slice())
@@ -286,6 +521,42 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
     openModal(`Especies a muestrear (L-P) — Bote ${bote?.nombre || bote?.id}`, <Body />, 'wide')
   }
 
+  /**
+   * Abre un modal de ingreso/edición de muestras para una especie y tipo de muestreo.
+   *
+   * @param {string|number} especieId - ID de especie a editar.
+   * @param {unknown} forcedType - Tipo deseado (LP/L/D o alias).
+   * @param {object} [focus] - Datos opcionales para enfocar/resaltar una muestra específica (integración con `lpJump`).
+   * @returns {void} No retorna valor.
+   *
+   * Lógica:
+   * 1) Valida permisos y resuelve especie desde `byId`.
+   * 2) Normaliza el tipo (`kind0`).
+   * 3) Renderiza un Body interno:
+   *    - Carga muestras actuales (`normalizeEntry`).
+   *    - Permite agregar o editar una fila (draft + editIdx).
+   *    - Permite eliminar una fila.
+   *    - (Opcional) resalta/scroll a muestra si `focus` coincide.
+   * 4) Persiste cambios en `bote.lpMuestras` usando `updateOperacion` + helpers del servicio.
+   *
+   * Dependencias externas:
+   * - `openModal`, `closeModal`, `toast`.
+   * - `addSample`, `updateSample`, `removeSample`, `removeEspecie`.
+   *
+   * Efectos secundarios:
+   * - Abre un modal.
+   * - Modifica datos del bote (estado global).
+   * - Puede ejecutar scroll dentro del modal al enfocar una muestra.
+   *
+   * Manejo de errores:
+   * - En modo read-only, bloquea operación.
+   *
+   * @example
+   * openIngreso(12, 'LP')
+   *
+   * Notas de mantenimiento:
+   * - Mantener el matching de `focus` (tolerancia, índice) consistente con el emisor.
+   */
   const openIngreso = (especieId, forcedType, focus) => {
     if (!canWrite) {
       toast('Modo solo lectura', 'blue')
@@ -295,6 +566,34 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
     const sp = byId.get(spId)
     const kind0 = normKind(forcedType)
 
+    /**
+     * Cuerpo del modal de ingreso de muestras para una especie y tipo.
+     *
+     * @returns {import('react').JSX.Element} UI del modal (formulario de ingreso + tabla de muestras).
+     *
+     * Lógica:
+     * 1) Carga y mantiene en estado local las muestras de la especie (`samplesNow`) para feedback inmediato.
+     * 2) Permite agregar/editar mediante un “draft” y un índice de edición (`editIdx`).
+     * 3) Al guardar, persiste en el store con `updateOperacion` y sincroniza `samplesNow`.
+     * 4) Si llega `focus`, resalta y scrollea a una muestra (solo para LP).
+     *
+     * Dependencias externas:
+     * - `updateOperacion` y helpers de `lpMuestrasService` (`addSample`, `updateSample`, `removeSample`).
+     * - DOM: `document.querySelector` + `scrollIntoView` para resaltar.
+     *
+     * Efectos secundarios:
+     * - Puede disparar scroll dentro del modal.
+     * - Modifica estado global al guardar/eliminar.
+     *
+     * Manejo de errores:
+     * - Valida token/tipo/valores numéricos antes de intentar resaltar.
+     *
+     * @example
+     * openModal('Especie', <Body />, 'wide')
+     *
+     * Notas de mantenimiento:
+     * - Mantener tolerancia (`tol`) alineada con el emisor de `focus`.
+     */
     const Body = () => {
       const entry = normalizeEntry((bote?.lpMuestras || {})[spId])
       const initialSamples = entry?.[kind0] || []
@@ -339,6 +638,33 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
         return () => clearTimeout(t)
       }, [focus?.token])
 
+      /**
+       * Agrega una nueva muestra o actualiza la muestra en edición según `editIdx`.
+       *
+       * @returns {void} No retorna valor.
+       *
+       * Lógica:
+       * 1) Según `kind`, toma campos del draft: (LP -> {l,p}, D -> {d}, L -> {l}).
+       * 2) Persiste en el store: `addSample` si no hay `editIdx`, o `updateSample` si hay edición.
+       * 3) Sincroniza `samplesNow` para reflejar el cambio sin esperar re-render del padre.
+       * 4) Resetea draft, limpia `editIdx` y devuelve foco al input principal.
+       *
+       * Dependencias externas:
+       * - `updateOperacion` (store) y helpers `addSample/updateSample`.
+       * - Refs `lRef/pRef/dRef` para control de foco.
+       *
+       * Efectos secundarios:
+       * - Modifica estado global de operación/bote y estado local del modal.
+       *
+       * Manejo de errores:
+       * - No valida rango/unidades; se asume validación aguas arriba o posterior.
+       *
+       * @example
+       * <button onClick={addOrUpdate}>{editIdx == null ? 'Agregar' : 'Guardar'}</button>
+       *
+       * Notas de mantenimiento:
+       * - Si se agrega validación (mínimos/máximos), incorporarla antes de persistir.
+       */
       const addOrUpdate = () => {
         if (kind === 'LP') {
           const l = draft.l

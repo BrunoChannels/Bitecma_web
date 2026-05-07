@@ -2,6 +2,33 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import DensidadTab from './DensidadTab.jsx'
 import LpTab from './LpTab.jsx'
 
+/**
+ * Normaliza un texto para comparaciones flexibles (sin acentos y espacios homogéneos).
+ *
+ * @param {unknown} v - Texto a normalizar.
+ * @returns {string} Texto normalizado (minúsculas, sin diacríticos, espacios colapsados).
+ *
+ * Lógica:
+ * 1) Convierte a string.
+ * 2) Pasa a minúsculas.
+ * 3) Normaliza unicode y elimina diacríticos.
+ * 4) Colapsa espacios múltiples y recorta.
+ *
+ * Dependencias externas:
+ * - APIs estándar de string (`normalize`).
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No aplica.
+ *
+ * @example
+ * normKey('Bote Águila  1') // "bote aguila 1"
+ *
+ * Notas de mantenimiento:
+ * - Mantener consistente con otras funciones `normKey/normHeader` del proyecto.
+ */
 function normKey(v) {
   return String(v || '')
     .toLowerCase()
@@ -11,6 +38,48 @@ function normKey(v) {
     .trim()
 }
 
+/**
+ * Tarjeta UI para un bote dentro de una operación.
+ *
+ * Muestra un header colapsable con resumen y dos pestañas: Densidad y Peso-Longitud.
+ *
+ * @param {object} props - Props del componente.
+ * @param {object} props.op - Operación actual (contiene `id`, fechas, etc.).
+ * @param {object} props.bote - Bote actual (contiene `id`, `nombre`, `zona`, `buzo`, `transectos`, `lpMuestras`, etc.).
+ * @param {Array<object>} props.especies - Catálogo de especies para resolver labels.
+ * @param {(opId: string, updater: (cur: any) => any) => void} props.updateOperacion - Función para actualizar la operación en el store (inmutable).
+ * @param {boolean} props.canWrite - Indica si el usuario puede modificar datos.
+ * @param {(msg: string, color?: string) => void} props.toast - Notificador UI.
+ * @param {(title: string, body: import('react').JSX.Element, size?: string) => void} props.openModal - Abre un modal.
+ * @param {() => void} props.closeModal - Cierra el modal actual.
+ * @param {object|null} [props.lpJump] - Señal opcional para abrir automáticamente la pestaña LP y hacer scroll al bote.
+ * @returns {import('react').JSX.Element} Elemento React de la tarjeta del bote.
+ *
+ * Lógica:
+ * 1) Mantiene estado local `open` (colapsado) y `tab` (dens/lp).
+ * 2) Si llega `lpJump` y coincide con este bote y operación, abre la tarjeta, selecciona pestaña LP y scrollea al header.
+ * 3) Calcula especies usadas en densidad (`densSpecies`) leyendo transectos/cuadrantes.
+ * 4) Calcula totales (unidades, muestras) para mostrar pills en el header.
+ * 5) Renderiza contenido condicional según `tab` (DensidadTab o LpTab).
+ *
+ * Dependencias externas:
+ * - React hooks: `useState`, `useEffect`, `useMemo`, `useRef`.
+ * - [DensidadTab](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/components/ops/DensidadTab.jsx)
+ * - [LpTab](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/components/ops/LpTab.jsx)
+ *
+ * Efectos secundarios:
+ * - Puede disparar scroll (`scrollIntoView`) al recibir un `lpJump` válido.
+ *
+ * Manejo de errores:
+ * - Utiliza validaciones defensivas para evitar accesos a `null/undefined`.
+ *
+ * @example
+ * <BoteCard op={op} bote={b} especies={db.especies} updateOperacion={updateOperacion} canWrite={canWrite} toast={toast} openModal={openModal} closeModal={closeModal} />
+ *
+ * Notas de mantenimiento:
+ * - Mantener la lógica de matching de `lpJump` sincronizada con el emisor (por ejemplo, EvadirPreview).
+ * - Evitar cálculos pesados sin memoización.
+ */
 export default function BoteCard({ op, bote, especies, updateOperacion, canWrite, toast, openModal, closeModal, lpJump }) {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState('dens')
@@ -36,9 +105,9 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
     if (!matchId && !matchName) return
 
     lastTokenRef.current = token
-    setOpen(true)
-    setTab('lp')
     setTimeout(() => {
+      setOpen(true)
+      setTab('lp')
       rootRef.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
     }, 0)
   }, [lpJump?.token, op?.id, bote?.id, bote?.nombre, bote?.buzo, bote?.zona])

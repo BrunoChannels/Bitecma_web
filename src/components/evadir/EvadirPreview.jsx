@@ -3,6 +3,33 @@ import { buildEvadirPreviewSheets } from '../../services/evadirPreviewService.js
 import { useUi } from '../../context/uiContext.jsx'
 import { useApp } from '../../context/appContext.jsx'
 
+/**
+ * Normaliza una clave de texto para comparaciones robustas (mayúsculas, sin acentos, espacios colapsados).
+ *
+ * @param {unknown} v - Texto de entrada.
+ * @returns {string} Clave normalizada, apta para comparaciones e inclusión en sets/maps.
+ *
+ * Lógica:
+ * 1) Convierte a string.
+ * 2) Pasa a mayúsculas.
+ * 3) Normaliza unicode y elimina diacríticos.
+ * 4) Colapsa espacios múltiples y recorta.
+ *
+ * Dependencias externas:
+ * - APIs estándar de string (`normalize`).
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No aplica; siempre retorna string.
+ *
+ * @example
+ * normKey('Región Ñuble') // 'REGION NUBLE'
+ *
+ * Notas de mantenimiento:
+ * - Mantener consistente con otros normalizadores si se unifica a un helper común.
+ */
 function normKey(v) {
   return String(v || '')
     .toUpperCase()
@@ -12,6 +39,34 @@ function normKey(v) {
     .trim()
 }
 
+/**
+ * Formatea un valor de coordenada a string con 4 decimales cuando es posible.
+ *
+ * @param {unknown} v - Valor crudo (string/number) de coordenada.
+ * @returns {string} Coordenada formateada o '—' si no hay dato.
+ *
+ * Lógica:
+ * 1) Normaliza a string y recorta.
+ * 2) Reemplaza coma por punto.
+ * 3) Si es entero, agrega `.0000`.
+ * 4) Si es decimal, trunca/complete a 4 decimales.
+ * 5) Si no matchea patrón numérico, retorna el original (para no “inventar” datos).
+ *
+ * Dependencias externas:
+ * - RegEx.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No lanza; retorna formato seguro.
+ *
+ * @example
+ * fmtCoordString('70,123') // '70.1230'
+ *
+ * Notas de mantenimiento:
+ * - Evitar redondeos agresivos; aquí se busca consistencia visual con 4 decimales.
+ */
 function fmtCoordString(v) {
   const s0 = String(v ?? '').trim()
   if (s0 === '') return '—'
@@ -27,6 +82,37 @@ function fmtCoordString(v) {
   return `${m[1]}.${dec4}`
 }
 
+/**
+ * Formatea un valor de celda para despliegue en la tabla de previsualización.
+ *
+ * @param {unknown} v - Valor crudo (puede venir como number, string u objeto `{ v }`).
+ * @param {'coord'|'dens'|undefined} kind - Tipo de formato especial (coordenadas o densidad).
+ * @returns {string} Texto listo para mostrar; retorna '—' si no hay dato.
+ *
+ * Lógica:
+ * 1) Maneja `null/undefined` devolviendo '—'.
+ * 2) Si es objeto, intenta leer `v.v` (estructura típica de celdas parseadas).
+ * 3) Si `kind` es 'coord', intenta forzar 4 decimales (number) o usa `fmtCoordString` (string).
+ * 4) Si es number finito:
+ *    - Para 'dens' usa `toFixed(4)`.
+ *    - Para otros, retorna string.
+ * 5) Para strings: trim y retorna '—' si queda vacío.
+ *
+ * Dependencias externas:
+ * - `fmtCoordString`.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No lanza; es tolerante a entradas mixtas.
+ *
+ * @example
+ * fmt(12.34567, 'dens') // '12.3457'
+ *
+ * Notas de mantenimiento:
+ * - Mantener el tratamiento de objetos `{ v }` alineado con el servicio que construye hojas.
+ */
 function fmt(v, kind) {
   if (v === null || v === undefined) return '—'
   if (typeof v === 'object') return v?.v ?? '—'
@@ -45,6 +131,34 @@ function fmt(v, kind) {
   return s === '' ? '—' : s
 }
 
+/**
+ * Convierte una celda/valor a número finito o `null` si no se puede parsear.
+ *
+ * @param {unknown} v - Valor crudo (number, string, u objeto `{ v }`).
+ * @returns {number|null} Número finito o `null` si no hay dato/parseo inválido.
+ *
+ * Lógica:
+ * 1) Trata `null/undefined/''` como ausencia de dato -> `null`.
+ * 2) Si es objeto, intenta usar `v.v`.
+ * 3) Si es number finito, lo retorna.
+ * 4) Si es string, recorta y reemplaza coma por punto, luego `Number(...)`.
+ * 5) Si no es finito, retorna `null`.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No lanza; retorna `null` en inválidos.
+ *
+ * @example
+ * toNumber('12,5') // 12.5
+ *
+ * Notas de mantenimiento:
+ * - Mantener consistente con parseos de EVADIR/LP en otros módulos.
+ */
 function toNumber(v) {
   if (v === null || v === undefined || v === '') return null
   const raw = typeof v === 'object' ? v?.v : v
@@ -53,6 +167,43 @@ function toNumber(v) {
   return Number.isFinite(n) ? n : null
 }
 
+/**
+ * Gráfico de dispersión Longitud vs Peso (LP) con ajuste de potencia y selección de puntos.
+ *
+ * @param {object} props - Props del componente.
+ * @param {Array<object>} props.points - Puntos a graficar (se espera {x, y, ...meta}).
+ * @param {number} [props.width=520] - Ancho lógico del SVG (viewBox).
+ * @param {number} [props.height=170] - Alto lógico del SVG (viewBox).
+ * @param {string} [props.title='Relación Peso - Longitud'] - Título mostrado sobre el gráfico.
+ * @param {(meta: any) => void} [props.onJump] - Callback opcional al clickear el tooltip de un punto seleccionado.
+ * @returns {import('react').JSX.Element} Card con SVG del scatterplot.
+ *
+ * Lógica:
+ * 1) Normaliza dimensiones y define paddings y escalas.
+ * 2) Calcula `stats`:
+ *    - máximos x/y para escalar,
+ *    - regresión tipo potencia `y = a * x^b` usando log-log,
+ *    - R² sobre el espacio log.
+ * 3) Construye `plot` con ticks, círculos (puntos) y la curva de regresión (path).
+ * 4) Permite seleccionar un punto (click en círculo) y mostrar tooltip; al click en tooltip ejecuta `onJump(meta)` si existe.
+ *
+ * Dependencias externas:
+ * - React hooks: `useState`, `useMemo`.
+ * - Helpers locales: `toNumber`.
+ *
+ * Efectos secundarios:
+ * - Ninguno (solo estado local de selección).
+ *
+ * Manejo de errores:
+ * - Si hay pocos puntos o denominadores inválidos, omite regresión (reg = null).
+ *
+ * @example
+ * <LpScatter points={[{ x: 120, y: 40, boteNombre: '...' }]} onJump={(pt) => console.log(pt)} />
+ *
+ * Notas de mantenimiento:
+ * - La regresión se calcula en log; asegurar `x>0` y `y>0` para incluir un punto.
+ * - Si se desea performance en datasets grandes, considerar muestreo o canvas.
+ */
 function LpScatter({ points, width = 520, height = 170, title = 'Relación Peso - Longitud', onJump }) {
   const pad = { l: 54, r: 10, t: 24, b: 44 }
   const w = Math.max(240, width)
@@ -318,6 +469,33 @@ function LpScatter({ points, width = 520, height = 170, title = 'Relación Peso 
   )
 }
 
+/**
+ * Construye un mapa índice para acceder rápidamente a columnas por nombre exacto.
+ *
+ * @param {unknown} header - Fila de encabezado (se espera array de strings).
+ * @returns {Map<string, number>} Map donde la clave es el encabezado (trim) y el valor es su índice.
+ *
+ * Lógica:
+ * 1) Itera los encabezados (si es array).
+ * 2) Convierte cada celda a string y recorta.
+ * 3) Inserta en `Map` con su índice.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Tolerante a entradas no array.
+ *
+ * @example
+ * const map = headerIndexMap(['BOTE','BUZO'])
+ * map.get('BUZO') // 1
+ *
+ * Notas de mantenimiento:
+ * - Si hay encabezados duplicados, el último sobrescribe al anterior.
+ */
 function headerIndexMap(header) {
   const m = new Map()
   ;(Array.isArray(header) ? header : []).forEach((h, i) => {
@@ -326,6 +504,33 @@ function headerIndexMap(header) {
   return m
 }
 
+/**
+ * Busca el índice del primer encabezado que cumpla una condición.
+ *
+ * @param {unknown} header - Fila de encabezado (se espera array).
+ * @param {(h: string, idx: number) => boolean} predicate - Predicado de búsqueda.
+ * @returns {number} Índice encontrado, o -1 si no hay match.
+ *
+ * Lógica:
+ * 1) Recorre encabezados.
+ * 2) Normaliza cada valor a string trim.
+ * 3) Retorna el primer índice que cumpla el predicado.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Si `header` no es array, retorna -1.
+ *
+ * @example
+ * findHeaderIndex(['DENS A', 'DENS B'], (h) => h.startsWith('DENS')) // 0
+ *
+ * Notas de mantenimiento:
+ * - Mantener predicados simples para evitar costo alto por fila.
+ */
 function findHeaderIndex(header, predicate) {
   const arr = Array.isArray(header) ? header : []
   for (let i = 0; i < arr.length; i++) {
@@ -334,6 +539,34 @@ function findHeaderIndex(header, predicate) {
   return -1
 }
 
+/**
+ * Extrae nombres de especies desde columnas tipo `NUM <especie>` del encabezado EVADIR.
+ *
+ * @param {unknown} header - Fila de encabezado (array).
+ * @param {Set<string>} [knownSpeciesNorm] - Set opcional de especies conocidas (normalizadas) para filtrar.
+ * @returns {string[]} Lista de nombres de especie tal como aparecen en el encabezado.
+ *
+ * Lógica:
+ * 1) Recorre encabezados y filtra los que empiezan con "NUM ".
+ * 2) Extrae el texto posterior como nombre de especie.
+ * 3) Excluye explícitamente "SEG ESBA".
+ * 4) Si `knownSpeciesNorm` está presente, conserva solo especies que existan en ese set.
+ *
+ * Dependencias externas:
+ * - `normKey` para normalizar comparaciones.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Tolerante a encabezados no string.
+ *
+ * @example
+ * extractSpeciesFromEvadirHeader(['NUM Loco', 'DENS Loco'], new Set(['LOCO'])) // ['Loco']
+ *
+ * Notas de mantenimiento:
+ * - Si el formato del EVADIR cambia (prefijos distintos), ajustar la detección aquí.
+ */
 function extractSpeciesFromEvadirHeader(header, knownSpeciesNorm) {
   const out = []
   const known = knownSpeciesNorm instanceof Set ? knownSpeciesNorm : null
@@ -355,6 +588,35 @@ function extractSpeciesFromEvadirHeader(header, knownSpeciesNorm) {
 }
 
 
+/**
+ * Cuenta muestras de LP/L/D presentes en una operación (a través de `botes[].lpMuestras`).
+ *
+ * @param {object} op - Operación que contiene botes y muestreos.
+ * @returns {{ LP: number, L: number, D: number, total: number }} Conteo por tipo y total.
+ *
+ * Lógica:
+ * 1) Inicializa contadores.
+ * 2) Recorre botes y sus `lpMuestras` (por especie).
+ * 3) Soporta distintos esquemas de storage: arrays, `{type, ms}`, o `{LP,L,D}`.
+ * 4) Infere el kind si no viene forzado (si hay peso -> LP, si no -> L).
+ * 5) Acumula contadores y total.
+ *
+ * Dependencias externas:
+ * - Ninguna (usa helpers locales internos).
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Tolerante a datos incompletos.
+ *
+ * @example
+ * const c = countSamplesFromOp(op)
+ * console.log(c.total)
+ *
+ * Notas de mantenimiento:
+ * - Mantener compatibilidad con estructuras históricas de `lpMuestras`.
+ */
 function countSamplesFromOp(op) {
   const out = { LP: 0, L: 0, D: 0, total: 0 }
   const botes = Array.isArray(op?.botes) ? op.botes : []
@@ -401,6 +663,49 @@ function countSamplesFromOp(op) {
   return out
 }
 
+/**
+ * Previsualiza la operación EVADIR en formato tabla (y, para LP, un scatterplot LP).
+ *
+ * Este componente no genera archivos; muestra una vista previa basada en hojas construidas por el servicio.
+ *
+ * @param {object} props - Props del componente.
+ * @param {object} props.db - DB parcial (se usa principalmente `db.especies`).
+ * @param {object|null} props.op - Operación a previsualizar. Si es null, se muestra error.
+ * @returns {import('react').JSX.Element} UI de previsualización con tabs por “hoja”.
+ *
+ * Lógica:
+ * 1) Construye “sheets” mediante `buildEvadirPreviewSheets`.
+ * 2) Mantiene UI state: tab activo, límites de filas, filtro de tipo de unidad y modo móvil.
+ * 3) Deriva header/rows y mapas de índice para resolver columnas.
+ * 4) Detecta tipo de hoja activa (EVADIR/LP/L/D) y aplica:
+ *    - Filtro por unidad (transecto/cuadrante) si corresponde.
+ *    - Recorte de filas por `rowLimit`.
+ * 5) Para LP:
+ *    - Construye `lpPreview` (maxL/maxP/points) y ofrece gráfico de dispersión.
+ *    - Al clickear un punto, emite una señal de “jump” vía `sessionStorage` + `CustomEvent` y navega a Operaciones.
+ * 6) Renderiza tabla con encabezados sticky y filas formateadas mediante `fmt`.
+ *
+ * Dependencias externas:
+ * - [buildEvadirPreviewSheets](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/services/evadirPreviewService.js) para construir hojas.
+ * - Contextos: [useUi](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/context/uiContext.jsx) y [useApp](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/context/appContext.jsx).
+ * - `sessionStorage` y `window.dispatchEvent` para integración de salto LP.
+ *
+ * Efectos secundarios:
+ * - Registra listeners de `matchMedia` (con cleanup).
+ * - Puede escribir en `sessionStorage` y despachar `CustomEvent` para integración de navegación.
+ * - Puede disparar navegación (`navigate('ops')`) y cerrar modal (`closeModal()`).
+ *
+ * Manejo de errores:
+ * - Si `op` es null, muestra un “Operación no encontrada”.
+ * - Envuelve `sessionStorage`/`dispatchEvent` en try/catch para evitar fallas en entornos restringidos.
+ *
+ * @example
+ * <EvadirPreview db={db} op={operacion} />
+ *
+ * Notas de mantenimiento:
+ * - Mantener nombres de hojas/columnas alineados con el export EVADIR y el servicio de preview.
+ * - La lógica de “jump” debe mantenerse compatible con el consumidor (LpTab/BoteCard).
+ */
 export default function EvadirPreview({ db, op }) {
   const { closeModal } = useUi()
   const { navigate } = useApp()

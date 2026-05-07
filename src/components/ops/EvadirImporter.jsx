@@ -4,6 +4,33 @@ import SpeciesGrid from '../common/SpeciesGrid.jsx'
 import { addSample } from '../../services/lpMuestrasService.js'
 import { useApp } from '../../context/appContext.jsx'
 
+/**
+ * Normaliza texto para matching flexible (minúsculas, sin acentos, solo alfanuméricos/espacios).
+ *
+ * @param {unknown} v - Valor de entrada.
+ * @returns {string} Texto normalizado para comparación.
+ *
+ * Lógica:
+ * 1) Convierte a string.
+ * 2) Lowercase + unicode normalize.
+ * 3) Elimina diacríticos.
+ * 4) Reemplaza cualquier separador no alfanumérico por espacios y recorta.
+ *
+ * Dependencias externas:
+ * - APIs estándar de string.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No aplica.
+ *
+ * @example
+ * normText('Lessonia (sp.)') // 'lessonia sp'
+ *
+ * Notas de mantenimiento:
+ * - Usar para matching “tolerante”; para comparaciones exactas considerar normalización más estricta.
+ */
 function normText(v) {
   return String(v || '')
     .toLowerCase()
@@ -13,10 +40,62 @@ function normText(v) {
     .trim()
 }
 
+/**
+ * Normaliza encabezados (headers) colapsando espacios.
+ *
+ * @param {unknown} v - Encabezado crudo.
+ * @returns {string} Encabezado normalizado (tokens separados por un solo espacio).
+ *
+ * Lógica:
+ * 1) Aplica `normText`.
+ * 2) Colapsa espacios múltiples.
+ *
+ * Dependencias externas:
+ * - `normText`.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No aplica.
+ *
+ * @example
+ * normHeader('  Tipo   unidad ') // 'tipo unidad'
+ *
+ * Notas de mantenimiento:
+ * - Mantener consistente con lógica de detección de columnas.
+ */
 function normHeader(v) {
   return normText(v).replace(/\s+/g, ' ').trim()
 }
 
+/**
+ * Obtiene el primer valor no vacío de una columna dentro de un set de filas.
+ *
+ * @param {Array<any[]>} rows - Filas (arrays) provenientes del AOA del Excel.
+ * @param {number} idx - Índice de columna a inspeccionar.
+ * @returns {string} Primer string no vacío; '' si no existe.
+ *
+ * Lógica:
+ * 1) Itera filas en orden.
+ * 2) Lee la celda en `idx`, la convierte a string y recorta.
+ * 3) Retorna el primer valor no vacío.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Tolerante a filas incompletas.
+ *
+ * @example
+ * firstNonEmpty(rows, 3)
+ *
+ * Notas de mantenimiento:
+ * - Útil para metadatos que se repiten o aparecen solo en algunas filas.
+ */
 function firstNonEmpty(rows, idx) {
   for (const r of rows) {
     const v = r?.[idx]
@@ -26,6 +105,33 @@ function firstNonEmpty(rows, idx) {
   return ''
 }
 
+/**
+ * Parsea un entero de forma segura (devuelve `null` si no es válido).
+ *
+ * @param {unknown} v - Valor crudo (number o string).
+ * @returns {number|null} Entero truncado o `null`.
+ *
+ * Lógica:
+ * 1) Trata `null/undefined/''` como ausencia.
+ * 2) Si es number finito, trunca.
+ * 3) Si es string, aplica `parseInt`.
+ * 4) Si no es finito, retorna `null`.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No lanza; retorna `null`.
+ *
+ * @example
+ * parseIntSafe('12') // 12
+ *
+ * Notas de mantenimiento:
+ * - Mantener coherencia con parseos usados en servicios EVADIR/preview.
+ */
 function parseIntSafe(v) {
   if (v === null || v === undefined || v === '') return null
   if (typeof v === 'number' && Number.isFinite(v)) return Math.trunc(v)
@@ -33,6 +139,33 @@ function parseIntSafe(v) {
   return Number.isFinite(n) ? n : null
 }
 
+/**
+ * Parsea un número decimal de forma segura (soporta coma decimal).
+ *
+ * @param {unknown} v - Valor crudo (number o string).
+ * @returns {number|null} Número finito o `null`.
+ *
+ * Lógica:
+ * 1) Trata `null/undefined/''` como ausencia.
+ * 2) Si es number finito, lo retorna.
+ * 3) Si es string, recorta, reemplaza coma por punto y aplica `Number(...)`.
+ * 4) Si no es finito, retorna `null`.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No lanza; retorna `null`.
+ *
+ * @example
+ * parseNumSafe('0,25') // 0.25
+ *
+ * Notas de mantenimiento:
+ * - Si se requiere soporte de separadores de miles, ajustar aquí.
+ */
 function parseNumSafe(v) {
   if (v === null || v === undefined || v === '') return null
   if (typeof v === 'number' && Number.isFinite(v)) return v
@@ -40,6 +173,37 @@ function parseNumSafe(v) {
   return Number.isFinite(n) ? n : null
 }
 
+/**
+ * Normaliza una fecha a formato ISO (YYYY-MM-DD) soportando distintos formatos Excel.
+ *
+ * @param {unknown} val - Valor crudo de fecha (Date, serial Excel, o string).
+ * @param {any} XLSX - Módulo XLSX (se usa `XLSX.SSF.parse_date_code` si existe).
+ * @returns {string} Fecha ISO o '' si no se puede parsear.
+ *
+ * Lógica:
+ * 1) Si es Date válida, formatea a ISO.
+ * 2) Si es número y existe parser de serial Excel, intenta convertir.
+ * 3) Si es string:
+ *    - Acepta ISO directo.
+ *    - Acepta DD-MM-YYYY / DD/MM/YYYY y convierte.
+ *    - Acepta YYYY-MM-DD / YYYY/MM/DD.
+ * 4) Si no calza, retorna ''.
+ *
+ * Dependencias externas:
+ * - `XLSX.SSF.parse_date_code` (si disponible).
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No lanza; retorna '' si falla.
+ *
+ * @example
+ * parseDateISO('31/12/2026', XLSX) // '2026-12-31'
+ *
+ * Notas de mantenimiento:
+ * - Mantener esta función tolerante, porque los Excel reales suelen variar en formatos.
+ */
 function parseDateISO(val, XLSX) {
   if (val == null || val === '') return ''
   if (val instanceof Date && !isNaN(val)) {
@@ -66,6 +230,32 @@ function parseDateISO(val, XLSX) {
   return ''
 }
 
+/**
+ * Intenta identificar la fila de encabezados dentro de un AOA (array-of-arrays) exportado desde Excel.
+ *
+ * @param {unknown} aoa - AOA de la hoja (`XLSX.utils.sheet_to_json(..., {header:1})`).
+ * @returns {number} Índice de fila que parece encabezado; 0 si no se detecta.
+ *
+ * Lógica:
+ * 1) Escanea hasta 12 filas.
+ * 2) Normaliza cada fila a “keys”.
+ * 3) Detecta heurísticamente presencia de columnas típicas (BOTE, ZONA, NUM...) o (REGION, FECHA...).
+ *
+ * Dependencias externas:
+ * - `normHeader`.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Si no hay match, retorna 0.
+ *
+ * @example
+ * const hdr = guessHeaderRow(aoa)
+ *
+ * Notas de mantenimiento:
+ * - Si aparecen nuevos layouts, ajustar heurísticas para reducir falsos positivos.
+ */
 function guessHeaderRow(aoa) {
   const maxScan = Math.min(Array.isArray(aoa) ? aoa.length : 0, 12)
   for (let r = 0; r < maxScan; r++) {
@@ -82,6 +272,30 @@ function guessHeaderRow(aoa) {
   return 0
 }
 
+/**
+ * Retorna la fecha actual en formato ISO (YYYY-MM-DD).
+ *
+ * @returns {string} Fecha ISO.
+ *
+ * Lógica:
+ * 1) Usa `new Date()` local.
+ * 2) Formatea año/mes/día con padding.
+ *
+ * Dependencias externas:
+ * - `Date`.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No aplica.
+ *
+ * @example
+ * const today = todayISO()
+ *
+ * Notas de mantenimiento:
+ * - Si se requiere zona horaria específica, ajustar a una librería/estrategia central.
+ */
 function todayISO() {
   const d = new Date()
   const y = d.getFullYear()
@@ -90,11 +304,96 @@ function todayISO() {
   return `${y}-${m}-${day}`
 }
 
+/**
+ * Importador de Excel EVADIR (.xlsx/.xls) para crear o actualizar una operación en el sistema.
+ *
+ * Parse:
+ * - Hoja EVADIR (densidad/estructuras).
+ * - Hojas adicionales LP/L/D para muestras (si existen).
+ *
+ * @param {object} props - Props del componente.
+ * @param {object} props.db - Base de datos en memoria (especies, regionesChile, opa, etc.).
+ * @param {boolean} props.canWrite - Permiso de escritura (si false, bloquea importación).
+ * @param {(msg: string, color?: string) => void} props.toast - Notificador UI.
+ * @param {(title: string, body: import('react').JSX.Element, size?: string) => void} props.openModal - Abre un modal.
+ * @param {() => void} props.closeModal - Cierra el modal.
+ * @param {Array<object>} props.operaciones - Operaciones existentes (para detectar colisión de ID).
+ * @param {(ops: Array<object>, year: string) => string} props.nextOpId - Genera el próximo ID de operación para un año.
+ * @param {(payload: object, mode: 'create'|'update') => Promise<boolean>} props.safeUpsertOperacion - Persiste en backend/API o storage seguro.
+ * @returns {import('react').JSX.Element} Botón “Subir EVADIR” y un input file oculto.
+ *
+ * Lógica:
+ * 1) Bloquea importación si `canWrite` es false o si hay una importación en curso.
+ * 2) Carga `xlsx-js-style` dinámicamente para leer el Excel en cliente.
+ * 3) Ubica la hoja EVADIR y detecta la fila de encabezados.
+ * 4) Mapea columnas relevantes (bote, zona, num, tipo, counts/dens, coordenadas, etc.).
+ * 5) Construye un borrador de operación (botes + transectos/cuadrantes + muestreos LP/L/D).
+ * 6) Si hay especies no resolubles en hojas LP, solicita resolución manual vía modal con `SpeciesGrid`.
+ * 7) Muestra una previsualización (modal) y, al confirmar, ejecuta `safeUpsertOperacion`.
+ *
+ * Dependencias externas:
+ * - Import dinámico: `xlsx-js-style`.
+ * - [EvadirPreview](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/components/evadir/EvadirPreview.jsx) para previsualización.
+ * - [SpeciesGrid](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/components/common/SpeciesGrid.jsx) para resolución manual.
+ * - [addSample](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/services/lpMuestrasService.js) para cargar muestras.
+ * - [useApp](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/context/appContext.jsx) para obtener el usuario actual.
+ *
+ * Efectos secundarios:
+ * - Abre modales (resolución y previsualización).
+ * - Lee archivos locales desde input file.
+ * - Puede ejecutar requests de persistencia según implementación de `safeUpsertOperacion`.
+ *
+ * Manejo de errores:
+ * - Muestra toasts rojos ante errores de lectura/parseo/hojas faltantes.
+ * - Atrapa excepciones generales del proceso de importación.
+ *
+ * @example
+ * <EvadirImporter db={db} canWrite={canWrite} toast={toast} openModal={openModal} closeModal={closeModal} operaciones={db.operaciones} nextOpId={nextOpId} safeUpsertOperacion={safeUpsertOperacion} />
+ *
+ * Notas de mantenimiento:
+ * - La heurística de mapeo de columnas es tolerante; mantenerla alineada con plantillas Excel reales.
+ * - Evitar romper compatibilidad con alias científicos/comunes (ver `sciAliases` y `comAliasToId`).
+ */
 export default function EvadirImporter({ db, canWrite, toast, openModal, closeModal, operaciones, nextOpId, safeUpsertOperacion }) {
   const evadirInputRef = useRef(null)
   const [isImportingEvadir, setIsImportingEvadir] = useState(false)
   const { user } = useApp()
 
+  /**
+   * Importa y procesa un archivo Excel EVADIR.
+   *
+   * @param {File} file - Archivo Excel seleccionado por el usuario.
+   * @returns {Promise<void>} Promesa que resuelve al finalizar el flujo (puede abortar por validación/usuario).
+   *
+   * Lógica (alto nivel):
+   * 1) Validaciones iniciales: archivo, permisos, reentrancia.
+   * 2) Carga XLSX, lee workbook y ubica hoja EVADIR.
+   * 3) Prepara estructuras de resolución:
+   *    - maps de especies (por com/sci y aliases),
+   *    - regions/OPA,
+   *    - heurísticas por nombre de hoja.
+   * 4) Parsea filas EVADIR a una estructura de botes/unidades con counts/coordenadas.
+   * 5) Parsea hojas LP/L/D y agrega muestras con `addSample`.
+   * 6) Si quedan especies no resueltas, abre un modal para resolver manualmente.
+   * 7) Abre previsualización; al confirmar, persiste con `safeUpsertOperacion`.
+   *
+   * Dependencias externas:
+   * - `xlsx-js-style` y sus helpers (`XLSX.read`, `XLSX.utils.sheet_to_json`).
+   * - `openModal/closeModal`, `toast`.
+   * - `safeUpsertOperacion`, `nextOpId`.
+   *
+   * Efectos secundarios:
+   * - Abre modales, actualiza UI de carga y puede persistir datos.
+   *
+   * Manejo de errores:
+   * - Captura errores y muestra mensaje legible por `toast`.
+   *
+   * @example
+   * importEvadirFromXlsx(file)
+   *
+   * Notas de mantenimiento:
+   * - Mantener el import dinámico para no inflar el bundle inicial.
+   */
   const importEvadirFromXlsx = async (file) => {
     if (!file) return
     if (!canWrite) {
@@ -217,6 +516,34 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         return m
       })()
 
+      /**
+       * Intenta inferir la especie asociada a una hoja LP/L/D a partir de su nombre.
+       *
+       * @param {string} sheetName - Nombre de la hoja en el Excel.
+       * @returns {number|null} ID de especie inferido o `null` si no se puede inferir.
+       *
+       * Lógica:
+       * 1) Normaliza el nombre de la hoja.
+       * 2) Excluye tokens genéricos (evadir, lp, l, d, etc.).
+       * 3) Busca el alias común más largo que esté contenido en el nombre de hoja.
+       * 4) Retorna el ID asociado al mejor match.
+       *
+       * Dependencias externas:
+       * - `normHeader`.
+       * - `comAliasToId` (map de alias comunes a ID).
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Manejo de errores:
+       * - Retorna `null` si no hay match.
+       *
+       * @example
+       * guessSpeciesFromSheetName('LP Loco') // -> id de Loco (si existe alias)
+       *
+       * Notas de mantenimiento:
+       * - Mantener el set `stop` alineado con convenciones reales de nombres de hojas.
+       */
       const guessSpeciesFromSheetName = (sheetName) => {
         const s = normHeader(sheetName)
         if (!s) return null
@@ -233,6 +560,35 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         return best?.id ?? null
       }
 
+      /**
+       * Resuelve un ID de especie a partir de un nombre crudo de columna/celda (común o científico).
+       *
+       * @param {unknown} rawName - Nombre crudo (ej.: encabezado "NUM Loco", "DENS Lessonia berteroana", etc.).
+       * @returns {number|null} ID de especie, o `null` si no se puede determinar.
+       *
+       * Lógica (alto nivel):
+       * 1) Limpia prefijos ("num"/"dens") y paréntesis.
+       * 2) Aplica aliases científicos (`sciAliases`).
+       * 3) Intenta match por inicial de género + epíteto (ej.: "L nigrescens").
+       * 4) Intenta match directo por nombre común/científico normalizado.
+       * 5) Como fallback, usa matching por tokens contenidos en com/sci y elige el mejor score.
+       *
+       * Dependencias externas:
+       * - Maps: `speciesIdByKey`, `genusInitialEpithetToId`, `sciAliases`.
+       * - Datos: `especies` (catálogo).
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Manejo de errores:
+       * - Retorna `null` en entradas vacías o sin match.
+       *
+       * @example
+       * resolveSpeciesId('NUM Lessonia nigrescens') // id de Lessonia berteroana (por alias)
+       *
+       * Notas de mantenimiento:
+       * - Esta función concentra reglas de negocio de alias/matching; mantenerla cubierta por casos reales.
+       */
       const resolveSpeciesId = (rawName) => {
         const baseRaw = String(rawName || '').replace(/\(.*?\)/g, '').trim()
         const base = baseRaw.replace(/^(num|dens)\s+/i, '').trim()
@@ -318,6 +674,34 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         return m
       })()
 
+      /**
+       * Resuelve el ID de región desde un valor crudo del Excel (número, romano o nombre).
+       *
+       * @param {unknown} raw - Valor crudo de región.
+       * @returns {number} ID de región (fallback a la primera región si no se puede resolver).
+       *
+       * Lógica:
+       * 1) Si `raw` es numérico, lo retorna.
+       * 2) Normaliza el texto y busca match exacto en `regionsByKey`.
+       * 3) Como fallback, busca inclusión parcial en `regionesChile`.
+       * 4) Si no hay match, retorna la primera región o 1.
+       *
+       * Dependencias externas:
+       * - `parseIntSafe`, `normHeader`.
+       * - `regionsByKey`, `regionesChile`.
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Manejo de errores:
+       * - Retorna un default seguro.
+       *
+       * @example
+       * resolveRegionId('III') // id de la Región III (si existe en DB)
+       *
+       * Notas de mantenimiento:
+       * - Mantener `regionsByKey` construido con nom/rom/id para máxima tolerancia.
+       */
       const resolveRegionId = (raw) => {
         const s = String(raw ?? '').trim()
         const n = parseIntSafe(s)
@@ -330,6 +714,34 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         return hit2?.id ?? (regionesChile[0]?.id || 1)
       }
 
+      /**
+       * Resuelve OPA (organización) desde un nombre crudo.
+       *
+       * @param {unknown} rawOrg - Nombre crudo de organización.
+       * @returns {{ opaId: string, org: string }} ID OPA (si se encuentra) y nombre normalizado.
+       *
+       * Lógica:
+       * 1) Normaliza `rawOrg`.
+       * 2) Busca match exacto por nombre corto o nombre completo en `opaArr`.
+       * 3) Si no hay exacto, busca inclusión parcial.
+       * 4) Si no hay match, retorna opaId vacío y el texto original recortado.
+       *
+       * Dependencias externas:
+       * - `normHeader`.
+       * - `opaArr` (catálogo).
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Manejo de errores:
+       * - Retorna valores seguros.
+       *
+       * @example
+       * resolveOpa('Sindicato X') // { opaId: '...', org: '...' }
+       *
+       * Notas de mantenimiento:
+       * - Si OPA se normaliza en backend, simplificar heurísticas.
+       */
       const resolveOpa = (rawOrg) => {
         const k = normHeader(rawOrg)
         if (!k) return { opaId: '', org: String(rawOrg || '').trim() }
@@ -586,6 +998,39 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
           return { id: `B${i + 1}`, zona: b.zona, nombre: b.nombre, buzo: b.buzo, densTipo, lpMuestras: b.lpMuestras || {}, transectos }
         })
 
+      /**
+       * Parsea una hoja candidata a LP/L/D a una estructura mínima para iteración.
+       *
+       * @param {any} ws - Worksheet de XLSX (wb.Sheets[sheetName]).
+       * @returns {{ rows:any[], iz:number, ib:number, ibu:number, ie:number, il:number, ip:number, id:number, kind:'LP'|'L'|'D' }|null}
+       * Estructura parseada, o `null` si la hoja no parece una hoja de muestreos.
+       *
+       * Lógica:
+       * 1) Convierte worksheet a AOA (`header: 1`).
+       * 2) Detecta fila de encabezados con `guessHeaderRow`.
+       * 3) Ubica índices de columnas relevantes (zona, bote, buzo, especie, longitud, peso, diámetro).
+       * 4) Determina `kind`:
+       *    - Si hay diámetro -> D,
+       *    - si hay peso -> LP,
+       *    - si hay longitud -> L.
+       * 5) Retorna estructura o `null` si no hay columnas suficientes.
+       *
+       * Dependencias externas:
+       * - `guessHeaderRow`, `normHeader`.
+       * - `XLSX.utils.sheet_to_json`.
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Manejo de errores:
+       * - Retorna `null` si faltan columnas clave.
+       *
+       * @example
+       * const parsed = parseLpSheet(wb.Sheets['LP Loco'])
+       *
+       * Notas de mantenimiento:
+       * - Ajustar patrones de `idx` si cambian nombres de columnas en plantillas.
+       */
       const parseLpSheet = (ws) => {
         const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' })
         const hr = guessHeaderRow(aoa)
@@ -647,6 +1092,35 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         return m
       })()
 
+      /**
+       * Resuelve el bote correspondiente a una fila de muestreos LP/L/D.
+       *
+       * @param {unknown} boteRaw - Celda de bote (o nombre alternativo).
+       * @param {unknown} zonaRaw - Celda de zona (puede ayudar a desambiguar).
+       * @returns {object|null} Objeto bote del borrador, o `null` si no se puede resolver.
+       *
+       * Lógica:
+       * 1) Normaliza nombre y zona.
+       * 2) Busca match exacto por `zona::normName`.
+       * 3) Si falla, busca match por `normName` sin zona.
+       * 4) Como fallback, aplica matching por inclusión sobre candidatos.
+       *
+       * Dependencias externas:
+       * - `parseIntSafe`, `normBoat`.
+       * - Maps: `boatByZonaNorm`, `boatByNorm`, `boatCandidates`.
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Manejo de errores:
+       * - Retorna `null` si no hay match.
+       *
+       * @example
+       * const b = resolveBoatFromLp('Bote 1', 2)
+       *
+       * Notas de mantenimiento:
+       * - Mantener `normBoat` alineado con cómo se generan nombres en EVADIR.
+       */
       const resolveBoatFromLp = (boteRaw, zonaRaw) => {
         const name = String(boteRaw || '').trim()
         if (!name) return null
@@ -762,9 +1236,61 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         }
       }
 
+      /**
+       * Resuelve especies no identificadas en hojas LP/L/D mediante interacción del usuario.
+       *
+       * @returns {Promise<boolean>} `true` si el usuario resolvió todas las especies; `false` si canceló.
+       *
+       * Lógica:
+       * 1) Si no hay grupos pendientes, retorna `true`.
+       * 2) Si hay, abre un modal con un wizard (BodyResolve) para seleccionar la especie por grupo.
+       * 3) Resuelve la promesa al finalizar o cancelar.
+       *
+       * Dependencias externas:
+       * - `openModal/closeModal` y `toast`.
+       * - `SpeciesGrid` para seleccionar especie.
+       *
+       * Efectos secundarios:
+       * - Abre/cierra modales.
+       *
+       * Manejo de errores:
+       * - Si se desmonta el modal sin completar, resuelve `false` como cancelación.
+       *
+       * @example
+       * const ok = await resolvePendingSpecies()
+       *
+       * Notas de mantenimiento:
+       * - Mantener el límite de filas de preview (`g.rows.length < 120`) para evitar UI pesada.
+       */
       const resolvePendingSpecies = async () => {
         if (!unresolvedGroups.length) return true
         return await new Promise((resolve) => {
+          /**
+           * Wizard UI para seleccionar la especie faltante por grupo de hoja/kind.
+           *
+           * @returns {import('react').JSX.Element} UI del wizard (selector + tabla de ejemplos).
+           *
+           * Lógica:
+           * 1) Mantiene el índice del grupo actual.
+           * 2) Permite seleccionar especie con `SpeciesGrid` y guarda la decisión en el grupo.
+           * 3) Permite navegar anterior/siguiente y finalizar en el último grupo.
+           * 4) En cancelación o cierre inesperado, resuelve `false`.
+           *
+           * Dependencias externas:
+           * - `SpeciesGrid`, `toast`, `closeModal`.
+           *
+           * Efectos secundarios:
+           * - Mutación controlada: asigna `g.resolvedSpeciesId` en los grupos.
+           *
+           * Manejo de errores:
+           * - Obliga selección antes de avanzar (toast rojo).
+           *
+           * @example
+           * openModal('Resolver...', <BodyResolve />, 'full')
+           *
+           * Notas de mantenimiento:
+           * - Evitar referencias a estructuras externas no estables; usar índices/keys.
+           */
           const BodyResolve = () => {
             const doneRef = useRef(false)
             useEffect(() => {
@@ -905,6 +1431,31 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       }
 
       const okUploaded = await new Promise((resolve) => {
+        /**
+         * Cuerpo del modal de previsualización y confirmación de importación.
+         *
+         * @returns {import('react').JSX.Element} UI con `EvadirPreview`, errores y botones de acción.
+         *
+         * Lógica:
+         * 1) Muestra la previsualización (tabs/hojas) de `opDraft`.
+         * 2) Permite cancelar o confirmar subida.
+         * 3) Controla estado de carga `isUploading` y muestra error si falla el guardado.
+         *
+         * Dependencias externas:
+         * - `EvadirPreview`, `safeUpsertOperacion`, `toast`, `closeModal`.
+         *
+         * Efectos secundarios:
+         * - Puede persistir la operación al confirmar.
+         *
+         * Manejo de errores:
+         * - Si `safeUpsertOperacion` falla, muestra mensaje y re-habilita botones.
+         *
+         * @example
+         * openModal('Previsualización...', <BodyPreview />, 'full')
+         *
+         * Notas de mantenimiento:
+         * - Mantener la lógica de creador/importador compatible con esquemas existentes.
+         */
         const BodyPreview = () => {
           const doneRef = useRef(false)
           const [isUploading, setIsUploading] = useState(false)
@@ -917,6 +1468,38 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
             }
           }, [])
 
+          /**
+           * Confirma la importación: crea o actualiza la operación en el backend/storage.
+           *
+           * @returns {Promise<void>} Promesa que resuelve al terminar la persistencia o abortar por error.
+           *
+           * Lógica:
+           * 1) Previene doble submit con `isUploading`.
+           * 2) Detecta si la operación ya existe por `opId`.
+           * 3) Construye payload:
+           *    - Setea `importedBy*` con usuario actual.
+           *    - Preserva `createdBy*` existente si está presente; si no, lo setea al usuario actual.
+           * 4) Ejecuta `safeUpsertOperacion` en modo create/update.
+           * 5) Notifica por toast (incluye columnas EVADIR no mapeadas si existen).
+           * 6) Cierra modal y resuelve promesa `true`.
+           *
+           * Dependencias externas:
+           * - `safeUpsertOperacion`, `toast`, `closeModal`.
+           * - `operaciones` (para detectar existencia).
+           * - `user` (contexto app).
+           *
+           * Efectos secundarios:
+           * - Persiste datos y modifica UI (loading/error).
+           *
+           * Manejo de errores:
+           * - Si falla el guardado, setea `errMsg` y re-habilita UI.
+           *
+           * @example
+           * <button onClick={onConfirm}>Aceptar y subir operación</button>
+           *
+           * Notas de mantenimiento:
+           * - Mantener la preservación de creador para evitar sobreescrituras de auditoría.
+           */
           const onConfirm = async () => {
             if (isUploading) return
             setIsUploading(true)
