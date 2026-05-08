@@ -1,7 +1,6 @@
 import logoUrl from '../img/logo.png'
 import { useState } from 'react'
 import { useApp } from '../context/appContext.jsx'
-import { useUi } from '../context/uiContext.jsx'
 
 /**
  * Pantalla de inicio de sesión (overlay) para usuarios no autenticados.
@@ -16,7 +15,6 @@ import { useUi } from '../context/uiContext.jsx'
  *
  * Dependencias externas:
  * - `useApp` (`login`) para iniciar sesión.
- * - `useUi` (`toast`) para notificaciones.
  * - Asset `logoUrl`.
  *
  * Efectos secundarios:
@@ -30,11 +28,9 @@ import { useUi } from '../context/uiContext.jsx'
  *
  * Notas de mantenimiento:
  * - Evitar loguear credenciales.
- * - Si se implementa recuperación real, reemplazar el toast por un flujo de reset password.
  */
 export default function LoginScreen({ active }) {
   const { login } = useApp()
-  const { toast } = useUi()
   const [email, setEmail] = useState('')
   const [pass, setPass] = useState('')
 
@@ -47,7 +43,7 @@ export default function LoginScreen({ active }) {
           </div>
           <div className="lc-brand">
             <h1>BITECMA</h1>
-            <span>Sistema AMERB - V1.1.1</span>
+            <span>Sistema AMERB - V1.1.2</span>
           </div>
         </div>
         <div className="lc-title">Iniciar sesión</div>
@@ -82,6 +78,7 @@ export default function LoginScreen({ active }) {
         <button className="btn-login" onClick={() => login(email, pass)}>
           Ingresar
         </button>
+
         <div className="lc-foot">
           Bitecma Ltda. © 1995
         </div>

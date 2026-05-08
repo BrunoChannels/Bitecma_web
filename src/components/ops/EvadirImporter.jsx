@@ -1721,7 +1721,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
     }
   }
 
-  const downloadEvadirTemplate = async () => {
+  const _downloadEvadirTemplate = async () => {
     try {
       const xlsxMod = await import('xlsx-js-style')
       const XLSX = xlsxMod?.default || xlsxMod
@@ -1879,110 +1879,13 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
     }
   }
 
-  const openUploadPanel = () => {
-    if (!canWrite) {
-      toast('Modo solo lectura', 'blue')
-      return
-    }
-    const BodyUpload = () => {
-      const [isOver, setIsOver] = useState(false)
-
-      const handleFile = (f) => {
-        if (!f) return
-        closeModal()
-        setTimeout(() => importEvadirFromXlsx(f), 0)
-      }
-
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 720, margin: '0 auto' }}>
-          <div
-            className="card"
-            style={{
-              padding: 18,
-              border: `2px dashed ${isOver ? 'var(--teal)' : 'var(--border)'}`,
-              background: isOver ? 'var(--teal-lt)' : 'var(--bg)',
-              boxShadow: 'none',
-              textAlign: 'center',
-              minHeight: 220,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              gap: 10,
-            }}
-            onDragEnter={(e) => {
-              e.preventDefault()
-              setIsOver(true)
-            }}
-            onDragOver={(e) => {
-              e.preventDefault()
-              setIsOver(true)
-            }}
-            onDragLeave={() => setIsOver(false)}
-            onDrop={(e) => {
-              e.preventDefault()
-              setIsOver(false)
-              const f = e.dataTransfer?.files?.[0]
-              handleFile(f)
-            }}
-          >
-            <div style={{ fontFamily: 'var(--ff-d)', fontWeight: 900, fontSize: 18, color: 'var(--navy)', lineHeight: 1.2 }}>
-              Arrastra tu Excel EVADIR aquí
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <span className="pill p-slt">.xlsx</span>
-              <span className="pill p-slt">.xls</span>
-            </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 6 }}>
-              <button
-                className="btn b-teal"
-                disabled={!canWrite || isImportingEvadir}
-                onClick={() => {
-                  evadirInputRef.current?.click?.()
-                }}
-              >
-                Seleccionar archivo
-              </button>
-              <button className="btn b-out" onClick={closeModal}>
-                Cancelar
-              </button>
-            </div>
-          </div>
-
-          <div className="card" style={{ padding: 14, boxShadow: 'none', background: 'var(--white)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-              <div style={{ fontSize: 14, color: 'var(--text2)' }}>
-                Descarga la planilla EVADIR <strong>vacía</strong> para asegurar una importación 100% compatible.
-              </div>
-              <span
-                role="button"
-                tabIndex={0}
-                className="btn b-out"
-                style={{ textDecoration: 'none' }}
-                onClick={downloadEvadirTemplate}
-                onKeyDown={(e) => {
-                  if (e.key !== 'Enter') return
-                  e.preventDefault()
-                  downloadEvadirTemplate()
-                }}
-              >
-                Descargar aquí
-              </span>
-            </div>
-          </div>
-        </div>
-      )
-    }
-
-    openModal('Subir EVADIR', <BodyUpload />)
-  }
-
   return (
     <>
       <button
         className="btn b-out b-sm"
         disabled={!canWrite || isImportingEvadir}
         onClick={() => {
-          openUploadPanel()
+          evadirInputRef.current?.click?.()
         }}
       >
         Subir EVADIR

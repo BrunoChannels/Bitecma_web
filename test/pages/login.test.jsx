@@ -15,10 +15,4 @@ describe('Página Login', () => {
     expect(await screen.findByTestId('toast')).toHaveTextContent('Usuario no encontrado')
   })
 
-  it('dispara toast en "¿Olvidaste tu contraseña?"', async () => {
-    renderWithProviders(<LoginScreen active />, { user: null, dbSeed: { perfiles: [] } })
-
-    await userEvent.click(screen.getByText('¿Olvidaste tu contraseña?'))
-    expect(await screen.findByTestId('toast')).toHaveTextContent('Correo enviado')
-  })
 })

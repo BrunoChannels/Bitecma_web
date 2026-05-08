@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { addSample, ensureKind, removeEspecie, removeKind, removeSample, updateSample } from '../../services/lpMuestrasService.js'
 import SpeciesGrid from '../common/SpeciesGrid.jsx'
 
@@ -557,7 +557,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
    * Notas de mantenimiento:
    * - Mantener el matching de `focus` (tolerancia, índice) consistente con el emisor.
    */
-  const openIngreso = (especieId, forcedType, focus) => {
+  const openIngreso = useCallback((especieId, forcedType, focus) => {
     if (!canWrite) {
       toast('Modo solo lectura', 'blue')
       return
@@ -606,16 +606,18 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
       const lRef = useRef(null)
       const pRef = useRef(null)
       const dRef = useRef(null)
+      const focusRef = useRef(focus)
 
       useEffect(() => {
-        const token = focus?.token ?? null
+        const f = focusRef.current
+        const token = f?.token ?? null
         if (!token) return
         if (kind !== 'LP') return
-        const tl = Number(focus?.l)
-        const tp = Number(focus?.p)
+        const tl = Number(f?.l)
+        const tp = Number(f?.p)
         if (!Number.isFinite(tl) || !Number.isFinite(tp)) return
         const tol = 1e-9
-        let targetIdx = Number.isFinite(Number(focus?.sampleIdx)) ? Number(focus.sampleIdx) : null
+        let targetIdx = Number.isFinite(Number(f?.sampleIdx)) ? Number(f.sampleIdx) : null
         if (targetIdx == null) {
           for (let i = 0; i < samplesNow.length; i++) {
             const m = samplesNow[i]
@@ -636,7 +638,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
         }, 0)
         const t = setTimeout(() => setFlashIdx(null), 2600)
         return () => clearTimeout(t)
-      }, [focus?.token])
+      }, [kind, samplesNow])
 
       /**
        * Agrega una nueva muestra o actualiza la muestra en edición según `editIdx`.
@@ -941,7 +943,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
     }
 
     openModal(`${sp?.com || spId}`, <Body />, 'wide')
-  }
+  }, [bote, byId, canWrite, closeModal, openModal, op.id, toast, updateOperacion])
 
   useEffect(() => {
     const token = lpJump?.token ?? null
@@ -962,7 +964,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
     } catch {
       return
     }
-  }, [lpJump?.token])
+  }, [lpJump, op?.id, bote?.id, openIngreso])
 
   return (
     <div>

@@ -195,13 +195,13 @@ export default function DashboardPage({ active }) {
           <div className="sc-sub">Transectos y cuadrantes</div>
         </div>
       </div>
-      <div className="g2 mb" style={{ gridTemplateColumns: '1.35fr 1fr', alignItems: 'stretch' }}>
+      <div className="dashboard-grid g2 mb">
         <div className="card" style={{ minHeight: 440, display: 'flex', flexDirection: 'column' }}>
           <div className="ct">
             Operaciones recientes
             <button className="btn b-out b-sm" onClick={() => navigate('ops')}>Ver todas</button>
           </div>
-          <div style={{ overflow: 'auto', minHeight: 0 }}>
+          <div className="dashboard-recent-ops-table-wrap">
             <table className="tbl">
               <thead>
                 <tr>
@@ -227,19 +227,9 @@ export default function DashboardPage({ active }) {
           </div>
         </div>
 
-        <div className="card" style={{ minHeight: 440, display: 'flex', flexDirection: 'column' }}>
+        <div className="dashboard-chart-card">
           <div className="ct">Composición de muestras por especie</div>
-          <div style={{
-            background: 'var(--bg2)',
-            border: '1px solid var(--border)',
-            borderRadius: 0,
-            padding: 12,
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            flex: 1
-          }}>
+          <div className="dashboard-chart-wrap">
             <div style={{ minHeight: 320, display: 'grid', gridTemplateColumns: '34px 1fr', gap: 0 }}>
               <div style={{
                 height: 280,

@@ -143,7 +143,7 @@ function AppShell() {
             <Sidebar />
           </div>
           <div className={`sb-backdrop${sidebarOpen ? ' open' : ''}`} onClick={closeSidebar} />
-          <div className="main">
+          <div className={`main${page === 'dashboard' ? ' main-dashboard' : ''}`}>
             <Suspense fallback={<div style={{ padding: 14, color: 'var(--text3)' }}>Cargando…</div>}>
               <ActivePage active />
             </Suspense>

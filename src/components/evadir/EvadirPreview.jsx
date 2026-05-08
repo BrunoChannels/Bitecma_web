@@ -3,6 +3,8 @@ import { buildEvadirPreviewSheets } from '../../services/evadirPreviewService.js
 import { useUi } from '../../context/uiContext.jsx'
 import { useApp } from '../../context/appContext.jsx'
 
+const PLOT_PAD = { l: 54, r: 10, t: 24, b: 44 }
+
 /**
  * Normaliza una clave de texto para comparaciones robustas (mayúsculas, sin acentos, espacios colapsados).
  *
@@ -205,7 +207,6 @@ function toNumber(v) {
  * - Si se desea performance en datasets grandes, considerar muestreo o canvas.
  */
 function LpScatter({ points, width = 520, height = 170, title = 'Relación Peso - Longitud', onJump }) {
-  const pad = { l: 54, r: 10, t: 24, b: 44 }
   const w = Math.max(240, width)
   const h = Math.max(160, height)
   const [sel, setSel] = useState(null)
@@ -275,10 +276,10 @@ function LpScatter({ points, width = 520, height = 170, title = 'Relación Peso 
 
   const plot = useMemo(() => {
     const pts = Array.isArray(points) ? points : []
-    const x0 = pad.l
-    const y0 = h - pad.b
-    const x1 = w - pad.r
-    const y1 = pad.t
+    const x0 = PLOT_PAD.l
+    const y0 = h - PLOT_PAD.b
+    const x1 = w - PLOT_PAD.r
+    const y1 = PLOT_PAD.t
 
     const sx = (x) => x0 + (x / stats.xMax) * (x1 - x0)
     const sy = (y) => y0 - (y / stats.yMax) * (y0 - y1)
@@ -371,23 +372,23 @@ function LpScatter({ points, width = 520, height = 170, title = 'Relación Peso 
 
         {plot.xTicks.slice(1).map((t, i) => {
           const x = plot.sx(t)
-          return <line key={`gx-${i}`} x1={x} y1={pad.t} x2={x} y2={h - pad.b} stroke="rgba(0,0,0,0.08)" />
+          return <line key={`gx-${i}`} x1={x} y1={PLOT_PAD.t} x2={x} y2={h - PLOT_PAD.b} stroke="rgba(0,0,0,0.08)" />
         })}
         {plot.yTicks.slice(1).map((t, i) => {
           const y = plot.sy(t)
-          return <line key={`gy-${i}`} x1={pad.l} y1={y} x2={w - pad.r} y2={y} stroke="rgba(0,0,0,0.08)" />
+          return <line key={`gy-${i}`} x1={PLOT_PAD.l} y1={y} x2={w - PLOT_PAD.r} y2={y} stroke="rgba(0,0,0,0.08)" />
         })}
 
-        <line x1={pad.l} y1={h - pad.b} x2={w - pad.r} y2={h - pad.b} stroke="rgba(0,0,0,0.35)" />
-        <line x1={pad.l} y1={pad.t} x2={pad.l} y2={h - pad.b} stroke="rgba(0,0,0,0.35)" />
+        <line x1={PLOT_PAD.l} y1={h - PLOT_PAD.b} x2={w - PLOT_PAD.r} y2={h - PLOT_PAD.b} stroke="rgba(0,0,0,0.35)" />
+        <line x1={PLOT_PAD.l} y1={PLOT_PAD.t} x2={PLOT_PAD.l} y2={h - PLOT_PAD.b} stroke="rgba(0,0,0,0.35)" />
 
         {plot.xTicks.map((t, i) => {
           const x = plot.sx(t)
           const txt = Number.isInteger(t) ? String(t) : t.toFixed(0)
           return (
             <g key={`xt-${i}`}>
-              <line x1={x} y1={h - pad.b} x2={x} y2={h - pad.b + 4} stroke="rgba(0,0,0,0.35)" />
-              <text x={x} y={h - pad.b + 16} textAnchor="middle" fontSize="10" fill="rgba(0,0,0,0.65)">
+              <line x1={x} y1={h - PLOT_PAD.b} x2={x} y2={h - PLOT_PAD.b + 4} stroke="rgba(0,0,0,0.35)" />
+              <text x={x} y={h - PLOT_PAD.b + 16} textAnchor="middle" fontSize="10" fill="rgba(0,0,0,0.65)">
                 {txt}
               </text>
             </g>
@@ -398,8 +399,8 @@ function LpScatter({ points, width = 520, height = 170, title = 'Relación Peso 
           const txt = Number.isInteger(t) ? String(t) : t.toFixed(0)
           return (
             <g key={`yt-${i}`}>
-              <line x1={pad.l - 4} y1={y} x2={pad.l} y2={y} stroke="rgba(0,0,0,0.35)" />
-              <text x={pad.l - 8} y={y + 3} textAnchor="end" fontSize="10" fill="rgba(0,0,0,0.65)">
+              <line x1={PLOT_PAD.l - 4} y1={y} x2={PLOT_PAD.l} y2={y} stroke="rgba(0,0,0,0.35)" />
+              <text x={PLOT_PAD.l - 8} y={y + 3} textAnchor="end" fontSize="10" fill="rgba(0,0,0,0.65)">
                 {txt}
               </text>
             </g>

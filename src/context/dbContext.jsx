@@ -158,7 +158,7 @@ export function DbProvider({ children }) {
       })
 
     return sectoresAmerbLoadRef.current.promise
-  }, [apiEnabled, apiFetch])
+  }, [apiEnabled, apiFetch, normalizeSectorAmerb])
 
   const ensureOpaLoaded = useCallback(async () => {
     if (opaLoadRef.current.done) return

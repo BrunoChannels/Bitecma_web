@@ -110,7 +110,7 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
       setTab('lp')
       rootRef.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
     }, 0)
-  }, [lpJump?.token, op?.id, bote?.id, bote?.nombre, bote?.buzo, bote?.zona])
+  }, [lpJump?.token, lpJump?.opId, lpJump?.boteId, lpJump?.boteNombre, lpJump?.buzo, lpJump?.zona, op?.id, bote?.id, bote?.nombre, bote?.buzo, bote?.zona])
 
   const densSpecies = useMemo(() => {
     const arr = Array.isArray(especies) ? especies : []
