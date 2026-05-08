@@ -88,6 +88,24 @@ export function AppProvider({ children }) {
   const [apiToken, setApiToken] = useState(() => readToken())
   const [apiUser, setApiUser] = useState(null)
 
+  const apiFetch = useCallback(
+    async (path, opts) => {
+      const url = `${apiUrl}/${String(path || '').replace(/^\/+/, '')}`
+      const token = apiToken || readToken()
+      const headers = { ...(opts?.headers || {}) }
+      if (!headers.Authorization && token) headers.Authorization = `Bearer ${token}`
+      if (!headers['Content-Type'] && opts?.body && !(opts?.body instanceof FormData)) headers['Content-Type'] = 'application/json'
+      const res = await fetch(url, { ...(opts || {}), headers })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.ok) {
+        const msg = String(json?.error || res.statusText || 'Error')
+        throw new Error(msg)
+      }
+      return json
+    },
+    [apiUrl, apiToken],
+  )
+
   const user = useMemo(() => {
     if (apiEnabled) return apiUser
     const perfiles = db.perfiles || []
@@ -187,49 +205,46 @@ export function AppProvider({ children }) {
     if (!t) return
 
     let cancelled = false
-    fetch(`${apiUrl}/auth/me`, { headers: { Authorization: `Bearer ${t}` } })
-      .then(async (r) => {
-        const json = await r.json().catch(() => null)
-        return { status: r.status, json }
-      })
-      .then(({ status, json }) => {
+    apiFetch('/auth/me', { headers: { Authorization: `Bearer ${t}` } })
+      .then((json) => {
         if (cancelled) return
-
-        const err = String(json?.error || '').trim()
-        const mustLogout = status === 401 || status === 403 || err === 'Token inválido' || err === 'No autorizado'
-
+        setApiUser(json?.user || null)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        const msg = String(err?.message || '')
+        const mustLogout = msg === 'Token inválido' || msg === 'No autorizado'
         if (mustLogout) {
           setApiUser(null)
           setApiToken(null)
           writeToken(null)
-          return
         }
+      })
 
-        if (json?.ok) setApiUser(json?.user || null)
-      })
-      .catch(() => {
-        if (cancelled) return
-        return
-      })
     return () => {
       cancelled = true
     }
-  }, [apiEnabled, apiToken, apiUrl])
+  }, [apiEnabled, apiToken, apiFetch])
 
   const updateProfile = useCallback(
-    ({ nombre, correo, numero, logo }) => {
+    async ({ nombre, correo, numero, avatar_url, logo }) => {
       if (!user) return false
       if (apiEnabled) {
-        const next = {
-          ...user,
-          nombre: String(nombre ?? user.nombre ?? '').trim(),
-          correo: String(correo ?? user.correo ?? '').trim(),
-          numero: String(numero ?? user.numero ?? '').trim(),
-          logo: String(logo ?? user.logo ?? ''),
+        try {
+          const n = String(nombre ?? user.nombre ?? '').trim()
+          const c = String(correo ?? user.correo ?? '').trim()
+          const num = String(numero ?? user.numero ?? '').trim()
+          const json = await apiFetch('/auth/profile', {
+            method: 'PUT',
+            body: JSON.stringify({ nombre: n, correo: c, numero: num }),
+          })
+          setApiUser(json?.user || null)
+          toast('Perfil actualizado', 'green')
+          return true
+        } catch (err) {
+          toast(String(err?.message || 'No se pudo actualizar perfil'), 'red')
+          return false
         }
-        setApiUser(next)
-        toast('Perfil actualizado', 'green')
-        return true
       }
       const next = {
         ...user,
@@ -237,6 +252,7 @@ export function AppProvider({ children }) {
         correo: String(correo ?? user.correo ?? '').trim(),
         numero: String(numero ?? user.numero ?? '').trim(),
         logo: String(logo ?? user.logo ?? ''),
+        avatar_url: String(avatar_url ?? user.avatar_url ?? ''),
       }
       const map = { ...profileMap, [String(user.id)]: next }
       setProfileMap(map)
@@ -244,7 +260,7 @@ export function AppProvider({ children }) {
       toast('Perfil actualizado', 'green')
       return true
     },
-    [apiEnabled, user, profileMap, toast],
+    [apiEnabled, user, profileMap, toast, apiFetch],
   )
 
   const changePassword = useCallback(
@@ -290,6 +306,29 @@ export function AppProvider({ children }) {
     [apiEnabled, user, profileMap, toast],
   )
 
+  const uploadAvatar = useCallback(
+    async (file) => {
+      if (!apiEnabled) return null
+      if (!user) return null
+      const f = file instanceof File ? file : null
+      if (!f) return null
+
+      try {
+        const form = new FormData()
+        form.append('avatar', f)
+        const json = await apiFetch('/auth/avatar', { method: 'POST', body: form })
+        const next = { ...(user || {}), avatar_url: String(json?.avatar_url || '') || null }
+        setApiUser(next)
+        toast('Foto actualizada', 'green')
+        return next.avatar_url
+      } catch (err) {
+        toast(String(err?.message || 'No se pudo actualizar foto'), 'red')
+        return null
+      }
+    },
+    [apiEnabled, user, apiFetch, toast],
+  )
+
   const value = useMemo(
     () => ({
       page,
@@ -303,9 +342,24 @@ export function AppProvider({ children }) {
       login,
       logout,
       updateProfile,
+      uploadAvatar,
       changePassword,
     }),
-    [page, navigate, isAuthed, user, role, isAdmin, isViewer, canWrite, login, logout, updateProfile, changePassword],
+    [
+      page,
+      navigate,
+      isAuthed,
+      user,
+      role,
+      isAdmin,
+      isViewer,
+      canWrite,
+      login,
+      logout,
+      updateProfile,
+      uploadAvatar,
+      changePassword,
+    ],
   )
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

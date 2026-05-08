@@ -40,9 +40,12 @@ import { useUi } from '../context/uiContext.jsx'
  * - Mantener `editsByUser` para soportar cambios de usuario sin mezclar formularios.
  */
 export default function PerfilPage({ active }) {
-  const { user, navigate, updateProfile, changePassword } = useApp()
+  const { user, navigate, updateProfile, uploadAvatar, changePassword } = useApp()
   const { toast } = useUi()
   const fileRef = useRef(null)
+
+  const apiUrl = String(import.meta.env?.VITE_API_URL || '').trim().replace(/\/+$/, '')
+  const apiEnabled = !!apiUrl
 
   const userKey = user ? String(user.id) : '__anon__'
   const baseForm = useMemo(
@@ -50,9 +53,10 @@ export default function PerfilPage({ active }) {
       nombre: user?.nombre || '',
       correo: user?.correo || '',
       numero: user?.numero || '',
+      avatar_url: user?.avatar_url || '',
       logo: user?.logo || '',
     }),
-    [user?.nombre, user?.correo, user?.numero, user?.logo],
+    [user?.nombre, user?.correo, user?.numero, user?.avatar_url, user?.logo],
   )
   const [editsByUser, setEditsByUser] = useState(() => ({}))
   const edits = editsByUser?.[userKey] || {}
@@ -107,6 +111,7 @@ export default function PerfilPage({ active }) {
     String(form.nombre || '') !== String(baseForm.nombre || '') ||
     String(form.correo || '') !== String(baseForm.correo || '') ||
     String(form.numero || '') !== String(baseForm.numero || '') ||
+    String(form.avatar_url || '') !== String(baseForm.avatar_url || '') ||
     String(form.logo || '') !== String(baseForm.logo || '')
 
   return (
@@ -131,28 +136,54 @@ export default function PerfilPage({ active }) {
               type="file"
               accept="image/*"
               style={{ display: 'none' }}
-              onChange={(e) => {
+              onChange={async (e) => {
                 const file = e?.target?.files?.[0]
                 if (!file) return
+
+                if (apiEnabled && uploadAvatar) {
+                  const rel = await uploadAvatar(file)
+                  if (rel) {
+                    setField('avatar_url', String(rel))
+                    setField('logo', '')
+                  }
+                  return
+                }
+
                 const fr = new FileReader()
                 fr.onload = () => setField('logo', String(fr.result || ''))
                 fr.readAsDataURL(file)
               }}
             />
-            <div
-              className="pf-avatar"
-              onClick={() => fileRef.current?.click()}
-              style={{
-                backgroundImage: form.logo ? `url('${form.logo}')` : '',
-                backgroundSize: form.logo ? 'cover' : '',
-                backgroundPosition: form.logo ? 'center' : '',
-              }}
-            >
-              <div className="pf-initials" style={{ opacity: form.logo ? 0 : 1 }}>
-                {initials}
-              </div>
-              <div className="pf-avatar-hint">Cambiar</div>
-            </div>
+
+            {(() => {
+              const raw = String(form.avatar_url || form.logo || '').trim()
+              const src =
+                raw && (raw.startsWith('http') || raw.startsWith('data:') || raw.startsWith('blob:'))
+                  ? raw
+                  : raw && raw.startsWith('/')
+                    ? `${apiUrl}${raw}`
+                    : raw && apiUrl
+                      ? `${apiUrl}/${raw.replace(/^\/+/, '')}`
+                      : ''
+              const has = !!src
+
+              return (
+                <div
+                  className="pf-avatar"
+                  onClick={() => fileRef.current?.click()}
+                  style={{
+                    backgroundImage: has ? `url('${src}')` : '',
+                    backgroundSize: has ? 'cover' : '',
+                    backgroundPosition: has ? 'center' : '',
+                  }}
+                >
+                  <div className="pf-initials" style={{ opacity: has ? 0 : 1 }}>
+                    {initials}
+                  </div>
+                  <div className="pf-avatar-hint">Cambiar</div>
+                </div>
+              )
+            })()}
           </div>
 
           <div>
@@ -197,7 +228,7 @@ export default function PerfilPage({ active }) {
               </button>
               <button
                 className="btn b-teal"
-                onClick={() => {
+                onClick={async () => {
                   if (form.correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.correo)) {
                     toast('Correo inválido', 'red')
                     return
@@ -206,7 +237,7 @@ export default function PerfilPage({ active }) {
                     toast('Ingresa nombre completo', 'red')
                     return
                   }
-                  updateProfile(form)
+                  await updateProfile(form)
                 }}
                 disabled={!dirty}
               >
