@@ -994,6 +994,7 @@ export default function EvadirPreview({ db, op }) {
                   const token = `${Date.now()}-${Math.random().toString(16).slice(2)}`
                   const detail = {
                     token,
+                    ts: Date.now(),
                     opId: op?.id ?? '',
                     region: op?.region ?? '',
                     boteId,
@@ -1059,6 +1060,7 @@ export default function EvadirPreview({ db, op }) {
                   const token = `${Date.now()}-${Math.random().toString(16).slice(2)}`
                   const detail = {
                     token,
+                    ts: Date.now(),
                     opId: op?.id ?? '',
                     region: op?.region ?? '',
                     boteId,

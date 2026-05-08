@@ -57,7 +57,7 @@ describe('Página EVADIR', () => {
     expect(screen.queryByTestId('modal')).not.toBeInTheDocument()
   })
 
-  it('ejecuta exportación al hacer click en CSV', async () => {
+  it('ejecuta exportación al hacer click en EXCEL', async () => {
     renderWithProviders(<EvadirPage active />, {
       dbSeed: {
         regionesChile: [{ id: 1, rom: 'I', nom: 'Tarapacá' }],
@@ -74,7 +74,7 @@ describe('Página EVADIR', () => {
       },
     })
 
-    await userEvent.click(await screen.findByRole('button', { name: 'CSV' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'EXCEL' }))
     expect(exportEvadirXlsx).toHaveBeenCalled()
   })
 })

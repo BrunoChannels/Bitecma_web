@@ -442,6 +442,20 @@ export default function OpsPage({ active }) {
     const apply = (d) => {
       const opId = String(d?.opId ?? '')
       if (!opId) return
+      const ts = Number(d?.ts)
+      if (Number.isFinite(ts) && Math.abs(Date.now() - ts) > 30_000) {
+        try {
+          sessionStorage.removeItem('bitecma_lp_jump')
+        } catch {
+          return
+        }
+        return
+      }
+      try {
+        sessionStorage.removeItem('bitecma_lp_jump')
+      } catch (err) {
+        void err
+      }
       const region = d?.region ?? ''
       setRegionSel(String(region ?? ''))
       setSector('')
@@ -490,7 +504,14 @@ export default function OpsPage({ active }) {
       void err
     }
     window.addEventListener('bitecma:lp-jump', handler)
-    return () => window.removeEventListener('bitecma:lp-jump', handler)
+    return () => {
+      window.removeEventListener('bitecma:lp-jump', handler)
+      try {
+        sessionStorage.removeItem('bitecma_lp_jump')
+      } catch {
+        return
+      }
+    }
   }, [setMes, setSector, setTexto])
 
   useEffect(() => {
@@ -501,6 +522,11 @@ export default function OpsPage({ active }) {
         if (!cur) return null
         return String(cur?.token ?? '') === token ? null : cur
       })
+      try {
+        sessionStorage.removeItem('bitecma_lp_jump')
+      } catch (err) {
+        void err
+      }
     }
     window.addEventListener('bitecma:lp-jump-consumed', handler)
     return () => window.removeEventListener('bitecma:lp-jump-consumed', handler)

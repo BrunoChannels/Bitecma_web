@@ -132,4 +132,69 @@ describe('Página Operaciones', () => {
 
     confirmSpy.mockRestore()
   })
+
+  it('no reabre automáticamente un salto LP al reingresar a Operaciones', async () => {
+    const jump = {
+      token: 't1',
+      ts: Date.now(),
+      opId: 'OP-2026-001',
+      region: 14,
+      boteId: null,
+      boteNombre: 'CHIPANA',
+      buzo: '',
+      zona: null,
+      especieId: 1,
+      l: 100,
+      p: 200,
+      sampleIdx: 0,
+    }
+    sessionStorage.setItem('bitecma_lp_jump', JSON.stringify(jump))
+
+    const r1 = renderWithProviders(<OpsPage active />, {
+      user: { ...defaultUser, rol: 'Admin' },
+      dbSeed: {
+        regionesChile: [{ id: 14, rom: 'XIV', nom: 'Los Ríos' }],
+        sectoresAmerb: [],
+        opa: [],
+        operaciones: [
+          {
+            id: 'OP-2026-001',
+            region: 14,
+            sector: '',
+            sectorAmerb: '',
+            numSeg: 16,
+            fechaInicio: '2026-01-02',
+            botes: [{ id: 1, nombre: 'CHIPANA', zona: 1, buzo: '', transectos: [], lpMuestras: { 1: { LP: [{ l: 100, p: 200 }] } } }],
+          },
+        ],
+        especies: [{ id: 1, com: 'Loco', sci: 'Concholepas concholepas' }],
+      },
+    })
+
+    expect(await screen.findByRole('button', { name: 'Volver a regiones' })).toBeInTheDocument()
+    r1.unmount()
+
+    renderWithProviders(<OpsPage active />, {
+      user: { ...defaultUser, rol: 'Admin' },
+      dbSeed: {
+        regionesChile: [{ id: 14, rom: 'XIV', nom: 'Los Ríos' }],
+        sectoresAmerb: [],
+        opa: [],
+        operaciones: [
+          {
+            id: 'OP-2026-001',
+            region: 14,
+            sector: '',
+            sectorAmerb: '',
+            numSeg: 16,
+            fechaInicio: '2026-01-02',
+            botes: [{ id: 1, nombre: 'CHIPANA', zona: 1, buzo: '', transectos: [], lpMuestras: { 1: { LP: [{ l: 100, p: 200 }] } } }],
+          },
+        ],
+        especies: [{ id: 1, com: 'Loco', sci: 'Concholepas concholepas' }],
+      },
+    })
+
+    expect(screen.queryByRole('button', { name: 'Volver a regiones' })).not.toBeInTheDocument()
+  })
 })
