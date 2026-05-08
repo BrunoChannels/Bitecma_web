@@ -856,6 +856,12 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         }
       }
 
+      const normBoat = (name) => {
+        const toks = normHeader(name).split(' ').filter(Boolean)
+        while (toks.length && ['el', 'la', 'los', 'las', 'bote'].includes(toks[0])) toks.shift()
+        return toks.join(' ')
+      }
+
       const metaRows = []
       const boatMap = new Map()
       const unmatchedEvadirColsUsed = new Map()
@@ -935,12 +941,15 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
           especieId = pos ? Number(pos[0]) : entries.length ? Number(entries[0][0]) : null
         }
 
-        const key = `${zona}::${bote}`
+        const boteKey = normBoat(bote) || normHeader(bote) || bote
+        const key = boteKey
         if (!boatMap.has(key)) {
           boatMap.set(key, { zona, nombre: bote, buzo: buzo || '', transectosByKey: new Map(), lpMuestras: {} })
         }
         const b = boatMap.get(key)
+        if ((Number(b.zona) || 0) <= 0 && (Number(zona) || 0) > 0) b.zona = zona
         if (!b.buzo && buzo) b.buzo = buzo
+        if (String(b.nombre || '').trim().length < bote.length) b.nombre = bote
 
         const uKey = `${tipo}:${num}`
         if (!b.transectosByKey.has(uKey)) {
@@ -982,6 +991,107 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         return
       }
 
+      const mergedBoats = (() => {
+        const normalizeEntry = (entry) => {
+          if (Array.isArray(entry)) {
+            const out = {}
+            entry.forEach((m) => {
+              const s = m && typeof m === 'object' ? m : {}
+              const k = Object.prototype.hasOwnProperty.call(s, 'd') ? 'D' : Object.prototype.hasOwnProperty.call(s, 'p') ? 'LP' : 'L'
+              if (!out[k]) out[k] = []
+              out[k].push(m)
+            })
+            return out
+          }
+          if (entry && typeof entry === 'object') {
+            if (Array.isArray(entry.ms)) {
+              const k0 = String(entry.type || 'LP').trim().toUpperCase()
+              const k = k0 === 'L-P' || k0 === 'LP' ? 'LP' : k0 === 'D' ? 'D' : 'L'
+              return { [k]: Array.isArray(entry.ms) ? entry.ms : [] }
+            }
+            const out = {}
+            ;['LP', 'L', 'D'].forEach((k) => {
+              if (Array.isArray(entry[k])) out[k] = entry[k]
+            })
+            return out
+          }
+          return {}
+        }
+
+        const mergeLpMuestras = (a, b) => {
+          const ma = a && typeof a === 'object' ? a : {}
+          const mb = b && typeof b === 'object' ? b : {}
+          const out = { ...ma }
+          for (const [spId, entryB] of Object.entries(mb)) {
+            if (!Object.prototype.hasOwnProperty.call(out, spId)) {
+              out[spId] = entryB
+              continue
+            }
+            const entryA = out[spId]
+            const na = normalizeEntry(entryA)
+            const nb = normalizeEntry(entryB)
+            const next = { ...na }
+            ;['LP', 'L', 'D'].forEach((k) => {
+              const aa = Array.isArray(na[k]) ? na[k] : []
+              const bb = Array.isArray(nb[k]) ? nb[k] : []
+              if (aa.length || bb.length) next[k] = [...aa, ...bb]
+            })
+            out[spId] = next
+          }
+          return out
+        }
+
+        const mergeUnidad = (a, b) => {
+          const out = { ...(a && typeof a === 'object' ? a : {}) }
+          const src = b && typeof b === 'object' ? b : {}
+          if ((Number(out.area) || 0) <= 0 && (Number(src.area) || 0) > 0) out.area = src.area
+          if (!out.fecha && src.fecha) out.fecha = src.fecha
+          if (!out.sustrato && src.sustrato) out.sustrato = src.sustrato
+          if (!out.cubierta && src.cubierta) out.cubierta = src.cubierta
+          if (out.coordX == null && src.coordX != null) out.coordX = src.coordX
+          if (out.coordY == null && src.coordY != null) out.coordY = src.coordY
+          if (out.coordLong == null && src.coordLong != null) out.coordLong = src.coordLong
+          if (out.coordLat == null && src.coordLat != null) out.coordLat = src.coordLat
+          if (!out.datum && src.datum) out.datum = src.datum
+          if (out.especieId == null && src.especieId != null) out.especieId = src.especieId
+          const ca = out.counts && typeof out.counts === 'object' ? out.counts : {}
+          const cb = src.counts && typeof src.counts === 'object' ? src.counts : {}
+          const counts = { ...ca }
+          Object.entries(cb).forEach(([k, v]) => {
+            if (counts[k] == null) counts[k] = v
+            else counts[k] = Math.max(Number(counts[k]) || 0, Number(v) || 0)
+          })
+          out.counts = counts
+          return out
+        }
+
+        const out = new Map()
+        for (const b of boatMap.values()) {
+          const nameKey = normBoat(b?.nombre) || normHeader(b?.nombre) || String(b?.nombre || '').trim()
+          if (!nameKey) continue
+          if (!out.has(nameKey)) {
+            out.set(nameKey, {
+              zona: b.zona,
+              nombre: b.nombre,
+              buzo: b.buzo,
+              transectosByKey: new Map(b.transectosByKey),
+              lpMuestras: b.lpMuestras || {},
+            })
+            continue
+          }
+          const cur = out.get(nameKey)
+          if ((Number(cur.zona) || 0) <= 0 && (Number(b.zona) || 0) > 0) cur.zona = b.zona
+          if (String(cur.nombre || '').trim().length < String(b.nombre || '').trim().length) cur.nombre = b.nombre
+          if (!cur.buzo && b.buzo) cur.buzo = b.buzo
+          for (const [uKey, u] of b.transectosByKey.entries()) {
+            if (!cur.transectosByKey.has(uKey)) cur.transectosByKey.set(uKey, u)
+            else cur.transectosByKey.set(uKey, mergeUnidad(cur.transectosByKey.get(uKey), u))
+          }
+          cur.lpMuestras = mergeLpMuestras(cur.lpMuestras, b.lpMuestras)
+        }
+        return Array.from(out.values())
+      })()
+
       const regionRaw = iRegion >= 0 ? firstNonEmpty(metaRows, iRegion) : ''
       const sectorRaw = iSector >= 0 ? firstNonEmpty(metaRows, iSector) : ''
       const tipoOrgRaw = iTipoOrg >= 0 ? firstNonEmpty(metaRows, iTipoOrg) : ''
@@ -1005,7 +1115,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
 
       const opId = nextOpId(Array.isArray(operaciones) ? operaciones : [], year)
 
-      const botesOut = Array.from(boatMap.values())
+      const botesOut = Array.from(mergedBoats)
         .sort((a, b) => (a.zona || 0) - (b.zona || 0) || String(a.nombre || '').localeCompare(String(b.nombre || '')))
         .map((b, i) => {
           const transectos = Array.from(b.transectosByKey.values()).sort((x, y) => (x.num || 0) - (y.num || 0))
@@ -1076,12 +1186,6 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         const kind = id >= 0 ? 'D' : ip >= 0 ? 'LP' : il >= 0 ? 'L' : null
         if (!kind) return null
         return { rows, iz, ib, ibu, ie, il, ip, id, kind }
-      }
-
-      const normBoat = (name) => {
-        const toks = normHeader(name).split(' ').filter(Boolean)
-        while (toks.length && ['el', 'la', 'los', 'las', 'bote'].includes(toks[0])) toks.shift()
-        return toks.join(' ')
       }
 
       const boatCandidates = botesOut.map((b) => ({

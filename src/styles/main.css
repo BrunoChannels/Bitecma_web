@@ -270,6 +270,7 @@ input[type=number].lp-num-inp{-moz-appearance:textfield;appearance:textfield;}
 .lp-input-row{display:flex;gap:8px;align-items:flex-end;padding:11px;background:var(--teal-lt);border-radius:9px;border:1.5px solid rgba(10,143,126,.25);margin-bottom:10px;}
 .lp-input-row .ig{margin-bottom:0;flex:1;}
 .lp-counter{font-family:var(--ff-m);font-size:11px;color:var(--teal);font-weight:600;}
+.lp-tbl thead th{position:sticky;top:0;z-index:3;}
 .lp-tbl th{padding:6px 12px;font-family:var(--ff-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg);text-align:center;}
 .lp-tbl td{padding:6px 12px;border-bottom:1px solid var(--border);font-size:11px;text-align:center;}
 .lp-tbl th:last-child,.lp-tbl td:last-child{text-align:right;white-space:nowrap;}
