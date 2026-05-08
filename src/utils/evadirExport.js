@@ -1,5 +1,13 @@
 import { getTxCoordValue, numOrBlank } from '../services/evadirPreviewService.js'
 
+let xlsxPromise = null
+async function loadXlsx() {
+  if (!xlsxPromise) {
+    xlsxPromise = import('xlsx-js-style').then((m) => m?.default || m)
+  }
+  return xlsxPromise
+}
+
 function safeFilePart(s) {
   const raw = String(s || '')
   let out = ''
@@ -28,8 +36,7 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
   }
 
   try {
-    const xlsxMod = await import('xlsx-js-style')
-    const XLSX = xlsxMod?.default || xlsxMod
+    const XLSX = await loadXlsx()
     const wb = XLSX.utils.book_new()
 
     const usedSheetNames = new Set()

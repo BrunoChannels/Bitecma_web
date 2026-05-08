@@ -355,6 +355,7 @@ function todayISO() {
  * - Evitar romper compatibilidad con alias científicos/comunes (ver `sciAliases` y `comAliasToId`).
  */
 export default function EvadirImporter({ db, canWrite, toast, openModal, closeModal, operaciones, nextOpId, safeUpsertOperacion }) {
+  const xlsxPromiseRef = useRef(null)
   const evadirInputRef = useRef(null)
   const [isImportingEvadir, setIsImportingEvadir] = useState(false)
   const { user } = useApp()
@@ -403,8 +404,8 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
     if (isImportingEvadir) return
     setIsImportingEvadir(true)
     try {
-      const xlsxMod = await import('xlsx-js-style')
-      const XLSX = xlsxMod?.default || xlsxMod
+      if (!xlsxPromiseRef.current) xlsxPromiseRef.current = import('xlsx-js-style').then((m) => m?.default || m)
+      const XLSX = await xlsxPromiseRef.current
       const buf = await file.arrayBuffer()
       const wb = XLSX.read(buf, { type: 'array' })
       const sheetNames = Array.isArray(wb?.SheetNames) ? wb.SheetNames : []

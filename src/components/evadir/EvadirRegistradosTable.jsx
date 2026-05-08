@@ -3,7 +3,6 @@ import { useEvadirRegistrados } from '../../hooks/useEvadirRegistrados.js'
 import { fmtDMY } from '../../services/evadirService.js'
 import { useDb } from '../../context/dbContext.jsx'
 import { useUi } from '../../context/uiContext.jsx'
-import { exportEvadirXlsx } from '../../utils/evadirExport.js'
 import EvadirPreview from './EvadirPreview.jsx'
 
 /**
@@ -291,7 +290,13 @@ export default function EvadirRegistradosTable() {
                     >
                       Ver
                     </button>{' '}
-                    <button className="btn b-teal b-xs" onClick={() => exportEvadirXlsx({ db, opId: r.id, toast })}>
+                    <button
+                      className="btn b-teal b-xs"
+                      onClick={async () => {
+                        const mod = await import('../../utils/evadirExport.js')
+                        await mod.exportEvadirXlsx({ db, opId: r.id, toast })
+                      }}
+                    >
                       EXCEL
                     </button>
                   </td>
