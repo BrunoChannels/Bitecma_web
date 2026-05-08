@@ -360,6 +360,25 @@ export default function Topbar() {
       admin: 'Admin',
     }[String(page || 'dashboard')] || 'Dashboard'
 
+  const apiUrl = String(import.meta.env?.VITE_API_URL || '').trim().replace(/\/+$/, '')
+  const rawAvatar = String(user?.avatar_url || user?.logo || '').trim()
+  const avatarSrc =
+    rawAvatar && (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:') || rawAvatar.startsWith('blob:'))
+      ? rawAvatar
+      : rawAvatar && rawAvatar.startsWith('/')
+        ? `${apiUrl}${rawAvatar}`
+        : rawAvatar && apiUrl
+          ? `${apiUrl}/${rawAvatar.replace(/^\/+/, '')}`
+          : ''
+
+  const initials = String(user?.nombre || 'US')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase()
+
   return (
     <div className="topbar">
       <button className="tb-btn tb-menu d-md-none" onClick={toggleSidebar} aria-label="Abrir menú">
@@ -471,14 +490,17 @@ export default function Topbar() {
             navigate('perfil')
           }}
         >
-          <div className="user-av" id="tb-user-av">
-            {String(user?.nombre || 'US')
-              .split(' ')
-              .filter(Boolean)
-              .slice(0, 2)
-              .map((p) => p[0])
-              .join('')
-              .toUpperCase()}
+          <div
+            className="user-av"
+            id="tb-user-av"
+            style={{
+              backgroundImage: avatarSrc ? `url('${avatarSrc}')` : '',
+              backgroundSize: avatarSrc ? 'cover' : '',
+              backgroundPosition: avatarSrc ? 'center' : '',
+              backgroundRepeat: avatarSrc ? 'no-repeat' : '',
+            }}
+          >
+            {avatarSrc ? null : initials}
           </div>
           <div>
             <div className="user-name" id="tb-user-name">
