@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import LoginScreen from './pages/login.jsx'
 
 const AdminPage = lazy(() => import('./pages/admin.jsx'))
@@ -59,6 +59,8 @@ function ModalHost() {
 function AppShell() {
   const { page, isAuthed } = useApp()
   const { sidebarOpen, closeSidebar } = useUi()
+  const [topbarKey, setTopbarKey] = useState(0)
+  const topbarWatchRef = useRef({ lastCheckAt: 0, badCount: 0, lastReloadAt: 0 })
 
   const pageToComp = useMemo(
     () => ({
@@ -78,6 +80,55 @@ function AppShell() {
   )
   const ActivePage = pageToComp[page] || DashboardPage
 
+  useEffect(() => {
+    if (!isAuthed) return
+    let rafId = 0
+    const checkEveryMs = 100
+    const minReloadGapMs = 1200
+
+    const check = (now) => {
+      const s = topbarWatchRef.current
+      if (document.hidden) return true
+      if (now - s.lastCheckAt < checkEveryMs) return false
+      s.lastCheckAt = now
+
+      const el = document.querySelector('.topbar')
+      if (!el || !el.isConnected) {
+        s.badCount++
+      } else {
+        const cs = window.getComputedStyle(el)
+        const rect = el.getBoundingClientRect()
+        const displayOk = cs.display !== 'none'
+        const visibilityOk = cs.visibility !== 'hidden'
+        const opacityOk = Number.isFinite(Number(cs.opacity)) ? Number(cs.opacity) > 0.02 : true
+        const heightOk = rect.height >= 20
+        const widthOk = rect.width >= 120
+        const onScreenOk = rect.bottom > 0 && rect.top < 80
+        const ok = displayOk && visibilityOk && opacityOk && heightOk && widthOk && onScreenOk
+        s.badCount = ok ? 0 : s.badCount + 1
+      }
+
+      if (s.badCount >= 2 && now - s.lastReloadAt >= minReloadGapMs) {
+        s.lastReloadAt = now
+        s.badCount = 0
+        setTopbarKey((k) => k + 1)
+        return true
+      }
+
+      return false
+    }
+
+    const tick = (t) => {
+      const now = typeof t === 'number' ? t : performance.now()
+      const didReload = check(now)
+      rafId = requestAnimationFrame(tick)
+      if (didReload) return
+    }
+
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [isAuthed])
+
   return (
     <>
       <ToastHost />
@@ -86,7 +137,7 @@ function AppShell() {
       <LoginScreen active={!isAuthed} />
 
       <div id="scr-app" className={`screen${isAuthed ? ' active' : ''}`}>
-        <Topbar />
+        <Topbar key={topbarKey} />
         <div className="app-body">
           <div className={`sb-wrap${sidebarOpen ? ' open' : ''}`}>
             <Sidebar />

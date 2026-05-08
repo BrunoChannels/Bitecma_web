@@ -901,6 +901,34 @@ export default function EvadirPreview({ db, op }) {
     return { maxL, maxP, points }
   }, [isLpTab, headerMap, rows, especies, tab])
 
+  const lPreview = useMemo(() => {
+    if (!isLTab) return null
+    const idxL = headerMap.get('LONGITUD MM') ?? -1
+    if (idxL < 0) return { maxL: null }
+    let maxL = null
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]
+      const l = toNumber(r?.[idxL])
+      if (l === null) continue
+      maxL = maxL === null ? l : Math.max(maxL, l)
+    }
+    return { maxL }
+  }, [isLTab, headerMap, rows])
+
+  const dPreview = useMemo(() => {
+    if (!isDTab) return null
+    const idxD = headerMap.get('DIAM DISCO CM') ?? -1
+    if (idxD < 0) return { maxD: null }
+    let maxD = null
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]
+      const d = toNumber(r?.[idxD])
+      if (d === null) continue
+      maxD = maxD === null ? d : Math.max(maxD, d)
+    }
+    return { maxD }
+  }, [isDTab, headerMap, rows])
+
   const showRowControls = rows.length > rowLimit
 
   if (!op) {
@@ -1193,7 +1221,7 @@ export default function EvadirPreview({ db, op }) {
         ) : null}
 
         <div style={{ flex: 1, overflow: 'auto', minHeight: 0, border: '1px solid var(--border)', borderRadius: 10 }}>
-          <table className="tbl evp-sticky">
+          <table className="tbl evp-sticky tbl-evp-mobile">
             <thead>
               {isEvadirTab ? (
                 <tr>
@@ -1233,6 +1261,16 @@ export default function EvadirPreview({ db, op }) {
                           borderLeft: '1px solid var(--border)',
                         }}
                       >{`max: ${Math.round(lpPreview.maxL)}`}</span>
+                    ) : isLTab && lPreview?.maxL !== null ? (
+                      <span
+                        style={{
+                          color: 'var(--text3)',
+                          fontWeight: 600,
+                          marginLeft: 8,
+                          paddingLeft: 8,
+                          borderLeft: '1px solid var(--border)',
+                        }}
+                      >{`MAX: ${Math.round(lPreview.maxL)}`}</span>
                     ) : null}
                   </th>
                   {isLpTab ? (
@@ -1258,7 +1296,20 @@ export default function EvadirPreview({ db, op }) {
                   <th>Bote</th>
                   <th>Buzo</th>
                   <th>Especie</th>
-                  <th>Diam disco cm</th>
+                  <th>
+                    Diam disco cm
+                    {dPreview?.maxD !== null ? (
+                      <span
+                        style={{
+                          color: 'var(--text3)',
+                          fontWeight: 600,
+                          marginLeft: 8,
+                          paddingLeft: 8,
+                          borderLeft: '1px solid var(--border)',
+                        }}
+                      >{`MAX: ${Math.round(dPreview.maxD)}`}</span>
+                    ) : null}
+                  </th>
                 </tr>
               ) : (
                 <tr>

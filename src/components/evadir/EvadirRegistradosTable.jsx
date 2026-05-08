@@ -224,15 +224,15 @@ export default function EvadirRegistradosTable() {
         </select>
       </div>
 
-      <table className="tbl">
+      <table className="tbl tbl-static-mobile evadir-rt">
         <thead>
           <tr>
             <th>Sector</th>
             <th>SEG/ESBA</th>
-            <th>Creador</th>
+            <th className="evadir-rt-hide-mobile">Creador</th>
             <th>Fecha</th>
-            <th>Transectos/Cuadrantes</th>
-            <th>Botes</th>
+            <th className="evadir-rt-hide-mobile">Transectos/Cuadrantes</th>
+            <th className="evadir-rt-hide-mobile">Botes</th>
             <th>Acción</th>
           </tr>
         </thead>
@@ -267,13 +267,13 @@ export default function EvadirRegistradosTable() {
 
               return (
                 <tr key={r.id}>
-                  <td>{r.sector}</td>
+                  <td className="evadir-rt-sector">{r.sector}</td>
                   <td>SEG-{r.numSeg}</td>
-                  <td>{creador}</td>
+                  <td className="evadir-rt-hide-mobile">{creador}</td>
                   <td>{fmtDMY(r.fechaInicio)}</td>
-                  <td>{txCqUI}</td>
-                  <td>{r.totalBotes}</td>
-                  <td>
+                  <td className="evadir-rt-hide-mobile">{txCqUI}</td>
+                  <td className="evadir-rt-hide-mobile">{r.totalBotes}</td>
+                  <td className="evadir-rt-action">
                     <button
                       className="btn b-out b-xs"
                       onClick={() => {

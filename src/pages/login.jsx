@@ -13,7 +13,6 @@ import { useUi } from '../context/uiContext.jsx'
  * Lógica:
  * 1) Mantiene estado local de credenciales (`email`, `pass`).
  * 2) En “Ingresar” o Enter en contraseña, llama `login(email, pass)`.
- * 3) En “¿Olvidaste tu contraseña?”, muestra un toast (placeholder).
  *
  * Dependencias externas:
  * - `useApp` (`login`) para iniciar sesión.
@@ -84,8 +83,7 @@ export default function LoginScreen({ active }) {
           Ingresar
         </button>
         <div className="lc-foot">
-          <a onClick={() => toast('Correo enviado')}>¿Olvidaste tu contraseña?</a> · Bitecma
-          Ltda. © 1995
+          Bitecma Ltda. © 1995
         </div>
       </div>
     </div>

@@ -80,8 +80,9 @@ opacity:.95;filter:blur(.2px);animation:bubble-rise2 12s linear infinite;transfo
 .tb-logo-icon img{width:100%;height:100%;object-fit:contain;display:block;}
 .tb-logo-text{font-family:var(--ff-d);font-weight:900;font-size:16px;color:var(--navy);}
 .tb-logo-text span{color:var(--teal);}
+.tb-mob-loc{display:block;font-family:var(--ff-m);font-weight:500;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);max-width:46vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tb-sep{width:1px;height:26px;background:var(--border);flex-shrink:0;}
-.tb-bc{display:flex;align-items:center;gap:5px;font-family:var(--ff-m);font-size:11px;color:var(--text3);}
+.tb-bc{display:none;align-items:center;gap:5px;font-family:var(--ff-m);font-size:11px;color:var(--text3);}
 .tb-bc .cur{color:var(--teal);font-weight:500;}
 .tb-spacer{flex:1;}
 .tb-search{display:flex;align-items:center;gap:7px;padding:6px 13px;background:var(--bg);border:1.5px solid var(--border);border-radius:20px;width:210px;}
@@ -273,9 +274,13 @@ input[type=number].lp-num-inp{-moz-appearance:textfield;appearance:textfield;}
 .lp-tbl thead th{position:sticky;top:0;z-index:3;}
 .lp-tbl th{padding:6px 12px;font-family:var(--ff-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg);text-align:center;}
 .lp-tbl td{padding:6px 12px;border-bottom:1px solid var(--border);font-size:11px;text-align:center;}
-.lp-tbl th:last-child,.lp-tbl td:last-child{text-align:right;white-space:nowrap;}
+.lp-tbl th:last-child,.lp-tbl td:last-child{text-align:right;}
+.lp-samples-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;}
 .lp-flash{background:rgba(0,153,255,.12)!important;animation:lpFlash .55s ease-in-out 0s 5;}
 @keyframes lpFlash{0%{background:rgba(0,153,255,.08);}50%{background:rgba(0,153,255,.22);}100%{background:rgba(0,153,255,.08);}}
+.lp-species-wrap{overflow-x:auto;}
+.lp-species-action{display:flex;justify-content:flex-end;}
+.lp-species-tbl td:first-child{word-break:break-word;}
 
 /* Selección de especies */
 .sp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;max-height:300px;overflow-y:auto;}
@@ -355,11 +360,26 @@ input[type=number].lp-num-inp{-moz-appearance:textfield;appearance:textfield;}
   .sb-backdrop.open{opacity:1;pointer-events:auto;}
   .tbl{display:block;overflow-x:auto;}
   .tbl th,.tbl td{white-space:nowrap;}
+  .tbl.tbl-static-mobile{display:table;overflow-x:visible;}
+  .tbl.tbl-static-mobile th,.tbl.tbl-static-mobile td{white-space:normal;}
+  .tbl.tbl-evp-mobile{display:table;overflow-x:visible;}
+  .evadir-rt-hide-mobile{display:none;}
+  .evadir-rt-sector{word-break:break-word;}
+  .evadir-rt-action{display:flex;flex-direction:column;gap:6px;align-items:stretch;}
+  .evadir-rt-action .btn{width:100%;}
+  .lp-tbl{table-layout:fixed;}
+  .lp-tbl th,.lp-tbl td{padding:6px 8px;}
+  .lp-samples-actions{display:flex;flex-direction:column;gap:6px;align-items:stretch;justify-content:flex-end;}
+  .lp-samples-actions .btn{width:100%;}
+  .lp-species-wrap{overflow-x:hidden;}
+  .lp-species-tbl{table-layout:fixed;}
+  .lp-species-action{justify-content:stretch;}
+  .lp-species-action .btn{width:100%;}
 }
 
 @media (max-width: 575.98px){
   .topbar{padding:0 12px;gap:9px;}
-  .tb-bc{display:none;}
+  .tb-mob-loc{max-width:32vw;}
   .tb-logo-text{display:block;font-size:14px;line-height:1;white-space:nowrap;}
   .user-role{display:none;}
   .user-name{max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}

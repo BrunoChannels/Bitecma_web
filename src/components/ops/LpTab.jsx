@@ -824,8 +824,8 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
             </div>
           </div>
 
-          <div style={{ overflow: 'auto', maxHeight: 280, border: '1px solid var(--border)', borderRadius: 10 }}>
-            <table className="tbl lp-tbl">
+          <div style={{ overflowY: 'auto', overflowX: 'hidden', maxHeight: 280, border: '1px solid var(--border)', borderRadius: 10 }}>
+            <table className="tbl lp-tbl tbl-static-mobile">
               <thead>
                 <tr>
                   <th>#</th>
@@ -844,49 +844,60 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                       <td>{samplesNow.length - displayIdx}</td>
                       <td>{kind === 'D' ? m?.d ?? '' : m?.l ?? ''}</td>
                       {kind === 'LP' ? <td>{m?.p ?? ''}</td> : null}
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <button
-                          className="btn b-out b-sm"
-                          onClick={() => {
-                            setEditIdx(idx)
-                            setDraft(kind === 'LP' ? { l: m?.l ?? '', p: m?.p ?? '' } : kind === 'D' ? { d: m?.d ?? '' } : { l: m?.l ?? '' })
-                            setTimeout(() => {
-                              if (kind === 'LP') {
-                                lRef.current?.focus?.()
-                                lRef.current?.select?.()
-                              } else if (kind === 'D') {
-                                dRef.current?.focus?.()
-                                dRef.current?.select?.()
-                              } else {
-                                lRef.current?.focus?.()
-                                lRef.current?.select?.()
-                              }
-                            }, 0)
-                          }}
-                        >
-                          Editar
-                        </button>{' '}
-                        <button
-                          className="btn b-out b-sm"
-                          onClick={() => {
-                            updateOperacion(op.id, (cur) => {
-                              const nextBotes = (cur.botes || []).map((x) => {
-                                if (x.id !== bote.id) return x
-                                const map = x.lpMuestras || {}
-                                const next = removeSample(map, spId, kind, idx)
-                                return { ...x, lpMuestras: next }
+                      <td style={{ textAlign: 'right' }}>
+                        <div className="lp-samples-actions">
+                          <button
+                            className="btn b-out b-sm"
+                            onClick={() => {
+                              setEditIdx(idx)
+                              setDraft(
+                                kind === 'LP' ? { l: m?.l ?? '', p: m?.p ?? '' } : kind === 'D' ? { d: m?.d ?? '' } : { l: m?.l ?? '' },
+                              )
+                              setTimeout(() => {
+                                if (kind === 'LP') {
+                                  lRef.current?.focus?.()
+                                  lRef.current?.select?.()
+                                } else if (kind === 'D') {
+                                  dRef.current?.focus?.()
+                                  dRef.current?.select?.()
+                                } else {
+                                  lRef.current?.focus?.()
+                                  lRef.current?.select?.()
+                                }
+                              }, 0)
+                            }}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            className="btn b-out b-sm"
+                            onClick={() => {
+                              const label =
+                                kind === 'LP'
+                                  ? `L=${String(m?.l ?? '—')} mm, P=${String(m?.p ?? '—')} g`
+                                  : kind === 'D'
+                                    ? `D=${String(m?.d ?? '—')} cm`
+                                    : `L=${String(m?.l ?? '—')} mm`
+                              if (!confirm(`¿Eliminar esta muestra (${label})?`)) return
+                              updateOperacion(op.id, (cur) => {
+                                const nextBotes = (cur.botes || []).map((x) => {
+                                  if (x.id !== bote.id) return x
+                                  const map = x.lpMuestras || {}
+                                  const next = removeSample(map, spId, kind, idx)
+                                  return { ...x, lpMuestras: next }
+                                })
+                                return { ...cur, botes: nextBotes }
                               })
-                              return { ...cur, botes: nextBotes }
-                            })
-                            setSamplesNow((prev) => prev.filter((_, i) => i !== idx))
-                            if (editIdx === idx) {
-                              setEditIdx(null)
-                              setDraft(kind === 'LP' ? { l: '', p: '' } : kind === 'D' ? { d: '' } : { l: '' })
-                            }
-                          }}
-                        >
-                          Eliminar
-                        </button>
+                              setSamplesNow((prev) => prev.filter((_, i) => i !== idx))
+                              if (editIdx === idx) {
+                                setEditIdx(null)
+                                setDraft(kind === 'LP' ? { l: '', p: '' } : kind === 'D' ? { d: '' } : { l: '' })
+                              }
+                            }}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -968,8 +979,8 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
           <div>Sin especies para muestreo. Agrega una especie para ingresar muestras.</div>
         </div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table className="tbl">
+        <div className="lp-species-wrap">
+          <table className="tbl tbl-static-mobile lp-species-tbl">
             <thead>
               <tr>
                 <th style={{ textAlign: 'left' }}>Especie</th>
@@ -1002,11 +1013,13 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                         <div style={{ fontSize: 11, color: 'var(--text3)' }}>{sp?.sci || ''}</div>
                       </td>
                       <td>{muestrasText}</td>
-                      <td style={{ minWidth: 120 }}>{kind === 'LP' ? 'L-P' : kind}</td>
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <button className="btn b-teal b-sm" onClick={() => openIngreso(spId, kind)}>
-                          Ingresar
-                        </button>
+                      <td>{kind === 'LP' ? 'L-P' : kind}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div className="lp-species-action">
+                          <button className="btn b-teal b-sm" onClick={() => openIngreso(spId, kind)}>
+                            Ingresar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )

@@ -402,6 +402,7 @@ export default function Topbar() {
         </div>
       </div>
       <div className="tb-sep"></div>
+      <div className="tb-mob-loc">{currentLabel}</div>
       <div className="tb-bc" id="topbc">
         <span>Inicio</span>
         <span>/</span>

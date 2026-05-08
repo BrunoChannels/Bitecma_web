@@ -16,6 +16,8 @@ class Operacion
             'numSeg' => $r['num_seg_esba'] !== null ? (int)$r['num_seg_esba'] : null,
             'fechaInicio' => $r['fecha_inicio'] ?? null,
             'fechaFin' => $r['fecha_fin'] ?? null,
+            'createdById' => array_key_exists('created_by', $r) && $r['created_by'] !== null ? (int)$r['created_by'] : null,
+            'createdByName' => $r['created_by_nombre'] ?? null,
             'botes' => [],
         ];
     }
@@ -98,9 +100,11 @@ class Operacion
     public static function all(PDO $db)
     {
         $stmt = $db->query(
-            "SELECT id, region_id, sector, sector_amerb_id, sector_amerb, tipo_org, opa_id, org_nombre, num_seg_esba, fecha_inicio, fecha_fin
-             FROM operaciones
-             ORDER BY created_at DESC"
+            "SELECT o.id, o.region_id, o.sector, o.sector_amerb_id, o.sector_amerb, o.tipo_org, o.opa_id, o.org_nombre, o.num_seg_esba, o.fecha_inicio, o.fecha_fin,
+                    o.created_by, u.nombre AS created_by_nombre
+             FROM operaciones o
+             LEFT JOIN usuarios u ON u.id = o.created_by
+             ORDER BY o.created_at DESC"
         );
         $opsRows = $stmt->fetchAll();
         $ops = [];
@@ -242,9 +246,11 @@ class Operacion
     public static function find(PDO $db, $id)
     {
         $stmt = $db->prepare(
-            "SELECT id, region_id, sector, sector_amerb_id, sector_amerb, tipo_org, opa_id, org_nombre, num_seg_esba, fecha_inicio, fecha_fin
-             FROM operaciones
-             WHERE id = :id
+            "SELECT o.id, o.region_id, o.sector, o.sector_amerb_id, o.sector_amerb, o.tipo_org, o.opa_id, o.org_nombre, o.num_seg_esba, o.fecha_inicio, o.fecha_fin,
+                    o.created_by, u.nombre AS created_by_nombre
+             FROM operaciones o
+             LEFT JOIN usuarios u ON u.id = o.created_by
+             WHERE o.id = :id
              LIMIT 1"
         );
         $stmt->execute([':id' => (string)$id]);
