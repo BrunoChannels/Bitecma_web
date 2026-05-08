@@ -36,17 +36,11 @@ function ToastHost() {
 function ModalHost() {
   const { modalState, closeModal } = useUi()
   return (
-    <div
-      className={`mo${modalState.open ? ' open' : ''}`}
-      onClick={(e) => {
-        if (e.target !== e.currentTarget) return
-        closeModal()
-      }}
-    >
+    <div className={`mo${modalState.open ? ' open' : ''}`}>
       <div className={`mb-box${modalState.size ? ' ' + modalState.size : ''}`}>
         <div className="mh">
           <h3>{modalState.title}</h3>
-          <button className="mc" onClick={closeModal}>
+          <button type="button" className="mc" onClick={closeModal} aria-label="Cerrar">
             ×
           </button>
         </div>
@@ -142,7 +136,7 @@ function AppShell() {
           <div className={`sb-wrap${sidebarOpen ? ' open' : ''}`}>
             <Sidebar />
           </div>
-          <div className={`sb-backdrop${sidebarOpen ? ' open' : ''}`} onClick={closeSidebar} />
+          <div className={`sb-backdrop${sidebarOpen ? ' open' : ''}`} />
           <div className={`main${page === 'dashboard' ? ' main-dashboard' : ''}`}>
             <Suspense fallback={<div style={{ padding: 14, color: 'var(--text3)' }}>Cargando…</div>}>
               <ActivePage active />

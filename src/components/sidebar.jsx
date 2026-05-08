@@ -74,6 +74,12 @@ export default function Sidebar() {
 
   return (
     <div className="sidebar">
+      <div className="sb-head">
+        <div className="sb-head-title">Menú</div>
+        <button type="button" className="mc sb-close" onClick={closeSidebar} aria-label="Cerrar">
+          ×
+        </button>
+      </div>
       <div className="sb-sec">Principal</div>
       <div
         className={`nav ${page === 'dashboard' ? 'on' : ''}`}

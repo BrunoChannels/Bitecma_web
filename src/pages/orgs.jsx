@@ -76,8 +76,27 @@ export default function OrgsPage({ active }) {
           <p>Listado OPA por región (con búsqueda)</p>
         </div>
       </div>
-      <div className="admin-layout" style={{ height: 'calc(100vh - 190px)', alignItems: 'stretch' }}>
-        <div className="card admin-menu" style={{ minHeight: 0, overflowY: 'auto' }}>
+      <div className="admin-layout masters-layout">
+        <div className="card region-combo">
+          <div className="ig" style={{ marginBottom: 0 }}>
+            <label className="il">Región</label>
+            <select
+              className="is"
+              value={regionId}
+              onChange={(e) => {
+                const rid = parseInt(e.target.value, 10)
+                setRegionId(Number.isFinite(rid) ? rid : regionId)
+              }}
+            >
+              {regiones.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.rom} — {r.nom}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="card admin-menu region-menu" style={{ minHeight: 0, overflowY: 'auto' }}>
           {regiones.map((r) => (
             <div
               key={r.id}
@@ -88,12 +107,12 @@ export default function OrgsPage({ active }) {
             </div>
           ))}
         </div>
-        <div className="card admin-content" style={{ minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div className="card admin-content" style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div className="masters-actions">
             <input className="flt" placeholder="Buscar organización..." value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
-          <div style={{ overflow: 'auto', minHeight: 0 }}>
-            <table className="tbl">
+          <div className="masters-table">
+            <table className="tbl tbl-static-mobile">
               <thead>
                 <tr>
                   <th>ID</th>

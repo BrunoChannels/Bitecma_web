@@ -37,8 +37,8 @@ export default function EspeciesPage({ active }) {
           <p>36 especies bentónicas de Chile</p>
         </div>
       </div>
-      <div className="card" style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <table className="tbl">
+      <div className="card" style={{ maxWidth: 1100, width: '100%', margin: '0 auto', padding: 0, overflow: 'hidden' }}>
+        <table className="tbl tbl-static-mobile">
           <thead>
             <tr>
               <th>#</th>
