@@ -812,8 +812,23 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       const iCubierta = idxBy([/cubierta biologica/, /cubierta/])
       const iX = idxBy(['x'])
       const iY = idxBy(['y'])
-      const iLong = idxBy(['long'])
-      const iLat = idxBy(['lat'])
+      const idxByRawUpper = (rawUpper) => {
+        for (let i = 0; i < headerRow.length; i++) {
+          const h = String(headerRow[i] ?? '').trim().toUpperCase()
+          if (h === rawUpper) return i
+        }
+        return -1
+      }
+      const iLong = (() => {
+        const exact = idxByRawUpper('LONG')
+        if (exact >= 0) return exact
+        return idxBy(['long'])
+      })()
+      const iLat = (() => {
+        const exact = idxByRawUpper('LAT')
+        if (exact >= 0) return exact
+        return idxBy(['lat'])
+      })()
       const iDatum = idxBy(['datum'])
 
       const numCols = []
@@ -894,7 +909,8 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
             if (n == null) continue
             counts[spId] = Math.max(0, n)
           }
-        } else if (densCols.length) {
+        }
+        if (densCols.length) {
           for (const col of densCols) {
             const spId = resolveSpeciesId(col.name)
             const dens = parseNumSafe(row[col.c])
@@ -906,6 +922,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
               continue
             }
             if (dens == null) continue
+            if (counts[spId] != null) continue
             const cnt = area > 0 ? Math.round(dens * area) : 0
             counts[spId] = Math.max(0, cnt)
           }
@@ -1600,17 +1617,268 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
     }
   }
 
+  const downloadEvadirTemplate = async () => {
+    try {
+      const xlsxMod = await import('xlsx-js-style')
+      const XLSX = xlsxMod?.default || xlsxMod
+
+      const evadirHeaders = [
+        'REGION',
+        'NOMBRE SECTOR',
+        'TIPO DE ORGANIZACIÓN',
+        'NOMBRE ORGANIZACIÓN',
+        'FECHA',
+        'DIA',
+        'MES',
+        'AÑO',
+        'NUM SEG ESBA',
+        'ZONA MUESTREO',
+        'BOTE',
+        'BUZO',
+        'NUM TRANSECTO',
+        'AREA TRANSECTO',
+        'NUM CONCHOLEPAS',
+        'NUM FISSURELLA SPP',
+        'NUM LOXECHINUS',
+        'TIPO SUSTRATO',
+        'CUBIERTA BIOLOGICA',
+        'DENS LOCO (N° IND/M2)',
+        'X',
+        'Y',
+        'ºLONG',
+        'LONG',
+        '"LONG',
+        'LATº',
+        'LAT',
+        '"LAT',
+        'DATUM',
+      ]
+
+      const commonLpMeta = [
+        'REGION',
+        'NOMBRE SECTOR',
+        'TIPO DE ORGANIZACIÓN',
+        'NOMBRE ORGANIZACIÓN',
+        'FECHA',
+        'DIA',
+        'MES',
+        'AÑO',
+        'NUM SEG ESBA',
+        'ZONA MUESTREO',
+        'BOTE',
+        'BUZO',
+      ]
+      const lpHeaders = [...commonLpMeta, 'ESPECIE', 'LONGITUD MM', 'PESO G']
+      const lHeaders = [...commonLpMeta, 'ESPECIE', 'LONGITUD MM']
+      const dHeaders = [...commonLpMeta, 'ESPECIE', 'DIAM DISCO CM']
+
+      const headerStyle = {
+        font: { name: 'Arial', sz: 10, bold: true, color: { rgb: 'FFFFFFFF' } },
+        fill: { patternType: 'solid', fgColor: { rgb: 'FF16365C' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+      }
+      const bodyStyle = {
+        font: { name: 'Calibri', sz: 11 },
+        alignment: { horizontal: 'center', vertical: 'center' },
+      }
+
+      const getDisplayVal = (v) => {
+        if (v === null || v === undefined) return ''
+        if (typeof v === 'object') return v.v ?? ''
+        return v
+      }
+
+      const applySheetStyles = (ws, aoa) => {
+        const ref = ws['!ref']
+        if (!ref) return
+        const range = XLSX.utils.decode_range(ref)
+        const headerRow = Array.isArray(aoa?.[0]) ? aoa[0] : []
+        const headerTextAt = (c) => String(headerRow?.[c] ?? '').trim()
+        const isCoordHeader = (h) => h === 'X' || h === 'Y' || h === 'LONG' || h === 'LAT'
+        const isDensHeader = (h) => /^DENS /i.test(h)
+        const isAreaHeader = (h) => /^AREA(\s|$)/i.test(h)
+        const intFmt = '0'
+        const densFmt = '0.0000'
+        const coordFmt = '0.########'
+        const areaFmt = '0.####'
+
+        for (let r = range.s.r; r <= range.e.r; r++) {
+          for (let c = range.s.c; c <= range.e.c; c++) {
+            const addr = XLSX.utils.encode_cell({ r, c })
+            const cell = ws[addr]
+            if (!cell) continue
+            const h = headerTextAt(c)
+            if (r === 0) {
+              cell.s = headerStyle
+              continue
+            }
+            cell.s = bodyStyle
+            if (cell.t === 'n' || cell.f) {
+              if (isDensHeader(h)) cell.z = densFmt
+              else if (isCoordHeader(h)) cell.z = coordFmt
+              else if (isAreaHeader(h)) {
+                const v = typeof cell.v === 'number' ? cell.v : Number(cell.v)
+                cell.z = Number.isFinite(v) && v < 1 ? areaFmt : intFmt
+              } else {
+                cell.z = intFmt
+              }
+            }
+          }
+        }
+
+        const colCount = Array.isArray(aoa?.[0]) ? aoa[0].length : 0
+        const cols = Array.from({ length: colCount }, () => ({ wch: 10 }))
+        for (let c = 0; c < colCount; c++) {
+          let maxLen = 0
+          const rowsToScan = Math.min(aoa.length, 500)
+          for (let r = 0; r < rowsToScan; r++) {
+            const v = getDisplayVal(aoa[r]?.[c])
+            const s = v === '' ? '' : String(v)
+            if (s.length > maxLen) maxLen = s.length
+          }
+          let wch = Math.min(Math.max(maxLen + 2, 8), 45)
+          const header = headerTextAt(c)
+          if (/^DENS /i.test(header)) wch = Math.max(wch, 18)
+          cols[c] = { wch }
+        }
+        ws['!cols'] = cols
+        ws['!rows'] = [{ hpt: 18 }]
+      }
+
+      const wb = XLSX.utils.book_new()
+      const mkSheet = (headers) => {
+        const blankRows = 200
+        const aoa = [headers, ...Array.from({ length: blankRows }, () => Array.from({ length: headers.length }, () => ''))]
+        const ws = XLSX.utils.aoa_to_sheet(aoa)
+        applySheetStyles(ws, aoa)
+        return ws
+      }
+
+      XLSX.utils.book_append_sheet(wb, mkSheet(evadirHeaders), 'EVADIR')
+      XLSX.utils.book_append_sheet(wb, mkSheet(lpHeaders), 'LP')
+      XLSX.utils.book_append_sheet(wb, mkSheet(lHeaders), 'L')
+      XLSX.utils.book_append_sheet(wb, mkSheet(dHeaders), 'D')
+
+      const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'Planilla-EVADIR.xlsx'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1200)
+      toast('Planilla EVADIR descargada', 'green')
+    } catch {
+      toast('No se pudo descargar la planilla EVADIR', 'red')
+    }
+  }
+
+  const openUploadPanel = () => {
+    if (!canWrite) {
+      toast('Modo solo lectura', 'blue')
+      return
+    }
+    const BodyUpload = () => {
+      const [isOver, setIsOver] = useState(false)
+
+      const handleFile = (f) => {
+        if (!f) return
+        closeModal()
+        setTimeout(() => importEvadirFromXlsx(f), 0)
+      }
+
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 720, margin: '0 auto' }}>
+          <div
+            className="card"
+            style={{
+              padding: 18,
+              border: `2px dashed ${isOver ? 'var(--teal)' : 'var(--border)'}`,
+              background: isOver ? 'var(--teal-lt)' : 'var(--bg)',
+              boxShadow: 'none',
+              textAlign: 'center',
+              minHeight: 220,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              gap: 10,
+            }}
+            onDragEnter={(e) => {
+              e.preventDefault()
+              setIsOver(true)
+            }}
+            onDragOver={(e) => {
+              e.preventDefault()
+              setIsOver(true)
+            }}
+            onDragLeave={() => setIsOver(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setIsOver(false)
+              const f = e.dataTransfer?.files?.[0]
+              handleFile(f)
+            }}
+          >
+            <div style={{ fontFamily: 'var(--ff-d)', fontWeight: 900, fontSize: 18, color: 'var(--navy)', lineHeight: 1.2 }}>
+              Arrastra tu Excel EVADIR aquí
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <span className="pill p-slt">.xlsx</span>
+              <span className="pill p-slt">.xls</span>
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 6 }}>
+              <button
+                className="btn b-teal"
+                disabled={!canWrite || isImportingEvadir}
+                onClick={() => {
+                  evadirInputRef.current?.click?.()
+                }}
+              >
+                Seleccionar archivo
+              </button>
+              <button className="btn b-out" onClick={closeModal}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 14, boxShadow: 'none', background: 'var(--white)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 14, color: 'var(--text2)' }}>
+                Descarga la planilla EVADIR <strong>vacía</strong> para asegurar una importación 100% compatible.
+              </div>
+              <span
+                role="button"
+                tabIndex={0}
+                className="btn b-out"
+                style={{ textDecoration: 'none' }}
+                onClick={downloadEvadirTemplate}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return
+                  e.preventDefault()
+                  downloadEvadirTemplate()
+                }}
+              >
+                Descargar aquí
+              </span>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    openModal('Subir EVADIR', <BodyUpload />)
+  }
+
   return (
     <>
       <button
         className="btn b-out b-sm"
         disabled={!canWrite || isImportingEvadir}
         onClick={() => {
-          if (!canWrite) {
-            toast('Modo solo lectura', 'blue')
-            return
-          }
-          evadirInputRef.current?.click?.()
+          openUploadPanel()
         }}
       >
         Subir EVADIR
@@ -1623,7 +1891,9 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         onChange={(e) => {
           const f = e.target.files?.[0]
           e.target.value = ''
-          importEvadirFromXlsx(f)
+          if (!f) return
+          closeModal()
+          setTimeout(() => importEvadirFromXlsx(f), 0)
         }}
       />
     </>
