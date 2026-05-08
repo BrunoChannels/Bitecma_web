@@ -1,5 +1,34 @@
 import { useUi } from '../context/uiContext.jsx'
 
+/**
+ * Página de Registro Histórico (placeholder/UI inicial).
+ *
+ * Actualmente expone métricas estáticas y botones que notifican “pendiente”.
+ *
+ * @param {object} props - Props del componente.
+ * @param {boolean} props.active - Indica si la página está activa (se usa para estilos).
+ * @returns {import('react').JSX.Element} Elemento React de la página de histórico.
+ *
+ * Lógica:
+ * 1) Obtiene `toast` desde el contexto UI.
+ * 2) Renderiza tarjetas con números “mock” y una tabla vacía (estructural).
+ * 3) Botones disparan toasts indicando funcionalidad pendiente.
+ *
+ * Dependencias externas:
+ * - `useUi` (`toast`).
+ *
+ * Efectos secundarios:
+ * - Muestra toasts al interactuar.
+ *
+ * Manejo de errores:
+ * - No aplica (solo UI estática).
+ *
+ * @example
+ * <HistoricoPage active={page === 'historico'} />
+ *
+ * Notas de mantenimiento:
+ * - Cuando se implemente la vista completa, reemplazar placeholders por consultas reales y poblar la tabla.
+ */
 export default function HistoricoPage({ active }) {
   const { toast } = useUi()
   return (

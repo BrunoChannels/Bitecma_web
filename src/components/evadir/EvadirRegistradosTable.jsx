@@ -292,7 +292,7 @@ export default function EvadirRegistradosTable() {
                       Ver
                     </button>{' '}
                     <button className="btn b-teal b-xs" onClick={() => exportEvadirXlsx({ db, opId: r.id, toast })}>
-                      CSV
+                      EXCEL
                     </button>
                   </td>
                 </tr>

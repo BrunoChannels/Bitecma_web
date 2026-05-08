@@ -10,6 +10,33 @@ import SearchableSelect from '../components/common/SearchableSelect.jsx'
 import EvadirImporter from '../components/ops/EvadirImporter.jsx'
 
 
+/**
+ * Genera el próximo ID de operación con formato `OP-YYYY-NNN` basado en operaciones existentes.
+ *
+ * @param {Array<object>} ops - Operaciones existentes (se lee `o.id`).
+ * @param {string|number} year - Año objetivo (YYYY).
+ * @returns {string} Nuevo ID en el formato `OP-YYYY-NNN`.
+ *
+ * Lógica:
+ * 1) Extrae IDs que calzan con `OP-YYYY-NNN` para el año solicitado.
+ * 2) Obtiene el máximo correlativo `NNN`.
+ * 3) Retorna `max + 1` con padding a 3 dígitos.
+ *
+ * Dependencias externas:
+ * - RegExp.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Ignora IDs que no calzan el patrón.
+ *
+ * @example
+ * nextOpId([{id:'OP-2026-001'}], '2026') // 'OP-2026-002'
+ *
+ * Notas de mantenimiento:
+ * - Si cambia el esquema de IDs, actualizar el regex y la lógica de parseo.
+ */
 function nextOpId(ops, year) {
   const y = String(year)
   const nums = ops
@@ -25,6 +52,30 @@ function nextOpId(ops, year) {
   return `OP-${y}-${String(max + 1).padStart(3, '0')}`
 }
 
+/**
+ * Retorna la fecha actual en formato ISO (YYYY-MM-DD).
+ *
+ * @returns {string} Fecha ISO.
+ *
+ * Lógica:
+ * 1) Usa `new Date()` local.
+ * 2) Formatea año/mes/día con padding.
+ *
+ * Dependencias externas:
+ * - `Date`.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No aplica.
+ *
+ * @example
+ * todayISO() // '2026-05-07'
+ *
+ * Notas de mantenimiento:
+ * - Si se requiere timezone específica, centralizar en un helper compartido.
+ */
 function todayISO() {
   const d = new Date()
   const y = d.getFullYear()
@@ -33,6 +84,32 @@ function todayISO() {
   return `${y}-${m}-${day}`
 }
 
+/**
+ * Obtiene el año asociado a una operación (preferentemente desde `fechaInicio`, con fallback a `id`).
+ *
+ * @param {object} op - Operación.
+ * @returns {string} Año (YYYY) o '' si no se puede determinar.
+ *
+ * Lógica:
+ * 1) Si `fechaInicio` es ISO, toma sus 4 primeros caracteres.
+ * 2) Si `fechaInicio` comienza con YYYY, toma esos 4.
+ * 3) Si no, intenta extraer del `id` con patrón `OP-YYYY-...`.
+ *
+ * Dependencias externas:
+ * - RegExp.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Retorna '' en casos no determinables.
+ *
+ * @example
+ * getOperacionYear({ fechaInicio: '2026-02-05' }) // '2026'
+ *
+ * Notas de mantenimiento:
+ * - Mantener consistencia con la forma en que el backend almacena fechas.
+ */
 function getOperacionYear(op) {
   const fi = String(op?.fechaInicio || '').trim()
   if (/^\d{4}-\d{2}-\d{2}$/.test(fi)) return fi.slice(0, 4)
@@ -42,18 +119,96 @@ function getOperacionYear(op) {
   return m ? m[1] : ''
 }
 
+/**
+ * Formatea el número de seguimiento (ESBA) a etiqueta tipo `SEGNN`.
+ *
+ * @param {object} op - Operación que puede contener `numSeg`.
+ * @returns {string} Etiqueta `SEGNN` o `SEG—` si no hay valor numérico.
+ *
+ * Lógica:
+ * 1) Convierte `numSeg` a número.
+ * 2) Si no es finito, retorna `SEG—`.
+ * 3) Si es finito, trunca y padStart a 2 dígitos.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Retorna fallback si `numSeg` es inválido.
+ *
+ * @example
+ * getOperacionSegLabel({ numSeg: 3 }) // 'SEG03'
+ *
+ * Notas de mantenimiento:
+ * - Si el negocio cambia (por ejemplo, prefijo distinto), ajustar aquí.
+ */
 function getOperacionSegLabel(op) {
   const n = Number(op?.numSeg)
   if (!Number.isFinite(n)) return 'SEG—'
   return `SEG${String(Math.trunc(n)).padStart(2, '0')}`
 }
 
+/**
+ * Formatea una fecha ISO (YYYY-MM-DD) a `DD/MM/YYYY` para display.
+ *
+ * @param {unknown} iso - Fecha ISO.
+ * @returns {string} Fecha formateada o el string original si no es ISO (fallback).
+ *
+ * Lógica:
+ * 1) Si el string no es ISO, retorna el valor original (o '—').
+ * 2) Si es ISO, reordena a `DD/MM/YYYY`.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Retorna fallback para entradas inválidas.
+ *
+ * @example
+ * fmtDMY('2026-02-05') // '05/02/2026'
+ *
+ * Notas de mantenimiento:
+ * - No valida existencia real de la fecha; solo formato.
+ */
 function fmtDMY(iso) {
   const s = String(iso || '').trim()
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s || '—'
   return `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`
 }
 
+/**
+ * Normaliza texto para comparaciones/búsquedas (minúsculas, sin acentos, alfanumérico).
+ *
+ * @param {unknown} v - Valor a normalizar.
+ * @returns {string} Texto normalizado.
+ *
+ * Lógica:
+ * 1) Convierte a string.
+ * 2) Lowercase + normalize NFD.
+ * 3) Elimina diacríticos.
+ * 4) Reemplaza separadores no alfanuméricos por espacios, colapsa y recorta.
+ *
+ * Dependencias externas:
+ * - API estándar `String.prototype.normalize`.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No aplica.
+ *
+ * @example
+ * normKey('Lessonia (sp.)') // 'lessonia sp'
+ *
+ * Notas de mantenimiento:
+ * - Usar solo para matching; no para presentación.
+ */
 function normKey(v) {
   return String(v || '')
     .toLowerCase()
@@ -63,6 +218,35 @@ function normKey(v) {
     .trim()
 }
 
+/**
+ * Extrae especies presentes en una operación (nombres comunes/científicos) de forma única y ordenada.
+ *
+ * @param {object} op - Operación con `botes[]` y datos de densidad y/o LP.
+ * @param {Map<number, any>} especiesById - Map de especieId -> especie (con `com`/`sci`).
+ * @returns {string[]} Nombres únicos (orden alfabético) para mostrar como “pills”.
+ *
+ * Lógica:
+ * 1) Recorre botes:
+ *    - En densidad: lee `transectos[].counts` y `cuadrante.especieId`.
+ *    - En LP: toma claves de `lpMuestras` por especie.
+ * 2) Resuelve cada ID a nombre común/científico usando `especiesById`.
+ * 3) Deduplica por clave normalizada (`normKey`) y ordena alfabéticamente.
+ *
+ * Dependencias externas:
+ * - `normKey`.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Tolerante a datos incompletos.
+ *
+ * @example
+ * const names = getOperacionEspeciesComunes(op, especiesById)
+ *
+ * Notas de mantenimiento:
+ * - Mantener esta función liviana (se ejecuta por tarjeta); está optimizada con sets y map.
+ */
 function getOperacionEspeciesComunes(op, especiesById) {
   const botes = Array.isArray(op?.botes) ? op.botes : []
   const ids = new Set()
@@ -111,6 +295,32 @@ function getOperacionEspeciesComunes(op, especiesById) {
   return uniq
 }
 
+/**
+ * Convierte un entero positivo a número romano (I, II, III, ...).
+ *
+ * @param {number|string} n - Número a convertir.
+ * @returns {string} Representación en romano, o '' si el número es <= 0.
+ *
+ * Lógica:
+ * 1) Trunca `n` a entero.
+ * 2) Itera tabla de valores romanos de mayor a menor.
+ * 3) Resta y concatena símbolos mientras se pueda.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Retorna '' si no es convertible.
+ *
+ * @example
+ * toRoman(4) // 'IV'
+ *
+ * Notas de mantenimiento:
+ * - La tabla cubre hasta miles; ampliar si se requieren números mayores.
+ */
 function toRoman(n) {
   const num = Math.trunc(Number(n) || 0)
   if (num <= 0) return ''
@@ -140,7 +350,49 @@ function toRoman(n) {
   return out
 }
 
- export default function OpsPage({ active }) {
+/**
+ * Página de Operaciones: crea/edita operaciones, administra botes y permite previsualizar/importar EVADIR.
+ *
+ * @param {object} props - Props del componente.
+ * @param {boolean} props.active - Indica si la página está activa (habilita carga de maestros/operaciones).
+ * @returns {import('react').JSX.Element} UI completa de operaciones, agrupada por región y con filtros.
+ *
+ * Lógica (alto nivel):
+ * 1) Carga catálogos y operaciones al activarse (regiones, operaciones, botes maestro, sectores AMERB, OPA).
+ * 2) Presenta selector de región basado en operaciones existentes.
+ * 3) En una región:
+ *    - filtros por sector, mes y texto,
+ *    - listado de operaciones (cards).
+ * 4) En cada operación:
+ *    - previsualiza EVADIR (modal),
+ *    - edita datos de operación (modal),
+ *    - muestra y permite editar botes/unidades (BoteCard, DensidadTab, LpTab).
+ * 5) Integra “jump” desde la previsualización LP (EvadirPreview) usando `sessionStorage` + eventos.
+ * 6) Ofrece importación EVADIR desde Excel mediante `EvadirImporter` (si hay permisos).
+ *
+ * Dependencias externas:
+ * - Hooks/contextos: `useDb`, `useUi`, `useApp`, `useOperaciones`.
+ * - Componentes: `BoteCard`, `EvadirPreview`, `SearchableSelect`, `EvadirImporter`, `SvgIcon`.
+ * - APIs Web: `sessionStorage`, `window.addEventListener`, `document.querySelector`, `confirm`.
+ *
+ * Efectos secundarios:
+ * - Carga datos globales al activarse.
+ * - Abre/cierra modales.
+ * - Persiste operaciones (create/update) y puede eliminar operaciones (Admin).
+ * - Registra listeners globales para integración LP-jump (con cleanup).
+ *
+ * Manejo de errores:
+ * - Muestra toasts en fallas de guardado/eliminado.
+ * - Protege acceso de escritura con `canWrite`.
+ *
+ * @example
+ * <OpsPage active={page === 'ops'} />
+ *
+ * Notas de mantenimiento:
+ * - Este archivo concentra mucha lógica UI; si sigue creciendo, extraer editores/modales a componentes dedicados.
+ * - Mantener el contrato del evento `bitecma:lp-jump` sincronizado con EvadirPreview/LpTab.
+ */
+export default function OpsPage({ active }) {
   const {
     db,
     ensureRegionesLoaded,
@@ -165,6 +417,28 @@ function toRoman(n) {
   const [lpJump, setLpJump] = useState(null)
 
   useEffect(() => {
+    /**
+     * Aplica el “salto” hacia una operación/bote/muestra, típicamente disparado desde la previsualización EVADIR.
+     *
+     * @param {any} d - Payload del jump (se espera `{ opId, region, token, boteId?, boteNombre?, buzo?, zona?, ... }`).
+     * @returns {void} No retorna valor.
+     *
+     * Lógica:
+     * 1) Valida que exista `opId`.
+     * 2) Ajusta filtros para enfocarse en la región y limpia filtros (sector/mes/texto).
+     * 3) Expande la operación (`expanded`) y setea `lpJump` para que los BoteCard/LpTab lo consuman.
+     * 4) Hace scroll a la card de la operación (querySelector por `data-op-id`).
+     *
+     * Dependencias externas:
+     * - `document.querySelector` y `scrollIntoView`.
+     * - Setters de estado y setters del hook `useOperaciones`.
+     *
+     * Efectos secundarios:
+     * - Cambia filtros, expande UI y dispara scroll.
+     *
+     * Manejo de errores:
+     * - Ignora payloads incompletos.
+     */
     const apply = (d) => {
       const opId = String(d?.opId ?? '')
       if (!opId) return
@@ -181,6 +455,25 @@ function toRoman(n) {
         el?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
       }, 0)
     }
+    /**
+     * Handler del evento `bitecma:lp-jump` (CustomEvent) que delega a `apply`.
+     *
+     * @param {Event} ev - Evento del navegador (se espera `CustomEvent` con `detail`).
+     * @returns {void} No retorna valor.
+     *
+     * Lógica:
+     * 1) Extrae `detail`.
+     * 2) Si es objeto, aplica el jump.
+     *
+     * Dependencias externas:
+     * - `window.addEventListener`.
+     *
+     * Efectos secundarios:
+     * - Los mismos que `apply`.
+     *
+     * Manejo de errores:
+     * - Ignora eventos sin `detail` válido.
+     */
     const handler = (ev) => {
       const d = ev?.detail && typeof ev.detail === 'object' ? ev.detail : null
       if (!d) return
@@ -229,6 +522,32 @@ function toRoman(n) {
     ensureOpaLoaded,
   ])
 
+  /**
+   * Expande/colapsa una operación en la lista (UI accordion).
+   *
+   * @param {string|number} opId - ID de operación a alternar.
+   * @returns {void} No retorna valor.
+   *
+   * Lógica:
+   * 1) Normaliza `opId` a string.
+   * 2) Si ya está expandida, colapsa (setea vacío).
+   * 3) Si no, expande (setea ese id).
+   *
+   * Dependencias externas:
+   * - `setExpanded` (estado local).
+   *
+   * Efectos secundarios:
+   * - Cambia estado local.
+   *
+   * Manejo de errores:
+   * - Si `opId` es vacío, colapsa.
+   *
+   * @example
+   * <button onClick={() => toggleExpanded(op.id)}>Abrir</button>
+   *
+   * Notas de mantenimiento:
+   * - Mantener `expanded` como string único para evitar múltiples operaciones abiertas simultáneamente.
+   */
   const toggleExpanded = (opId) => {
     setExpanded((prev) => {
       const id = String(opId ?? '')
@@ -295,11 +614,67 @@ function toRoman(n) {
     setSector('')
   }, [regionSel, sector, sectoresInRegion, setSector])
 
+  /**
+   * Actualiza una operación en el store local, respetando modo solo lectura.
+   *
+   * @param {string} opId - ID de operación.
+   * @param {(cur: any) => any} updater - Función que recibe la operación actual y retorna la nueva.
+   * @returns {void} No retorna valor.
+   *
+   * Lógica:
+   * 1) Si `canWrite` es false, no hace nada.
+   * 2) Llama `updateOperacion(opId, updater)`.
+   *
+   * Dependencias externas:
+   * - `canWrite` (permisos) y `updateOperacion` (contexto DB).
+   *
+   * Efectos secundarios:
+   * - Modifica estado global de operaciones en memoria.
+   *
+   * Manejo de errores:
+   * - No captura errores; se asume `updateOperacion` es síncrono y seguro.
+   *
+   * @example
+   * safeUpdateOperacion(op.id, (cur) => ({ ...cur, sector: '...' }))
+   *
+   * Notas de mantenimiento:
+   * - Mantener updates inmutables para evitar inconsistencias de render.
+   */
   const safeUpdateOperacion = (opId, updater) => {
     if (!canWrite) return
     updateOperacion(opId, updater)
   }
 
+  /**
+   * Persiste una operación (crear o actualizar) y sincroniza el store con lo retornado por backend.
+   *
+   * @param {object} opData - Operación a guardar.
+   * @param {'create'|'update'} mode - Modo de persistencia.
+   * @returns {Promise<object|null>} Operación guardada/mergeada o `null` si falló.
+   *
+   * Lógica:
+   * 1) Si `canWrite` es false, notifica y aborta.
+   * 2) Upsert optimista en store (`upsertOperacion(opData)`).
+   * 3) Llama `saveOperacion(opData, { mode })`.
+   * 4) Si backend retorna datos, mergea y vuelve a upsert.
+   * 5) En error, muestra toast y retorna null.
+   *
+   * Dependencias externas:
+   * - `canWrite`, `toast`.
+   * - `saveOperacion` (persistencia) y `upsertOperacion` (store).
+   *
+   * Efectos secundarios:
+   * - Puede generar requests de red y modificar store.
+   *
+   * Manejo de errores:
+   * - Captura excepciones y muestra toast rojo.
+   *
+   * @example
+   * const saved = await safeUpsertOperacion(op, 'update')
+   *
+   * Notas de mantenimiento:
+   * - Mantener el merge para preservar IDs/metadata retornados por backend.
+   */
   const safeUpsertOperacion = async (opData, mode) => {
     if (!canWrite) {
       toast('Modo solo lectura', 'blue')
@@ -320,6 +695,33 @@ function toRoman(n) {
     }
   }
 
+  /**
+   * Elimina una operación vía API (solo Admin) y la remueve del store local.
+   *
+   * @param {string} opId - ID de la operación a eliminar.
+   * @returns {Promise<boolean>} `true` si se eliminó correctamente; `false` si falló o no hay permisos.
+   *
+   * Lógica:
+   * 1) Verifica `isAdmin`; si no, notifica y retorna false.
+   * 2) Ejecuta `deleteOperacionApi(opId)`.
+   * 3) En éxito, ejecuta `deleteOperacion(opId)` para limpiar el store.
+   *
+   * Dependencias externas:
+   * - `isAdmin`, `toast`.
+   * - `deleteOperacionApi` (API) y `deleteOperacion` (store).
+   *
+   * Efectos secundarios:
+   * - Request de red y eliminación de datos locales.
+   *
+   * Manejo de errores:
+   * - Captura error y muestra toast rojo.
+   *
+   * @example
+   * const ok = await safeDeleteOperacion('OP-2026-001')
+   *
+   * Notas de mantenimiento:
+   * - Mantener confirmaciones de UI fuera de esta función para facilitar tests.
+   */
   const safeDeleteOperacion = async (opId) => {
     if (!isAdmin) {
       toast('Solo el administrador puede eliminar operaciones', 'blue')
@@ -335,10 +737,63 @@ function toRoman(n) {
     }
   }
 
+  /**
+   * Abre un modal para agregar un bote al maestro y opcionalmente retornar el nombre creado.
+   *
+   * @param {(boatName: string) => void} [onBoatCreated] - Callback opcional con el nombre guardado.
+   * @returns {void} No retorna valor.
+   *
+   * Lógica:
+   * 1) Define región y caleta inicial.
+   * 2) Renderiza un Body interno con formulario.
+   * 3) Valida y guarda vía `upsertBoteMaestro`.
+   * 4) En éxito, cierra modal y llama callback si existe.
+   *
+   * Dependencias externas:
+   * - `openModal/closeModal`, `toast`.
+   * - `upsertBoteMaestro` (persistencia de maestro).
+   *
+   * Efectos secundarios:
+   * - Abre/cierra modal y puede persistir datos.
+   *
+   * Manejo de errores:
+   * - Captura error de persistencia y muestra toast rojo.
+   *
+   * @example
+   * openAddBoteModal((name) => setRows(...))
+   *
+   * Notas de mantenimiento:
+   * - Mantener normalización (uppercase) para homogeneidad del maestro.
+   */
   const openAddBoteModal = (onBoatCreated) => {
     const initialRegion = regiones[0]?.rom || 'I'
     const initialCaletas = caletasByRegion[initialRegion] || []
 
+    /**
+     * Cuerpo del modal “Agregar Nuevo Bote”.
+     *
+     * @returns {import('react').JSX.Element} Formulario de creación.
+     *
+     * Lógica:
+     * 1) Mantiene estado `form` con región/nombre/rpa/matrícula/caleta.
+     * 2) Al cambiar región, setea caleta por defecto según catálogo.
+     * 3) Valida y persiste con `onSave`.
+     *
+     * Dependencias externas:
+     * - `caletasByRegion`, `upsertBoteMaestro`.
+     *
+     * Efectos secundarios:
+     * - Persistencia en `onSave`.
+     *
+     * Manejo de errores:
+     * - `onSave` captura errores.
+     *
+     * @example
+     * openModal('Agregar Nuevo Bote', <Body />, 'normal')
+     *
+     * Notas de mantenimiento:
+     * - Evitar duplicar lógica con la página Botes; si se vuelve a repetir, extraer un componente común.
+     */
     const Body = () => {
       const [form, setForm] = useState({
         region: initialRegion,
@@ -350,6 +805,32 @@ function toRoman(n) {
 
       const caletas = caletasByRegion[form.region] || []
 
+      /**
+       * Valida y guarda el bote en el maestro.
+       *
+       * @returns {Promise<void>} Promesa que resuelve al finalizar el guardado.
+       *
+       * Lógica:
+       * 1) Valida `nombre` y `caleta`.
+       * 2) Construye payload normalizado (uppercase/trim).
+       * 3) Ejecuta `upsertBoteMaestro`.
+       * 4) En éxito, notifica, cierra modal y llama `onBoatCreated`.
+       *
+       * Dependencias externas:
+       * - `upsertBoteMaestro`, `toast`, `closeModal`.
+       *
+       * Efectos secundarios:
+       * - Persistencia, toasts y cierre de modal.
+       *
+       * Manejo de errores:
+       * - Captura excepción y muestra toast rojo.
+       *
+       * @example
+       * <button onClick={onSave}>Guardar</button>
+       *
+       * Notas de mantenimiento:
+       * - Unicidad/validación fuerte debe estar en backend.
+       */
       const onSave = async () => {
         if (!form.nombre.trim()) {
           toast('Ingresa el nombre del bote', 'red')
@@ -457,6 +938,47 @@ function toRoman(n) {
     openModal('Agregar Nuevo Bote', <Body />, 'normal')
   }
 
+  /**
+   * Editor de botes de una operación (inline component usado dentro de modales).
+   *
+   * Permite configurar botes (zona, nombre, buzo y tipo de unidad de muestreo) y elegir botes desde el maestro
+   * filtrando por caleta.
+   *
+   * @param {object} props - Props del componente.
+   * @param {string} props.opId - ID de la operación a editar.
+   * @param {object|null} props.opFallback - Operación fallback (por ejemplo, recién creada) si no está en store.
+   * @param {() => void} [props.onCancel] - Callback opcional al cancelar.
+   * @param {() => void} [props.onSaved] - Callback opcional al guardar.
+   * @returns {import('react').JSX.Element} UI del editor de botes.
+   *
+   * Lógica (alto nivel):
+   * 1) Determina operación base (store o fallback) y siembra filas desde `botes`.
+   * 2) Permite agregar/eliminar filas y editar campos.
+   * 3) Abre un panel de búsqueda para seleccionar bote desde maestro:
+   *    - filtra por caleta de la operación,
+   *    - filtra por nombre/RPA/matrícula.
+   * 4) Al guardar:
+   *    - valida que exista al menos un bote con nombre,
+   *    - reconstruye `botes` con IDs `B1..Bn`,
+   *    - preserva `lpMuestras` y (si corresponde) densidad existente.
+   *
+   * Dependencias externas:
+   * - `db.botesMaestro`, `openAddBoteModal`, `safeUpdateOperacion`, `toast`.
+   * - APIs Web: `confirm` para advertir cambios de tipo de unidad.
+   *
+   * Efectos secundarios:
+   * - Modifica la operación en el store local mediante `safeUpdateOperacion`.
+   *
+   * Manejo de errores:
+   * - Muestra toast rojo si el usuario intenta guardar sin botes válidos.
+   *
+   * @example
+   * <BotesEditor opId={op.id} opFallback={op} onSaved={() => setTab('op')} />
+   *
+   * Notas de mantenimiento:
+   * - La generación de IDs `B1..Bn` asume orden de filas; si se requiere persistencia estable, usar IDs del backend.
+   * - La lógica de preservación de densidad depende de `densTipo`; mantener consistente con BoteCard/DensidadTab.
+   */
   const BotesEditor = ({ opId, opFallback, onCancel, onSaved }) => {
     const opBase = (operaciones || []).find((o) => String(o?.id) === String(opId)) || null
     const base = opBase || opFallback || null
@@ -487,10 +1009,59 @@ function toRoman(n) {
     const [currentRowIdx, setCurrentRowIdx] = useState(null)
     const [searchTerm, setSearchTerm] = useState('')
 
+    /**
+     * Agrega una fila nueva de bote con zona incremental.
+     *
+     * @returns {void} No retorna valor.
+     *
+     * Lógica:
+     * 1) Lee la última zona existente.
+     * 2) Inserta una nueva fila con `zona = last + 1` y campos vacíos.
+     *
+     * Dependencias externas:
+     * - `setRows`.
+     *
+     * Efectos secundarios:
+     * - Actualiza estado local del modal.
+     *
+     * Manejo de errores:
+     * - No aplica.
+     *
+     * @example
+     * <button onClick={addRow}>Agregar fila</button>
+     *
+     * Notas de mantenimiento:
+     * - Si se permite reordenar filas, revisar el cálculo de zona incremental.
+     */
     const addRow = () => {
       setRows((prev) => [...prev, { sourceId: '', zona: (prev[prev.length - 1]?.zona || 0) + 1, nombre: '', buzo: '', densTipo: 'transecto' }])
     }
 
+    /**
+     * Elimina una fila por índice y cierra el panel si corresponde.
+     *
+     * @param {number} idx - Índice de la fila a eliminar.
+     * @returns {void} No retorna valor.
+     *
+     * Lógica:
+     * 1) Filtra `rows` eliminando la fila `idx`.
+     * 2) Si la fila eliminada era la seleccionada, cierra panel y limpia selección.
+     *
+     * Dependencias externas:
+     * - `setRows`, `setShowPanel`, `setCurrentRowIdx`.
+     *
+     * Efectos secundarios:
+     * - Actualiza estado local.
+     *
+     * Manejo de errores:
+     * - No aplica.
+     *
+     * @example
+     * removeRow(0)
+     *
+     * Notas de mantenimiento:
+     * - Si se agrega confirmación de borrado, implementarla aquí.
+     */
     const removeRow = (idx) => {
       setRows((prev) => prev.filter((_, i) => i !== idx))
       if (currentRowIdx === idx) {
@@ -499,17 +1070,91 @@ function toRoman(n) {
       }
     }
 
+    /**
+     * Abre el panel de búsqueda/selección para una fila específica.
+     *
+     * @param {number} idx - Índice de la fila sobre la cual se seleccionará un bote.
+     * @returns {void} No retorna valor.
+     *
+     * Lógica:
+     * 1) Setea `currentRowIdx`.
+     * 2) Muestra el panel.
+     *
+     * Dependencias externas:
+     * - `setCurrentRowIdx`, `setShowPanel`.
+     *
+     * Efectos secundarios:
+     * - Actualiza estado local.
+     *
+     * Manejo de errores:
+     * - No aplica.
+     *
+     * @example
+     * openPanel(idx)
+     *
+     * Notas de mantenimiento:
+     * - Mantener consistente con handlers `onClick/onFocus` del input de nombre.
+     */
     const openPanel = (idx) => {
       setCurrentRowIdx(idx)
       setShowPanel(true)
     }
 
+    /**
+     * Cierra el panel de búsqueda y limpia estado asociado.
+     *
+     * @returns {void} No retorna valor.
+     *
+     * Lógica:
+     * 1) Oculta panel.
+     * 2) Limpia índice actual y término de búsqueda.
+     *
+     * Dependencias externas:
+     * - `setShowPanel`, `setCurrentRowIdx`, `setSearchTerm`.
+     *
+     * Efectos secundarios:
+     * - Actualiza estado local.
+     *
+     * Manejo de errores:
+     * - No aplica.
+     *
+     * @example
+     * closePanel()
+     *
+     * Notas de mantenimiento:
+     * - Mantener este reset para evitar que una búsqueda anterior quede “pegada”.
+     */
     const closePanel = () => {
       setShowPanel(false)
       setCurrentRowIdx(null)
       setSearchTerm('')
     }
 
+    /**
+     * Aplica la selección de un bote del maestro a la fila actual.
+     *
+     * @param {string} boatName - Nombre del bote seleccionado.
+     * @returns {void} No retorna valor.
+     *
+     * Lógica:
+     * 1) Si hay fila seleccionada (`currentRowIdx`), setea su `nombre`.
+     * 2) Cierra el panel.
+     *
+     * Dependencias externas:
+     * - `setRows`, `currentRowIdx`, `closePanel`.
+     *
+     * Efectos secundarios:
+     * - Actualiza estado local.
+     *
+     * Manejo de errores:
+     * - Ignora si no hay fila seleccionada.
+     *
+     * @example
+     * handleSelectBoat('CHIPANA')
+     *
+     * Notas de mantenimiento:
+     * - Si se decide guardar `sourceId` del maestro, extender aquí para persistirlo.
+     */
     const handleSelectBoat = (boatName) => {
       if (currentRowIdx !== null) {
         setRows((prev) => prev.map((x, i) => (i === currentRowIdx ? { ...x, nombre: boatName } : x)))
@@ -517,6 +1162,31 @@ function toRoman(n) {
       closePanel()
     }
 
+    /**
+     * Abre el flujo para agregar un bote nuevo al maestro y seleccionarlo en la fila actual.
+     *
+     * @returns {void} No retorna valor.
+     *
+     * Lógica:
+     * 1) Abre modal `openAddBoteModal`.
+     * 2) Al crear el bote, setea el nombre en la fila actual (si existe).
+     * 3) Cierra el panel.
+     *
+     * Dependencias externas:
+     * - `openAddBoteModal`, `setRows`, `currentRowIdx`, `closePanel`.
+     *
+     * Efectos secundarios:
+     * - Abre modal (maestro) y actualiza estado local.
+     *
+     * Manejo de errores:
+     * - Delegado al modal de creación (muestra toast en fallas).
+     *
+     * @example
+     * <button onClick={handleAddNewBoat}>Agregar nuevo</button>
+     *
+     * Notas de mantenimiento:
+     * - Evitar duplicar lógica con otros editores; idealmente extraer un componente reutilizable.
+     */
     const handleAddNewBoat = () => {
       openAddBoteModal((newBoatName) => {
         if (newBoatName && currentRowIdx !== null) {
@@ -526,6 +1196,38 @@ function toRoman(n) {
       })
     }
 
+    /**
+     * Valida y persiste los botes configurados en la operación (store local).
+     *
+     * @returns {void} No retorna valor.
+     *
+     * Lógica:
+     * 1) Normaliza filas:
+     *    - parsea zona,
+     *    - trim de nombre/buzo,
+     *    - normaliza `densTipo`.
+     * 2) Valida que exista al menos un bote con nombre.
+     * 3) Ejecuta `safeUpdateOperacion` para reconstruir `cur.botes`:
+     *    - asigna IDs `B1..Bn`,
+     *    - preserva `lpMuestras`,
+     *    - preserva densidad (`transectos`) solo si `densTipo` no cambió.
+     * 4) Muestra toast y ejecuta `onSaved` si corresponde.
+     *
+     * Dependencias externas:
+     * - `safeUpdateOperacion`, `toast`, `confirm`.
+     *
+     * Efectos secundarios:
+     * - Modifica operación en el store local y muestra toasts.
+     *
+     * Manejo de errores:
+     * - Si no hay botes válidos, muestra toast rojo y aborta.
+     *
+     * @example
+     * <button onClick={onSaveBotes}>Guardar botes</button>
+     *
+     * Notas de mantenimiento:
+     * - Esta función no persiste al backend; la persistencia se realiza en otros flujos (saveOperacion).
+     */
     const onSaveBotes = () => {
       const clean = rows
         .map((r) => ({
@@ -731,7 +1433,58 @@ function toRoman(n) {
     )
   }
 
+  /**
+   * Abre un modal para editar botes de una operación.
+   *
+   * Nota: este flujo existe por compatibilidad/uso histórico y hoy es funcionalmente similar a `BotesEditor`.
+   *
+   * @param {string} opId - ID de operación.
+   * @param {object|null} opFallback - Operación fallback si no está en store.
+   * @returns {void} No retorna valor.
+   *
+   * Lógica:
+   * 1) Define `BodyBotes` (formulario).
+   * 2) Abre el modal con tamaño amplio.
+   *
+   * Dependencias externas:
+   * - `openModal`, `closeModal`, `toast`, `db.botesMaestro`.
+   *
+   * Efectos secundarios:
+   * - Abre/cierra modal y puede modificar operación en el store (vía `safeUpdateOperacion`).
+   *
+   * Manejo de errores:
+   * - Validaciones y toasts ocurren dentro de `BodyBotes`.
+   *
+   * @example
+   * openBotesTable(op.id, op)
+   *
+   * Notas de mantenimiento:
+   * - Considerar reemplazar este modal por `BotesEditor` para evitar duplicación de lógica.
+   */
   const openBotesTable = (opId, opFallback) => {
+    /**
+     * Cuerpo del modal de edición de botes (versión “tabla”).
+     *
+     * @returns {import('react').JSX.Element} UI del modal.
+     *
+     * Lógica:
+     * - Similar a `BotesEditor`: administra `rows`, panel de búsqueda y guardado.
+     *
+     * Dependencias externas:
+     * - `db.botesMaestro`, `openAddBoteModal`, `safeUpdateOperacion`, `toast`, `closeModal`.
+     *
+     * Efectos secundarios:
+     * - Actualiza store local y muestra toasts.
+     *
+     * Manejo de errores:
+     * - Evita guardar sin botes válidos.
+     *
+     * @example
+     * <BodyBotes />
+     *
+     * Notas de mantenimiento:
+     * - Mantener este cuerpo alineado con `BotesEditor` si se decide conservar ambos.
+     */
     const BodyBotes = () => {
       const opBase = (operaciones || []).find((o) => String(o?.id) === String(opId)) || opFallback || null
       const seed = Array.isArray(opBase?.botes) ? opBase.botes : []
@@ -761,10 +1514,57 @@ function toRoman(n) {
       const [currentRowIdx, setCurrentRowIdx] = useState(null)
       const [searchTerm, setSearchTerm] = useState('')
 
+      /**
+       * Agrega una fila nueva de bote con zona incremental.
+       *
+       * @returns {void} No retorna valor.
+       *
+       * Lógica:
+       * - Inserta una fila vacía y setea `zona` como última zona + 1.
+       *
+       * Dependencias externas:
+       * - `setRows`.
+       *
+       * Efectos secundarios:
+       * - Actualiza estado local.
+       *
+       * Manejo de errores:
+       * - No aplica.
+       *
+       * @example
+       * addRow()
+       *
+       * Notas de mantenimiento:
+       * - Mantener consistente con la versión `BotesEditor`.
+       */
       const addRow = () => {
         setRows((prev) => [...prev, { sourceId: '', zona: (prev[prev.length - 1]?.zona || 0) + 1, nombre: '', buzo: '', densTipo: 'transecto' }])
       }
 
+      /**
+       * Elimina una fila por índice y cierra panel si era la fila activa.
+       *
+       * @param {number} idx - Índice de fila.
+       * @returns {void} No retorna valor.
+       *
+       * Lógica:
+       * - Filtra `rows` y resetea panel/selección si corresponde.
+       *
+       * Dependencias externas:
+       * - `setRows`, `setShowPanel`, `setCurrentRowIdx`.
+       *
+       * Efectos secundarios:
+       * - Actualiza estado local.
+       *
+       * Manejo de errores:
+       * - No aplica.
+       *
+       * @example
+       * removeRow(2)
+       *
+       * Notas de mantenimiento:
+       * - Mantener consistente con `BotesEditor`.
+       */
       const removeRow = (idx) => {
         setRows((prev) => prev.filter((_, i) => i !== idx))
         if (currentRowIdx === idx) {
@@ -773,17 +1573,82 @@ function toRoman(n) {
         }
       }
 
+      /**
+       * Abre panel de búsqueda para seleccionar bote para la fila `idx`.
+       *
+       * @param {number} idx - Índice de fila.
+       * @returns {void} No retorna valor.
+       *
+       * Dependencias externas:
+       * - `setCurrentRowIdx`, `setShowPanel`.
+       *
+       * Efectos secundarios:
+       * - Actualiza estado local.
+       *
+       * Manejo de errores:
+       * - No aplica.
+       *
+       * @example
+       * openPanel(0)
+       *
+       * Notas de mantenimiento:
+       * - Mantener consistente con `BotesEditor`.
+       */
       const openPanel = (idx) => {
         setCurrentRowIdx(idx)
         setShowPanel(true)
       }
 
+      /**
+       * Cierra panel de búsqueda y limpia selección/término.
+       *
+       * @returns {void} No retorna valor.
+       *
+       * Dependencias externas:
+       * - `setShowPanel`, `setCurrentRowIdx`, `setSearchTerm`.
+       *
+       * Efectos secundarios:
+       * - Actualiza estado local.
+       *
+       * Manejo de errores:
+       * - No aplica.
+       *
+       * @example
+       * closePanel()
+       *
+       * Notas de mantenimiento:
+       * - Mantener consistente con `BotesEditor`.
+       */
       const closePanel = () => {
         setShowPanel(false)
         setCurrentRowIdx(null)
         setSearchTerm('')
       }
 
+      /**
+       * Selecciona un bote del maestro para la fila actualmente activa.
+       *
+       * @param {string} boatName - Nombre seleccionado.
+       * @returns {void} No retorna valor.
+       *
+       * Lógica:
+       * - Setea `rows[currentRowIdx].nombre` y cierra panel.
+       *
+       * Dependencias externas:
+       * - `currentRowIdx`, `setRows`, `closePanel`.
+       *
+       * Efectos secundarios:
+       * - Actualiza estado local.
+       *
+       * Manejo de errores:
+       * - Ignora si no hay fila activa.
+       *
+       * @example
+       * handleSelectBoat('CHIPANA')
+       *
+       * Notas de mantenimiento:
+       * - Mantener consistente con `BotesEditor`.
+       */
       const handleSelectBoat = (boatName) => {
         if (currentRowIdx !== null) {
           setRows((prev) => prev.map((x, i) => (i === currentRowIdx ? { ...x, nombre: boatName } : x)))
@@ -791,6 +1656,26 @@ function toRoman(n) {
         closePanel()
       }
 
+      /**
+       * Abre flujo de creación de bote maestro y lo selecciona al finalizar.
+       *
+       * @returns {void} No retorna valor.
+       *
+       * Dependencias externas:
+       * - `openAddBoteModal`, `currentRowIdx`, `setRows`, `closePanel`.
+       *
+       * Efectos secundarios:
+       * - Abre modal y actualiza estado local.
+       *
+       * Manejo de errores:
+       * - Delegado al modal de creación.
+       *
+       * @example
+       * handleAddNewBoat()
+       *
+       * Notas de mantenimiento:
+       * - Mantener consistente con `BotesEditor`.
+       */
       const handleAddNewBoat = () => {
         openAddBoteModal((newBoatName) => {
           if (newBoatName && currentRowIdx !== null) {
@@ -800,6 +1685,31 @@ function toRoman(n) {
         })
       }
 
+      /**
+       * Guarda los botes configurados en la operación (store local) y cierra el modal.
+       *
+       * @returns {void} No retorna valor.
+       *
+       * Lógica:
+       * 1) Normaliza filas y valida que haya al menos un bote.
+       * 2) Reconstruye `botes` y preserva `lpMuestras` (y densidad si no cambió `densTipo`).
+       * 3) Cierra modal y muestra toast.
+       *
+       * Dependencias externas:
+       * - `safeUpdateOperacion`, `closeModal`, `toast`.
+       *
+       * Efectos secundarios:
+       * - Actualiza store local, cierra modal y muestra toast.
+       *
+       * Manejo de errores:
+       * - Si no hay botes válidos, muestra toast rojo y aborta.
+       *
+       * @example
+       * onSaveBotes()
+       *
+       * Notas de mantenimiento:
+       * - Mantener consistente con `BotesEditor`.
+       */
       const onSaveBotes = () => {
         const clean = rows
           .map((r) => ({
@@ -1019,6 +1929,36 @@ function toRoman(n) {
     openModal(`Botes — ${opId}`, <BodyBotes />, 'wide')
   }
 
+  /**
+   * Abre el modal de edición de una operación (datos generales y botes).
+   *
+   * @param {object} op - Operación a editar.
+   * @returns {void} No retorna valor.
+   *
+   * Lógica:
+   * 1) Valida permiso de escritura (`canWrite`).
+   * 2) Construye `form` inicial con defaults.
+   * 3) Define `Body` con tabs:
+   *    - “Operación”: edita metadatos y persiste.
+   *    - “Botes”: reutiliza `BotesEditor` para editar botes.
+   * 4) Abre modal.
+   *
+   * Dependencias externas:
+   * - `toast`, `openModal/closeModal`.
+   * - `safeUpsertOperacion` y `safeDeleteOperacion`.
+   *
+   * Efectos secundarios:
+   * - Abre modal y puede persistir o eliminar operación.
+   *
+   * Manejo de errores:
+   * - Bloquea en solo lectura y valida campos requeridos.
+   *
+   * @example
+   * openEditOp(op)
+   *
+   * Notas de mantenimiento:
+   * - Mantener validaciones consistentes con backend (seguimiento, sector, etc.).
+   */
   const openEditOp = (op) => {
     if (!canWrite) {
       toast('Modo solo lectura', 'blue')
@@ -1038,6 +1978,34 @@ function toRoman(n) {
       fechaFin: String(op?.fechaFin || iso),
     }
 
+    /**
+     * Cuerpo del modal de edición de operación.
+     *
+     * @returns {import('react').JSX.Element} UI del modal.
+     *
+     * Lógica:
+     * 1) Administra estado del formulario (`s`) y la pestaña activa (`tab`).
+     * 2) Deriva opciones para AMERB/Caletas/OPA según región.
+     * 3) Provee acciones:
+     *    - `onSave` para actualizar y persistir,
+     *    - `onDelete` para eliminar (Admin).
+     *
+     * Dependencias externas:
+     * - `SearchableSelect` para select con búsqueda.
+     * - `safeUpdateOperacion`, `safeUpsertOperacion`, `safeDeleteOperacion`.
+     *
+     * Efectos secundarios:
+     * - Puede modificar store local, persistir en backend y cerrar modal.
+     *
+     * Manejo de errores:
+     * - Valida inputs y muestra toasts rojos.
+     *
+     * @example
+     * openModal(`Editar operación — ${op.id}`, <Body />, 'wide')
+     *
+     * Notas de mantenimiento:
+     * - Mantener la lista de opciones recortada (`slice(0, 4000)`) para evitar UI lenta.
+     */
     const Body = () => {
       const [s, setS] = useState(form)
       const [tab, setTab] = useState('op')
@@ -1059,6 +2027,32 @@ function toRoman(n) {
         .sort((a, b) => String(a.nombre || a.nombrecorto || '').localeCompare(String(b.nombre || b.nombrecorto || '')))
         .slice(0, 4000)
 
+      /**
+       * Valida el formulario y persiste la operación editada.
+       *
+       * @returns {Promise<void>} Promesa que resuelve al terminar el guardado.
+       *
+       * Lógica:
+       * 1) Valida seguimiento (numérico o vacío) y campos requeridos (Sector AMERB y Caleta).
+       * 2) Construye `nextOp` preservando datos existentes.
+       * 3) Aplica update local inmediato y luego persiste con `safeUpsertOperacion('update')`.
+       * 4) En éxito, cierra modal y notifica.
+       *
+       * Dependencias externas:
+       * - `safeUpdateOperacion`, `safeUpsertOperacion`, `closeModal`, `toast`.
+       *
+       * Efectos secundarios:
+       * - Modifica store local, persiste y cierra modal.
+       *
+       * Manejo de errores:
+       * - Muestra toast rojo ante validación inválida o falla de persistencia.
+       *
+       * @example
+       * <button onClick={onSave}>Guardar cambios</button>
+       *
+       * Notas de mantenimiento:
+       * - Mantener campos del payload alineados con backend.
+       */
       const onSave = async () => {
         const segRaw = String(s.numSeg || '').trim()
         const segNum = segRaw === '' ? null : parseInt(segRaw, 10)
@@ -1097,6 +2091,31 @@ function toRoman(n) {
         toast('Operación actualizada', 'green')
       }
 
+      /**
+       * Elimina la operación (solo Admin) con confirmaciones dobles.
+       *
+       * @returns {Promise<void>} Promesa que resuelve al terminar el flujo de eliminación.
+       *
+       * Lógica:
+       * 1) Solicita confirmación inicial y confirmación final.
+       * 2) Ejecuta `safeDeleteOperacion(op.id)`.
+       * 3) Si se elimina, actualiza UI (colapsa/limpia) y cierra modal.
+       *
+       * Dependencias externas:
+       * - `confirm` (browser), `safeDeleteOperacion`, `setExpanded`, `closeModal`, `toast`.
+       *
+       * Efectos secundarios:
+       * - Puede eliminar datos via API y modificar store/UI.
+       *
+       * Manejo de errores:
+       * - Si la API falla, `safeDeleteOperacion` muestra toast rojo.
+       *
+       * @example
+       * <button onClick={onDelete}>ELIMINAR</button>
+       *
+       * Notas de mantenimiento:
+       * - Mantener confirmaciones para evitar borrados accidentales.
+       */
       const onDelete = async () => {
         const ok1 = confirm(
           `Vas a eliminar la operación ${op.id}. Se perderán todos los datos de transectos/cuadrantes, botes y muestras. ¿Continuar?`,
@@ -1257,6 +2276,36 @@ function toRoman(n) {
     openModal(`Editar operación — ${op.id}`, <Body />, 'wide')
   }
 
+  /**
+   * Abre el modal para crear una operación nueva.
+   *
+   * @returns {void} No retorna valor.
+   *
+   * Lógica:
+   * 1) Construye valores por defecto (fechas hoy, región base, etc.).
+   * 2) Define `Body` con formulario.
+   * 3) En guardar:
+   *    - valida campos,
+   *    - genera ID `OP-YYYY-NNN`,
+   *    - persiste con `safeUpsertOperacion('create')`,
+   *    - abre el modal de botes para completar la operación.
+   *
+   * Dependencias externas:
+   * - `todayISO`, `nextOpId`, `safeUpsertOperacion`, `openBotesTable`.
+   * - `toast`, `openModal/closeModal`.
+   *
+   * Efectos secundarios:
+   * - Abre modales, persiste operación y puede disparar navegación/scroll indirectos.
+   *
+   * Manejo de errores:
+   * - Valida inputs y muestra toasts rojos.
+   *
+   * @example
+   * <button onClick={openNewOp}>Nueva operación</button>
+   *
+   * Notas de mantenimiento:
+   * - Si se agrega persistencia de botes en el mismo flujo, ajustar el “handoff” a openBotesTable.
+   */
   const openNewOp = () => {
     const iso = todayISO()
     const y = iso.slice(0, 4)
@@ -1274,6 +2323,31 @@ function toRoman(n) {
       fechaFin: iso,
     }
 
+    /**
+     * Cuerpo del modal “Nueva operación”.
+     *
+     * @returns {import('react').JSX.Element} UI del formulario.
+     *
+     * Lógica:
+     * 1) Administra estado del formulario (`s`).
+     * 2) Deriva opciones (AMERB/Caletas/OPA) por región.
+     * 3) Ejecuta `onSave` para persistir y continuar con botes.
+     *
+     * Dependencias externas:
+     * - `SearchableSelect`, `toast`, `safeUpsertOperacion`, `closeModal`.
+     *
+     * Efectos secundarios:
+     * - Puede persistir datos y abrir el editor de botes.
+     *
+     * Manejo de errores:
+     * - Valida inputs y muestra toasts rojos.
+     *
+     * @example
+     * openModal('Nueva operación', <Body />, 'wide')
+     *
+     * Notas de mantenimiento:
+     * - Mantener el recorte de opciones para performance en datasets grandes.
+     */
     const Body = () => {
       const [s, setS] = useState(form)
       const amerbOpts = sectorAmerb
@@ -1291,6 +2365,32 @@ function toRoman(n) {
         .sort((a, b) => String(a.nombre || a.nombrecorto || '').localeCompare(String(b.nombre || b.nombrecorto || '')))
         .slice(0, 4000)
 
+      /**
+       * Valida el formulario, crea y persiste la operación, y abre el modal de botes.
+       *
+       * @returns {Promise<void>} Promesa que resuelve al finalizar el flujo.
+       *
+       * Lógica:
+       * 1) Valida seguimiento (numérico o vacío) y caleta/sector requerido.
+       * 2) Genera `opId` con `nextOpId`.
+       * 3) Persiste operación con `safeUpsertOperacion` en modo `create`.
+       * 4) En éxito, cierra modal, notifica y abre `openBotesTable` para completar botes.
+       *
+       * Dependencias externas:
+       * - `nextOpId`, `safeUpsertOperacion`, `openBotesTable`, `toast`, `closeModal`.
+       *
+       * Efectos secundarios:
+       * - Persistencia, cierre de modal, toasts y apertura de nuevo modal.
+       *
+       * Manejo de errores:
+       * - Muestra toast rojo ante validación inválida o falla de persistencia.
+       *
+       * @example
+       * <button onClick={onSave}>Crear</button>
+       *
+       * Notas de mantenimiento:
+       * - El `setTimeout(..., 50)` es una heurística para permitir que el modal cierre antes de abrir el siguiente; revisar si cambia el sistema de modales.
+       */
       const onSave = async () => {
         const segRaw = String(s.numSeg || '').trim()
         const segNum = segRaw === '' ? null : parseInt(segRaw, 10)

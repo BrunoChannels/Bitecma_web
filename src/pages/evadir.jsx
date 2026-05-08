@@ -1,6 +1,35 @@
-/** Página EVADIR: retorna el HTML del listado y botones para generar/visualizar EVADIR a partir de una operación. */
 import EvadirRegistradosTable from '../components/evadir/EvadirRegistradosTable.jsx'
 
+/**
+ * Página EVADIR: listado y acceso a acciones relacionadas con EVADIR registrados.
+ *
+ * EVADIR se construye desde una operación, combinando:
+ * - Densidad (transectos/cuadrantes)
+ * - Peso-Longitud / Diámetro (muestras por bote y especie)
+ *
+ * @param {object} props - Props del componente.
+ * @param {boolean} props.active - Indica si la página está activa (se usa para estilos).
+ * @returns {import('react').JSX.Element} Página con header informativo y tabla de EVADIR registrados.
+ *
+ * Lógica:
+ * 1) Renderiza texto descriptivo de qué contiene un EVADIR.
+ * 2) Renderiza el componente `EvadirRegistradosTable` para filtros, vista previa y exportación.
+ *
+ * Dependencias externas:
+ * - `EvadirRegistradosTable` (componentes/evadir).
+ *
+ * Efectos secundarios:
+ * - Dependen del componente hijo (por ejemplo: carga de perfiles, apertura de modales, exportación).
+ *
+ * Manejo de errores:
+ * - Delegado al componente hijo.
+ *
+ * @example
+ * <EvadirPage active={page === 'evadir'} />
+ *
+ * Notas de mantenimiento:
+ * - Mantener el copy alineado con el flujo real de importación/generación EVADIR.
+ */
 export default function EvadirPage({ active }) {
   return (
     <div className={`page${active ? ' active' : ''}`} id="pg-evadir">

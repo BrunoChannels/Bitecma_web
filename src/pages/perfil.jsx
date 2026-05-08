@@ -2,6 +2,43 @@ import { useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/appContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
 
+/**
+ * Página de perfil: edición de datos personales y cambio de contraseña.
+ *
+ * @param {object} props - Props del componente.
+ * @param {boolean} props.active - Indica si la página está activa (se usa para estilos).
+ * @returns {import('react').JSX.Element} UI de perfil con avatar, formulario y sección de contraseña.
+ *
+ * Lógica (alto nivel):
+ * 1) Lee `user` y acciones (`updateProfile`, `changePassword`, `navigate`) desde el contexto de app.
+ * 2) Construye `baseForm` desde el usuario y guarda ediciones locales por usuario (`editsByUser`).
+ * 3) Permite:
+ *    - Cambiar avatar (cargando imagen local como DataURL).
+ *    - Editar nombre/correo/teléfono.
+ *    - Guardar cambios (con validación básica de email/nombre).
+ *    - Abrir sección de cambio de contraseña y ejecutar `changePassword`.
+ *
+ * Dependencias externas:
+ * - `useApp`: `user`, `navigate`, `updateProfile`, `changePassword`.
+ * - `useUi`: `toast`.
+ * - API Web: `FileReader` para cargar imagen de avatar.
+ *
+ * Efectos secundarios:
+ * - Puede navegar al dashboard.
+ * - Puede actualizar perfil y/o contraseña (según implementación en contexto).
+ * - Lee archivos locales (avatar) y los almacena como DataURL en estado.
+ *
+ * Manejo de errores:
+ * - Valida email y nombre antes de guardar.
+ * - La validación/errores finales se delegan al contexto (`updateProfile`/`changePassword`).
+ *
+ * @example
+ * <PerfilPage active={page === 'perfil'} />
+ *
+ * Notas de mantenimiento:
+ * - Guardar avatar como DataURL puede aumentar el tamaño del estado/localStorage; considerar upload a backend si se requiere.
+ * - Mantener `editsByUser` para soportar cambios de usuario sin mezclar formularios.
+ */
 export default function PerfilPage({ active }) {
   const { user, navigate, updateProfile, changePassword } = useApp()
   const { toast } = useUi()
@@ -21,6 +58,33 @@ export default function PerfilPage({ active }) {
   const edits = editsByUser?.[userKey] || {}
   const form = { ...baseForm, ...edits }
 
+  /**
+   * Actualiza un campo del formulario de perfil en el buffer local de ediciones.
+   *
+   * @param {'nombre'|'correo'|'numero'|'logo'|string} key - Campo a modificar.
+   * @param {any} value - Valor nuevo del campo.
+   * @returns {void} No retorna valor.
+   *
+   * Lógica:
+   * 1) Toma el objeto actual de ediciones del usuario (`editsByUser[userKey]`).
+   * 2) Escribe el campo indicado preservando el resto.
+   * 3) Mantiene ediciones separadas por usuario (`userKey`).
+   *
+   * Dependencias externas:
+   * - `setEditsByUser` (estado local) y `userKey`.
+   *
+   * Efectos secundarios:
+   * - Actualiza estado local (re-render).
+   *
+   * Manejo de errores:
+   * - No aplica.
+   *
+   * @example
+   * setField('correo', 'ana@empresa.cl')
+   *
+   * Notas de mantenimiento:
+   * - Si se agregan nuevos campos al perfil, permitirlos aquí y en `baseForm`.
+   */
   const setField = (key, value) => {
     setEditsByUser((prev) => {
       const cur = prev?.[userKey] || {}

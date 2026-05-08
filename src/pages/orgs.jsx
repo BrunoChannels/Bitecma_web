@@ -1,6 +1,38 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useDb } from '../context/dbContext.jsx'
 
+/**
+ * Página de organizaciones (OPA): listado por región con búsqueda.
+ *
+ * @param {object} props - Props del componente.
+ * @param {boolean} props.active - Indica si la página está activa (habilita carga inicial).
+ * @returns {import('react').JSX.Element} Tabla de organizaciones filtrada por región y texto.
+ *
+ * Lógica:
+ * 1) Al activarse, solicita carga de regiones y OPA desde el contexto DB.
+ * 2) Mantiene estado local:
+ *    - región seleccionada (`regionId`),
+ *    - query de búsqueda (`q`).
+ * 3) Deriva `orgsFiltradas`:
+ *    - filtra por región,
+ *    - filtra por texto (nombre, nombre corto, comuna),
+ *    - ordena por ID y limita tamaño para performance.
+ *
+ * Dependencias externas:
+ * - `useDb`: `db`, `ensureRegionesLoaded`, `ensureOpaLoaded`.
+ *
+ * Efectos secundarios:
+ * - Dispara carga de datos (regiones y OPA) al activarse.
+ *
+ * Manejo de errores:
+ * - No gestiona errores explícitos; se asume que el contexto DB maneja fallas y expone arreglos seguros.
+ *
+ * @example
+ * <OrgsPage active={page === 'orgs'} />
+ *
+ * Notas de mantenimiento:
+ * - Si el dataset crece, considerar paginación/virtualización. Hoy se limita a 2000 filas.
+ */
 export default function OrgsPage({ active }) {
   const { db, ensureRegionesLoaded, ensureOpaLoaded } = useDb()
   useEffect(() => {

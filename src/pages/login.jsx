@@ -3,6 +3,36 @@ import { useState } from 'react'
 import { useApp } from '../context/appContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
 
+/**
+ * Pantalla de inicio de sesión (overlay) para usuarios no autenticados.
+ *
+ * @param {object} props - Props del componente.
+ * @param {boolean} props.active - Indica si la pantalla está activa (controla estilos/animación).
+ * @returns {import('react').JSX.Element} UI de login con email/contraseña y acción de ingreso.
+ *
+ * Lógica:
+ * 1) Mantiene estado local de credenciales (`email`, `pass`).
+ * 2) En “Ingresar” o Enter en contraseña, llama `login(email, pass)`.
+ * 3) En “¿Olvidaste tu contraseña?”, muestra un toast (placeholder).
+ *
+ * Dependencias externas:
+ * - `useApp` (`login`) para iniciar sesión.
+ * - `useUi` (`toast`) para notificaciones.
+ * - Asset `logoUrl`.
+ *
+ * Efectos secundarios:
+ * - Al llamar `login`, puede disparar autenticación, requests y cambios de estado global.
+ *
+ * Manejo de errores:
+ * - No gestiona errores aquí; se delega al flujo de `login` en el contexto.
+ *
+ * @example
+ * <LoginScreen active={!isAuthed} />
+ *
+ * Notas de mantenimiento:
+ * - Evitar loguear credenciales.
+ * - Si se implementa recuperación real, reemplazar el toast por un flujo de reset password.
+ */
 export default function LoginScreen({ active }) {
   const { login } = useApp()
   const { toast } = useUi()

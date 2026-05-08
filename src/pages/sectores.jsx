@@ -1,6 +1,39 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useDb } from '../context/dbContext.jsx'
 
+/**
+ * Página de sectores: listado de Sectores AMERB y caletas por región, con búsqueda.
+ *
+ * @param {object} props - Props del componente.
+ * @param {boolean} props.active - Indica si la página está activa (habilita carga inicial).
+ * @returns {import('react').JSX.Element} Layout con 3 columnas: regiones, sectores y caletas.
+ *
+ * Lógica (alto nivel):
+ * 1) Al activarse, solicita carga de regiones y sectores AMERB desde el contexto DB.
+ * 2) Mantiene estado local:
+ *    - región seleccionada (`regionId`),
+ *    - query de búsqueda (`q`).
+ * 3) Deriva:
+ *    - `sectoresFiltrados` (por región + texto),
+ *    - `caletas` desde `caletasByRegionStatic` para la región.
+ * 4) Renderiza tablas de sectores y caletas en paralelo.
+ *
+ * Dependencias externas:
+ * - `useDb`: `db`, `ensureRegionesLoaded`, `ensureSectoresAmerbLoaded`.
+ *
+ * Efectos secundarios:
+ * - Dispara carga de datos al activarse.
+ *
+ * Manejo de errores:
+ * - No gestiona errores explícitos; se asume que el contexto DB expone arreglos seguros.
+ *
+ * @example
+ * <SectoresPage active={page === 'sectores'} />
+ *
+ * Notas de mantenimiento:
+ * - Si se agregan filtros (comuna, id), extender `sectoresFiltrados`.
+ * - Si crece el dataset, considerar paginación; hoy se limita a 2000 filas.
+ */
 export default function SectoresPage({ active }) {
   const { db, ensureRegionesLoaded, ensureSectoresAmerbLoaded } = useDb()
   useEffect(() => {

@@ -1,5 +1,35 @@
 import { useUi } from '../context/uiContext.jsx'
 
+/**
+ * Página de generación de informe DOCX (placeholder/UI inicial).
+ *
+ * Presenta un formulario base y una “vista previa” estática; las acciones reales muestran mensajes pendientes.
+ *
+ * @param {object} props - Props del componente.
+ * @param {boolean} props.active - Indica si la página está activa (se usa para estilos).
+ * @returns {import('react').JSX.Element} Elemento React de la página de informe.
+ *
+ * Lógica:
+ * 1) Obtiene `toast` desde el contexto UI.
+ * 2) Renderiza formulario (sector, EVADIR, seguimiento, período, jefe, ingresos/costos).
+ * 3) Acciones (generar/descargar/abrir) muestran toasts “pendiente”.
+ *
+ * Dependencias externas:
+ * - `useUi` (`toast`).
+ *
+ * Efectos secundarios:
+ * - Muestra toasts al interactuar.
+ *
+ * Manejo de errores:
+ * - No aplica (no hay persistencia ni generación real aún).
+ *
+ * @example
+ * <InformePage active={page === 'informe'} />
+ *
+ * Notas de mantenimiento:
+ * - Al implementar DOCX real, mover la lógica de generación a un servicio y mantener esta página como orquestador UI.
+ * - Evitar renderizar documentos completos en el DOM si crece el contenido; considerar paginación/preview parcial.
+ */
 export default function InformePage({ active }) {
   const { toast } = useUi()
   return (

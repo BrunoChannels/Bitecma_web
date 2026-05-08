@@ -2,6 +2,40 @@ import { useEffect, useMemo, useState } from 'react'
 import { useDb } from '../context/dbContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
 
+/**
+ * Página de administración de botes/embarcaciones (maestro) agrupados por región.
+ *
+ * @param {object} props - Props del componente.
+ * @param {boolean} props.active - Indica si la página está activa (habilita carga inicial).
+ * @returns {import('react').JSX.Element} Elemento React de la página Botes.
+ *
+ * Lógica (alto nivel):
+ * 1) Al activarse, solicita la carga de regiones y del maestro de botes desde el contexto DB.
+ * 2) Mantiene filtros locales:
+ *    - región seleccionada (romano),
+ *    - texto de búsqueda.
+ * 3) Deriva `botesFiltrados` por región + query y limita el tamaño para performance.
+ * 4) Permite agregar un bote nuevo mediante un modal con formulario y persistencia en DB/API.
+ *
+ * Dependencias externas:
+ * - `useDb`: `db`, `ensureRegionesLoaded`, `ensureBotesMaestroLoaded`, `upsertBoteMaestro`.
+ * - `useUi`: `openModal`, `closeModal`, `toast`.
+ *
+ * Efectos secundarios:
+ * - Dispara cargas (regiones y maestro de botes) al activarse.
+ * - Puede persistir un bote nuevo (según implementación de `upsertBoteMaestro`).
+ * - Abre/cierra modales.
+ *
+ * Manejo de errores:
+ * - En guardado de bote, captura excepciones y muestra toast rojo.
+ *
+ * @example
+ * <BotesPage active={page === 'botes'} />
+ *
+ * Notas de mantenimiento:
+ * - Mantener consistentes los campos del payload (`region_rom`, `nrpa`, etc.) con el backend.
+ * - Si crece el maestro, considerar paginación/virtualización (hoy se limita a 2000 filas).
+ */
 export default function BotesPage({ active }) {
   const { db, ensureRegionesLoaded, ensureBotesMaestroLoaded, upsertBoteMaestro } = useDb()
   const { openModal, closeModal, toast } = useUi()
@@ -39,11 +73,66 @@ export default function BotesPage({ active }) {
       .slice(0, 2000)
   }, [botes, regionRom, q])
 
+  /**
+   * Abre un modal para crear un bote nuevo en el maestro.
+   *
+   * @returns {void} No retorna valor.
+   *
+   * Lógica:
+   * 1) Determina región y caletas iniciales según selección actual.
+   * 2) Define un Body interno con estado de formulario.
+   * 3) Valida nombre y caleta.
+   * 4) Construye payload normalizado (uppercase en nombre/caleta) y llama `upsertBoteMaestro`.
+   * 5) Notifica por toast y cierra el modal en éxito.
+   *
+   * Dependencias externas:
+   * - `openModal/closeModal`, `toast`.
+   * - `upsertBoteMaestro` (persistencia).
+   * - `caletasByRegion` (catálogo estático).
+   *
+   * Efectos secundarios:
+   * - Abre/cierra modal.
+   * - Puede persistir datos.
+   *
+   * Manejo de errores:
+   * - Captura error de persistencia y muestra toast rojo.
+   *
+   * @example
+   * <button onClick={openAddBoteModal}>Agregar</button>
+   *
+   * Notas de mantenimiento:
+   * - Si cambian caletas/regiones, asegurar que `caletasByRegionStatic` siga cubriendo casos.
+   */
   const openAddBoteModal = () => {
     const regionSel = regiones.find((r) => r.rom === regionRom)
     const initialRegion = regionSel?.rom || regiones[0]?.rom || 'I'
     const initialCaletas = caletasByRegion[initialRegion] || []
 
+    /**
+     * Cuerpo del modal “Agregar Nuevo Bote”.
+     *
+     * @returns {import('react').JSX.Element} Formulario de creación de bote.
+     *
+     * Lógica:
+     * 1) Mantiene estado `form` (región, nombre, RPA, matrícula, caleta).
+     * 2) Ajusta caletas disponibles al cambiar región (y setea una caleta por defecto).
+     * 3) Valida campos obligatorios y ejecuta `onSave`.
+     *
+     * Dependencias externas:
+     * - `upsertBoteMaestro`, `toast`, `closeModal`, `caletasByRegion`.
+     *
+     * Efectos secundarios:
+     * - Persistencia (al guardar) y cierre de modal.
+     *
+     * Manejo de errores:
+     * - `onSave` captura error de persistencia.
+     *
+     * @example
+     * openModal('Agregar Nuevo Bote', <Body />, 'normal')
+     *
+     * Notas de mantenimiento:
+     * - Mantener normalización (uppercase/trim) para homogeneidad del maestro.
+     */
     const Body = () => {
       const [form, setForm] = useState({
         region: initialRegion,
@@ -55,6 +144,34 @@ export default function BotesPage({ active }) {
 
       const caletas = caletasByRegion[form.region] || []
 
+      /**
+       * Valida el formulario y persiste el bote en el maestro.
+       *
+       * @returns {Promise<void>} Promesa que resuelve al finalizar el guardado.
+       *
+       * Lógica:
+       * 1) Valida `nombre` y `caleta`.
+       * 2) Construye payload normalizado:
+       *    - `nombre` y `caleta` en mayúsculas,
+       *    - `nrpa` y `nmatricula` con trim.
+       * 3) Ejecuta `upsertBoteMaestro(newBote)`.
+       * 4) Notifica y cierra modal en éxito.
+       *
+       * Dependencias externas:
+       * - `upsertBoteMaestro`, `toast`, `closeModal`.
+       *
+       * Efectos secundarios:
+       * - Persistencia y UI (toasts/cierre).
+       *
+       * Manejo de errores:
+       * - Captura excepción y muestra toast rojo.
+       *
+       * @example
+       * <button onClick={onSave}>Guardar</button>
+       *
+       * Notas de mantenimiento:
+       * - Validación fuerte y unicidad deben ser responsabilidad del backend.
+       */
       const onSave = async () => {
         if (!form.nombre.trim()) {
           toast('Ingresa el nombre del bote', 'red')

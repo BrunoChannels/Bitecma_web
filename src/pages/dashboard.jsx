@@ -2,6 +2,32 @@ import { useMemo } from 'react'
 import { useApp } from '../context/appContext.jsx'
 import { useDb } from '../context/dbContext.jsx'
 
+/**
+ * Convierte una fecha ISO (YYYY-MM-DD) a un valor numérico comparable (timestamp).
+ *
+ * @param {unknown} v - Valor de fecha esperado como string ISO.
+ * @returns {number} Timestamp (ms) a medianoche local, o 0 si el formato es inválido.
+ *
+ * Lógica:
+ * 1) Convierte a string.
+ * 2) Valida formato ISO estricto `YYYY-MM-DD`.
+ * 3) Construye Date en `T00:00:00` y retorna `getTime()` si es finito.
+ *
+ * Dependencias externas:
+ * - `Date` (API estándar).
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Si el parseo falla o el formato no calza, retorna 0.
+ *
+ * @example
+ * toDateValue('2026-05-07') // 1778112000000 (depende de zona horaria local)
+ *
+ * Notas de mantenimiento:
+ * - El uso de zona horaria local es intencional para ordenar fechas de operación; si se requiere UTC, ajustar construcción del Date.
+ */
 function toDateValue(v) {
   const s = String(v || '')
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return 0
@@ -9,12 +35,70 @@ function toDateValue(v) {
   return Number.isFinite(t) ? t : 0
 }
 
+/**
+ * Formatea una fecha ISO (YYYY-MM-DD) a formato DD/MM/YYYY para visualización.
+ *
+ * @param {unknown} iso - Fecha ISO.
+ * @returns {string} Fecha en formato DMY o '—' si es inválida.
+ *
+ * Lógica:
+ * 1) Valida formato `YYYY-MM-DD`.
+ * 2) Reordena substrings a `DD/MM/YYYY`.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Retorna '—' si el formato no coincide.
+ *
+ * @example
+ * fmtDMY('2026-02-05') // '05/02/2026'
+ *
+ * Notas de mantenimiento:
+ * - No valida existencia real del día/mes (solo formato). La validación completa debe ocurrir al ingresar datos.
+ */
 function fmtDMY(iso) {
   const s = String(iso || '')
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '—'
   return `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`
 }
 
+/**
+ * Dashboard principal: muestra métricas y accesos rápidos al módulo de operaciones.
+ *
+ * @param {object} props - Props del componente.
+ * @param {boolean} props.active - Indica si la página está activa (se usa para estilos; no dispara efectos aquí).
+ * @returns {import('react').JSX.Element} Elemento React del dashboard.
+ *
+ * Lógica (alto nivel):
+ * 1) Lee `db` desde contexto y construye:
+ *    - Conteo total de operaciones,
+ *    - Conteo total de unidades de densidad (transectos/cuadrantes),
+ *    - Conteo de muestras LP registradas.
+ * 2) Deriva lista de operaciones recientes por `fechaInicio`.
+ * 3) Calcula composición de muestras por especie (top 8) para gráfico de barras.
+ * 4) Renderiza tarjetas métricas, tabla de operaciones recientes y gráfico.
+ *
+ * Dependencias externas:
+ * - `useApp` (navigate).
+ * - `useDb` (db: especies y operaciones).
+ *
+ * Efectos secundarios:
+ * - Ninguno (solo lectura y navegación por click).
+ *
+ * Manejo de errores:
+ * - Tolerante a DB incompleta (usa arrays vacíos y defensas).
+ *
+ * @example
+ * <DashboardPage active={page === 'dashboard'} />
+ *
+ * Notas de mantenimiento:
+ * - El conteo de `totalMuestras` asume estructura `lpMuestras` como objeto de especie -> {LP,L,D}; mantener alineado con servicios.
+ * - Si el dataset crece, considerar memoización más fina o pre-cálculo en selector/contexto.
+ */
 export default function DashboardPage({ active }) {
   const { navigate } = useApp()
   const { db } = useDb()

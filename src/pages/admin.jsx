@@ -3,6 +3,44 @@ import { useDb } from '../context/dbContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
 import { useApp } from '../context/appContext.jsx'
 
+/**
+ * Página Admin: gestión de usuarios y visualización de matriz de permisos por rol.
+ *
+ * @param {object} props - Props del componente.
+ * @param {boolean} props.active - Indica si la página está activa (se usa para ejecutar efectos de seguridad/carga).
+ * @returns {import('react').JSX.Element} Elemento React de la página Admin.
+ *
+ * Lógica (alto nivel):
+ * 1) Valida acceso: si la página está activa y el usuario no es Admin, notifica y redirige a dashboard.
+ * 2) Determina si hay API configurada (`VITE_API_URL`):
+ *    - Si hay API: gestiona usuarios desde backend (`/usuarios`).
+ *    - Si no hay API: usa perfiles locales (`db.perfiles`) como fallback “solo lectura”.
+ * 3) Permite:
+ *    - Ver listado de usuarios.
+ *    - Crear/editar usuarios mediante un modal (solo si API está habilitada).
+ *    - Ver matriz de permisos por rol (tabla estática informativa).
+ *
+ * Dependencias externas:
+ * - Contextos: `useDb` (db), `useUi` (toast/modal), `useApp` (navigate/isAdmin).
+ * - APIs Web: `fetch` y `localStorage` (token).
+ * - Variables de entorno: `import.meta.env.VITE_API_URL`.
+ *
+ * Efectos secundarios:
+ * - Puede navegar a otra página (redirect de seguridad).
+ * - Puede disparar requests HTTP a la API.
+ * - Puede abrir/cerrar modales.
+ *
+ * Manejo de errores:
+ * - Captura errores de red/API y muestra toast rojo con mensaje.
+ * - Maneja ausencia de token o bloqueo de `localStorage` con try/catch.
+ *
+ * @example
+ * <AdminPage active={page === 'admin'} />
+ *
+ * Notas de mantenimiento:
+ * - Mantener sincronía de rutas API (`/usuarios`) con backend.
+ * - Evitar exponer tokens en logs/errores; actualmente solo se usa en header Authorization.
+ */
 export default function AdminPage({ active }) {
   const { db } = useDb()
   const { toast, openModal, closeModal } = useUi()
@@ -26,6 +64,36 @@ export default function AdminPage({ active }) {
     navigate('dashboard')
   }, [active, isAdmin, navigate, toast])
 
+  /**
+   * Wrapper de fetch hacia la API configurada, agregando headers y validación de respuesta.
+   *
+   * @param {string} path - Ruta relativa a la API (ej.: `/usuarios`).
+   * @param {RequestInit} [opts] - Opciones de `fetch` (método, body, headers, etc.).
+   * @returns {Promise<any>} JSON validado (se espera `{ ok: true, data: ... }`).
+   *
+   * Lógica:
+   * 1) Construye URL base usando `VITE_API_URL` y el `path`.
+   * 2) Recupera token desde `localStorage` (si existe) y lo inyecta como Bearer.
+   * 3) Setea `Content-Type: application/json` si hay body y no viene definido.
+   * 4) Ejecuta `fetch` y parsea JSON (tolerante a fallas de parseo).
+   * 5) Si la respuesta no es ok, lanza Error con mensaje legible.
+   *
+   * Dependencias externas:
+   * - `fetch` y `localStorage`.
+   * - `apiUrl` derivado de env.
+   *
+   * Efectos secundarios:
+   * - Acceso a `localStorage` y request de red.
+   *
+   * Manejo de errores:
+   * - Lanza `Error` con mensaje consumible por caller.
+   *
+   * @example
+   * const { data } = await apiFetch('/usuarios')
+   *
+   * Notas de mantenimiento:
+   * - Mantener formato esperado de respuesta `{ ok, data, error }` alineado al backend.
+   */
   const apiFetch = useCallback(
     async (path, opts) => {
       const url = `${apiUrl}/${String(path || '').replace(/^\/+/, '')}`
@@ -50,6 +118,33 @@ export default function AdminPage({ active }) {
     [apiUrl],
   )
 
+  /**
+   * Carga el listado de usuarios desde la API (si está habilitada).
+   *
+   * @returns {Promise<void>} Promesa que resuelve al finalizar la carga.
+   *
+   * Lógica:
+   * 1) Si no hay API, sale.
+   * 2) Setea estado de carga.
+   * 3) Llama `apiFetch('/usuarios')` y actualiza `apiUsers`.
+   * 4) En error, muestra toast rojo.
+   * 5) En finally, apaga loading.
+   *
+   * Dependencias externas:
+   * - `apiFetch`, `toast`, `apiEnabled`.
+   *
+   * Efectos secundarios:
+   * - Request de red y actualización de estado React.
+   *
+   * Manejo de errores:
+   * - Captura y notifica errores.
+   *
+   * @example
+   * await loadUsers()
+   *
+   * Notas de mantenimiento:
+   * - Mantener shape `json.data` alineado al backend.
+   */
   const loadUsers = useCallback(async () => {
     if (!apiEnabled) return
     setUsersLoading(true)
@@ -70,6 +165,32 @@ export default function AdminPage({ active }) {
     loadUsers()
   }, [active, apiEnabled, loadUsers])
 
+  /**
+   * Determina la clase CSS de la pill de rol para el listado de usuarios.
+   *
+   * @param {unknown} rol - Rol crudo (string u otro).
+   * @returns {string} Clase CSS (ej.: `p-red`, `p-grn`, ...).
+   *
+   * Lógica:
+   * 1) Normaliza a minúsculas.
+   * 2) Mapea roles conocidos a colores.
+   * 3) Retorna un fallback.
+   *
+   * Dependencias externas:
+   * - Ninguna.
+   *
+   * Efectos secundarios:
+   * - Ninguno.
+   *
+   * Manejo de errores:
+   * - No aplica.
+   *
+   * @example
+   * <span className={`pill ${rolePillClass(u.rol)}`}>{u.rol}</span>
+   *
+   * Notas de mantenimiento:
+   * - Si se agregan roles, extender el mapping.
+   */
   const rolePillClass = (rol) => {
     const r = String(rol || '').toLowerCase()
     if (r === 'admin') return 'p-red'
@@ -81,6 +202,34 @@ export default function AdminPage({ active }) {
 
   const users = apiEnabled ? apiUsers : perfiles
 
+  /**
+   * Abre el modal de creación/edición de usuario.
+   *
+   * @param {{ mode: 'create'|'edit', user: any }} args - Parámetros de apertura.
+   * @param {'create'|'edit'} args.mode - Modo de formulario.
+   * @param {any} args.user - Usuario inicial (solo en edición).
+   * @returns {void} No retorna valor.
+   *
+   * Lógica:
+   * 1) Determina si es edición (`mode === 'edit'`) y arma `initial`.
+   * 2) Abre modal con `UserEditor`.
+   * 3) Al guardar, cierra modal y recarga usuarios desde API si corresponde.
+   *
+   * Dependencias externas:
+   * - `openModal/closeModal` (UI), `loadUsers`, `apiFetch`, `toast`.
+   *
+   * Efectos secundarios:
+   * - Abre modal y puede disparar recarga.
+   *
+   * Manejo de errores:
+   * - La persistencia y errores se manejan dentro de `UserEditor`.
+   *
+   * @example
+   * openUserEditor({ mode: 'create', user: null })
+   *
+   * Notas de mantenimiento:
+   * - Mantener consistencia de tamaños del modal (`slim`) con estilos globales.
+   */
   const openUserEditor = useCallback(
     ({ mode, user }) => {
       const isEdit = mode === 'edit'
@@ -269,6 +418,32 @@ export default function AdminPage({ active }) {
   )
 }
 
+/**
+ * Normaliza un texto para comparaciones (minúsculas, sin diacríticos, trim).
+ *
+ * @param {unknown} s - Texto a normalizar.
+ * @returns {string} Texto normalizado.
+ *
+ * Lógica:
+ * 1) Convierte a string.
+ * 2) Lowercase + normalize NFD.
+ * 3) Elimina diacríticos y recorta.
+ *
+ * Dependencias externas:
+ * - API estándar de string (`normalize`).
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No aplica.
+ *
+ * @example
+ * normKey('Biólogo') // 'biologo'
+ *
+ * Notas de mantenimiento:
+ * - Usar solo para matching; no para display.
+ */
 function normKey(s) {
   return String(s || '')
     .toLowerCase()
@@ -277,6 +452,32 @@ function normKey(s) {
     .trim()
 }
 
+/**
+ * Normaliza un rol a uno de los valores canónicos usados por la UI/API.
+ *
+ * @param {unknown} rol - Rol crudo ingresado o proveniente de datos.
+ * @returns {'Admin'|'Usuario'|'Visualizador'|string} Rol normalizado (title case) o fallback.
+ *
+ * Lógica:
+ * 1) Normaliza con `normKey`.
+ * 2) Mapea aliases conocidos (biologo/biologa -> Usuario, viewer/readonly -> Visualizador).
+ * 3) Si no hay match, devuelve el string original (o 'Usuario' como fallback).
+ *
+ * Dependencias externas:
+ * - `normKey`.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No aplica.
+ *
+ * @example
+ * normalizeRole('read-only') // 'Visualizador'
+ *
+ * Notas de mantenimiento:
+ * - Mantener la lista de aliases alineada con backend y data histórica.
+ */
 function normalizeRole(rol) {
   const r = normKey(rol)
   if (r === 'admin') return 'Admin'
@@ -285,12 +486,74 @@ function normalizeRole(rol) {
   return String(rol || '').trim() || 'Usuario'
 }
 
+/**
+ * Valida formato básico de correo electrónico.
+ *
+ * @param {unknown} email - Correo a validar.
+ * @returns {boolean} `true` si parece email válido; `false` si no.
+ *
+ * Lógica:
+ * 1) Convierte a string y recorta.
+ * 2) Rechaza vacío.
+ * 3) Aplica regex simple `usuario@dominio.tld`.
+ *
+ * Dependencias externas:
+ * - RegExp.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - No aplica.
+ *
+ * @example
+ * isValidEmail('ana@empresa.cl') // true
+ *
+ * Notas de mantenimiento:
+ * - Regex deliberadamente simple; validación definitiva debe estar en backend.
+ */
 function isValidEmail(email) {
   const e = String(email || '').trim()
   if (!e) return false
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
 }
 
+/**
+ * Formulario de edición/creación de usuario (en modal).
+ *
+ * @param {object} props - Props del componente.
+ * @param {'create'|'edit'} props.mode - Modo del formulario.
+ * @param {any} props.initial - Usuario inicial (cuando mode es edit).
+ * @param {() => void} props.onCancel - Callback para cancelar/cerrar.
+ * @param {() => (void|Promise<void>)} props.onSaved - Callback al guardar correctamente.
+ * @param {boolean} props.apiEnabled - Indica si la API está habilitada.
+ * @param {(path: string, opts?: RequestInit) => Promise<any>} props.apiFetch - Función de fetch hacia API (con auth y validación).
+ * @param {(msg: string, color?: string) => void} props.toast - Notificador UI.
+ * @returns {import('react').JSX.Element} UI del editor de usuario.
+ *
+ * Lógica (alto nivel):
+ * 1) Inicializa estado local desde `initial`.
+ * 2) Permite editar nombre/correo/rol/estado y contraseña (obligatoria en create, opcional en edit).
+ * 3) Valida inputs (nombre, email, rol, password) y construye payload.
+ * 4) Ejecuta `apiFetch` con POST/PUT según modo.
+ * 5) Notifica por toast, ejecuta `onSaved` y deshabilita botones durante guardado.
+ *
+ * Dependencias externas:
+ * - `apiFetch` (requiere backend).
+ * - `normalizeRole`, `isValidEmail`.
+ *
+ * Efectos secundarios:
+ * - Requests de red y toasts.
+ *
+ * Manejo de errores:
+ * - Captura error de API y muestra toast rojo.
+ *
+ * @example
+ * <UserEditor mode="create" initial={{}} onCancel={closeModal} onSaved={...} apiEnabled apiFetch={apiFetch} toast={toast} />
+ *
+ * Notas de mantenimiento:
+ * - Mantener el mínimo de contraseña (8) alineado con políticas del backend.
+ */
 function UserEditor({ mode, initial, onCancel, onSaved, apiEnabled, apiFetch, toast }) {
   const isEdit = mode === 'edit'
   const [nombre, setNombre] = useState(String(initial?.nombre || ''))
@@ -301,6 +564,37 @@ function UserEditor({ mode, initial, onCancel, onSaved, apiEnabled, apiFetch, to
   const [confirm, setConfirm] = useState('')
   const [saving, setSaving] = useState(false)
 
+  /**
+   * Valida el formulario y persiste el usuario vía API.
+   *
+   * @returns {Promise<void>} Promesa que resuelve al finalizar el guardado.
+   *
+   * Lógica:
+   * 1) Normaliza inputs (trim/lowercase) y valida requeridos.
+   * 2) En create o si se ingresó contraseña en edit:
+   *    - valida longitud mínima y confirmación.
+   * 3) Construye payload `{ nombre, correo, rol, activo, password? }`.
+   * 4) Ejecuta `apiFetch`:
+   *    - PUT `/usuarios/:id` si es edit,
+   *    - POST `/usuarios` si es create.
+   * 5) En éxito, muestra toast verde y dispara `onSaved`.
+   * 6) En error, muestra toast rojo.
+   *
+   * Dependencias externas:
+   * - `apiFetch`, `toast`, `normalizeRole`, `isValidEmail`.
+   *
+   * Efectos secundarios:
+   * - Request de red, toasts y cambios de estado `saving`.
+   *
+   * Manejo de errores:
+   * - Captura errores de API y los presenta al usuario.
+   *
+   * @example
+   * <button onClick={submit}>Guardar</button>
+   *
+   * Notas de mantenimiento:
+   * - Mantener rutas/contratos de API consistentes con backend.
+   */
   const submit = useCallback(async () => {
     const n = String(nombre || '').trim()
     const c = String(correo || '').trim().toLowerCase()
