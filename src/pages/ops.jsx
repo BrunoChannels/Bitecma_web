@@ -2642,7 +2642,7 @@ export default function OpsPage({ active }) {
 
       <div>
         {!regionSel ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="ops-region-grid">
             {regionButtons.map((r) => (
               <button
                 key={r.id}
@@ -2735,25 +2735,26 @@ export default function OpsPage({ active }) {
               </div>
             ) : null}
 
-            {filteredByRegion.map((op) => {
-          const open = String(expanded || '') === String(op?.id ?? '')
-          const year = getOperacionYear(op)
-          const segLabel = getOperacionSegLabel(op)
-          const regionLabel = regionNameById.get(String(op?.region ?? '')) || String(op?.region || '—')
-          const caletaLabel = String(op?.sector || op?.caleta || '').trim() || '—'
-          const sectorAmerbLabel = String(op?.sectorAmerb || '').trim() || caletaLabel || '—'
-          const especiesComunes = getOperacionEspeciesComunes(op, especiesById)
-          return (
-            <div
-              className="op-card card mb"
-              key={op.id}
-              data-op-id={op.id}
-              style={{ padding: 12, cursor: open ? 'default' : 'pointer' }}
-              onClick={() => {
-                if (open) return
-                toggleExpanded(op.id)
-              }}
-            >
+            <div className="ops-grid">
+              {filteredByRegion.map((op) => {
+                const open = String(expanded || '') === String(op?.id ?? '')
+                const year = getOperacionYear(op)
+                const segLabel = getOperacionSegLabel(op)
+                const regionLabel = regionNameById.get(String(op?.region ?? '')) || String(op?.region || '—')
+                const caletaLabel = String(op?.sector || op?.caleta || '').trim() || '—'
+                const sectorAmerbLabel = String(op?.sectorAmerb || '').trim() || caletaLabel || '—'
+                const especiesComunes = getOperacionEspeciesComunes(op, especiesById)
+                return (
+                  <div
+                    className={`op-card card${open ? ' op-open' : ''}`}
+                    key={op.id}
+                    data-op-id={op.id}
+                    style={{ padding: 12, cursor: open ? 'default' : 'pointer' }}
+                    onClick={() => {
+                      if (open) return
+                      toggleExpanded(op.id)
+                    }}
+                  >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 800, color: 'var(--text)' }}>
@@ -2855,9 +2856,10 @@ export default function OpsPage({ active }) {
                   )}
                 </div>
               ) : null}
+                  </div>
+                )
+              })}
             </div>
-          )
-        })}
           </>
         )}
       </div>
