@@ -66,6 +66,65 @@ function fmtDMY(iso) {
   return `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`
 }
 
+function resolveNombrePersona(v) {
+  if (v == null) return ''
+
+  if (typeof v === 'object') {
+    const nombre = String(v?.nombre || v?.name || '').trim()
+    if (nombre) return nombre
+    const nombres = String(v?.nombres || '').trim()
+    const apellidos = String(v?.apellidos || '').trim()
+    const full = String(`${nombres} ${apellidos}`).trim()
+    if (full) return full
+    const correo = String(v?.correo || v?.email || '').trim()
+    if (correo) return correo
+    return ''
+  }
+
+  return String(v).trim()
+}
+
+function getCreadorLabel(op) {
+  const o = op && typeof op === 'object' ? op : {}
+
+  const importer =
+    o?.importedByName ??
+    o?.imported_by_name ??
+    o?.importedBy ??
+    o?.imported_by ??
+    o?.importador ??
+    o?.importadoPor ??
+    o?.importado_por ??
+    o?.importedByUser ??
+    o?.imported_by_user ??
+    o?.importedById ??
+    o?.imported_by_id ??
+    o?.importUserId ??
+    o?.import_user_id ??
+    null
+
+  const creator =
+    o?.createdByName ??
+    o?.created_by_name ??
+    o?.createdBy ??
+    o?.created_by ??
+    o?.creador ??
+    o?.creadoPor ??
+    o?.creado_por ??
+    o?.usuario ??
+    o?.user ??
+    o?.usuarioId ??
+    o?.usuario_id ??
+    o?.userId ??
+    o?.user_id ??
+    o?.owner ??
+    o?.ownerId ??
+    null
+
+  const nombre = resolveNombrePersona(importer || creator)
+  return nombre || '—'
+}
+
 /**
  * Dashboard principal: muestra métricas y accesos rápidos al módulo de operaciones.
  *
@@ -199,14 +258,15 @@ export default function DashboardPage({ active }) {
         <div className="card" style={{ minHeight: 440, display: 'flex', flexDirection: 'column' }}>
           <div className="ct">
             Operaciones recientes
-            <button className="btn b-out b-sm" onClick={() => navigate('ops')}>Ver todas</button>
+            <button className="btn b-out b-sm" onClick={() => navigate('evadir')}>Ver todas</button>
           </div>
           <div className="dashboard-recent-ops-table-wrap">
-            <table className="tbl">
+            <table className="tbl tbl-static-mobile tbl-dashboard-recent">
               <thead>
                 <tr>
                   <th>ID</th>
                   <th>Sector</th>
+                  <th>Creador</th>
                   <th>Fecha</th>
                   <th>Botes</th>
                 </tr>
@@ -216,11 +276,12 @@ export default function DashboardPage({ active }) {
                   <tr key={op.id} onClick={() => navigate('ops')} style={{ cursor: 'pointer' }}>
                     <td><strong>{op.id}</strong></td>
                     <td>{op.sector || '—'}</td>
+                    <td>{getCreadorLabel(op)}</td>
                     <td>{fmtDMY(op.fechaInicio)}</td>
                     <td>{(op.botes || []).length}</td>
                   </tr>
                 )) : (
-                  <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text3)', padding: 14 }}>Sin operaciones</td></tr>
+                  <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text3)', padding: 14 }}>Sin operaciones</td></tr>
                 )}
               </tbody>
             </table>

@@ -52,7 +52,7 @@ function ModalHost() {
 
 function AppShell() {
   const { page, isAuthed } = useApp()
-  const { sidebarOpen, closeSidebar } = useUi()
+  const { sidebarOpen } = useUi()
   const [topbarKey, setTopbarKey] = useState(0)
   const topbarWatchRef = useRef({ lastCheckAt: 0, badCount: 0, lastReloadAt: 0 })
 

@@ -634,7 +634,24 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
         setFlashIdx(targetIdx)
         setTimeout(() => {
           const el = document.querySelector(`[data-lp-sample-idx="${targetIdx}"]`)
-          el?.scrollIntoView?.({ block: 'center' })
+          if (!el) return
+          let scroller = el.parentElement
+          while (scroller && scroller !== document.body && scroller !== document.documentElement) {
+            const cs = window.getComputedStyle(scroller)
+            const canY = /(auto|scroll)/.test(cs.overflowY)
+            if (canY && scroller.scrollHeight > scroller.clientHeight + 2) break
+            scroller = scroller.parentElement
+          }
+          if (scroller && scroller !== document.body && scroller !== document.documentElement) {
+            const scRect = scroller.getBoundingClientRect()
+            const tRect = el.getBoundingClientRect()
+            const centerOffset = scRect.height / 2 - tRect.height / 2
+            const top = scroller.scrollTop + (tRect.top - scRect.top) - centerOffset
+            if (typeof scroller.scrollTo === 'function') scroller.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+            else scroller.scrollTop = Math.max(0, top)
+          } else {
+            el.scrollIntoView?.({ block: 'center' })
+          }
         }, 0)
         const t = setTimeout(() => setFlashIdx(null), 2600)
         return () => clearTimeout(t)

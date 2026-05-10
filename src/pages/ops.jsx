@@ -466,7 +466,16 @@ export default function OpsPage({ active }) {
       setTimeout(() => {
         const safe = opId.replace(/"/g, '\\"')
         const el = document.querySelector(`[data-op-id="${safe}"]`)
-        el?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+        const scroller = el?.closest?.('.main')
+        if (el && scroller) {
+          const scRect = scroller.getBoundingClientRect()
+          const tRect = el.getBoundingClientRect()
+          const top = scroller.scrollTop + (tRect.top - scRect.top) - 10
+          if (typeof scroller.scrollTo === 'function') scroller.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+          else scroller.scrollTop = Math.max(0, top)
+        } else {
+          el?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+        }
       }, 0)
     }
     /**

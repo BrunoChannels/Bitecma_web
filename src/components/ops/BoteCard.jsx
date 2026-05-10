@@ -108,7 +108,17 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
     setTimeout(() => {
       setOpen(true)
       setTab('lp')
-      rootRef.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+      const target = rootRef.current
+      const scroller = target?.closest?.('.main')
+      if (target && scroller) {
+        const scRect = scroller.getBoundingClientRect()
+        const tRect = target.getBoundingClientRect()
+        const top = scroller.scrollTop + (tRect.top - scRect.top) - 10
+        if (typeof scroller.scrollTo === 'function') scroller.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+        else scroller.scrollTop = Math.max(0, top)
+      } else {
+        target?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+      }
     }, 0)
   }, [lpJump?.token, lpJump?.opId, lpJump?.boteId, lpJump?.boteNombre, lpJump?.buzo, lpJump?.zona, op?.id, bote?.id, bote?.nombre, bote?.buzo, bote?.zona])
 
