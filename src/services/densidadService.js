@@ -1,3 +1,23 @@
+/**
+ * Normaliza un valor a entero no negativo (conteos).
+ *
+ * @param {unknown} v - Valor a normalizar (string/number/null).
+ * @returns {number} Entero truncado >= 0.
+ *
+ * Lógica:
+ * 1) Trata `null/undefined/''` como 0.
+ * 2) Parsea números tolerando coma decimal.
+ * 3) Si no es finito, retorna 0; si es finito, trunca y limita a >= 0.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Notas de mantenimiento:
+ * - Mantener consistente con inputs numéricos de UI (algunos ingresan coma decimal).
+ */
 function normInt(v) {
   if (v === null || v === undefined || v === '') return 0
   const n = typeof v === 'number' ? v : Number(String(v).trim().replace(',', '.'))
@@ -5,6 +25,23 @@ function normInt(v) {
   return Math.max(0, Math.trunc(n))
 }
 
+/**
+ * Normaliza un valor numérico opcional (coordenadas / medidas).
+ *
+ * @param {unknown} v - Valor a normalizar.
+ * @returns {number|null} Número finito, o `null` si no existe/ no es válido.
+ *
+ * Lógica:
+ * 1) `null/undefined/''` => `null`.
+ * 2) Si es number finito, retorna el mismo.
+ * 3) Si es string, parsea tolerando coma decimal.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ */
 function normNum(v) {
   if (v === null || v === undefined || v === '') return null
   if (typeof v === 'number') return Number.isFinite(v) ? v : null
@@ -12,6 +49,24 @@ function normNum(v) {
   return Number.isFinite(n) ? n : null
 }
 
+/**
+ * Calcula densidad (conteo por unidad de área).
+ *
+ * @param {unknown} count - Conteo de individuos (se normaliza a entero no negativo).
+ * @param {unknown} area - Área (m² u otra unidad) esperada como número > 0.
+ * @returns {number} Densidad calculada; si área inválida, retorna 0.
+ *
+ * Lógica:
+ * 1) Normaliza `count` con `normInt`.
+ * 2) Convierte `area` a número y valida `> 0`.
+ * 3) Retorna `count / area`.
+ *
+ * Dependencias externas:
+ * - `normInt` (este módulo).
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ */
 export function calcDensidad(count, area) {
   const c = normInt(count)
   const a = Number(area) || 0
@@ -19,12 +74,60 @@ export function calcDensidad(count, area) {
   return c / a
 }
 
+/**
+ * Retorna el siguiente número correlativo para una unidad (transecto/cuadrante).
+ *
+ * @param {Array<object>} unidades - Lista de unidades con campo `num`.
+ * @returns {number} Próximo `num` disponible (máximo actual + 1).
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Notas de mantenimiento:
+ * - La unicidad de `num` se asume a nivel UI; si hay duplicados, tomará el máximo.
+ */
 export function nextUnidadNum(unidades) {
   const arr = Array.isArray(unidades) ? unidades : []
   const nums = arr.map((u) => Number(u?.num)).filter((n) => Number.isFinite(n))
   return (nums.length ? Math.max(...nums) : 0) + 1
 }
 
+/**
+ * Crea nuevas unidades (transectos o cuadrantes) y las agrega al arreglo existente.
+ *
+ * @param {object} args - Parámetros de creación.
+ * @param {Array<object>} args.unidades - Unidades actuales.
+ * @param {'transecto'|'cuadrante'|string} args.tipo - Tipo solicitado (se normaliza a 'transecto'/'cuadrante').
+ * @param {number|string} args.cantidad - Cantidad de unidades a crear.
+ * @param {number|string} args.area - Área a asignar (si 0, usa defaults).
+ * @param {string} args.fecha - Fecha (string) a asignar.
+ * @param {string} args.sustrato - Sustrato.
+ * @param {string} args.cubierta - Cubierta.
+ * @param {number|string|null} args.especieId - Especie seleccionada (solo cuadrante).
+ * @param {Array<number|string>} args.especiesIds - Catálogo de especies a inicializar en `counts` (solo transecto).
+ * @returns {Array<object>} Nuevo arreglo con unidades creadas al final.
+ *
+ * Lógica:
+ * 1) Normaliza parámetros (tipo, cantidad, texto, ids).
+ * 2) Calcula `start` usando `nextUnidadNum`.
+ * 3) Crea `n` unidades con estructura base (incluye `counts` inicial).
+ * 4) Para cuadrantes, fuerza `especieId` y `counts` con esa especie.
+ *
+ * Dependencias externas:
+ * - `nextUnidadNum`, `normInt` (este módulo).
+ *
+ * Efectos secundarios:
+ * - Ninguno (operación inmutable: retorna un nuevo arreglo).
+ *
+ * Manejo de errores:
+ * - Si `cantidad` inválida/0, retorna el arreglo original.
+ *
+ * Notas de mantenimiento:
+ * - Default de `area`: cuadrante=1, transecto=120 (mantener alineado con reglas de muestreo del proyecto).
+ */
 export function crearUnidades({
   unidades,
   tipo,
@@ -71,12 +174,43 @@ export function crearUnidades({
   return [...base, ...created]
 }
 
+/**
+ * Elimina una unidad por su número correlativo.
+ *
+ * @param {Array<object>} unidades - Unidades actuales.
+ * @param {number|string} num - Número de unidad a eliminar.
+ * @returns {Array<object>} Nuevo arreglo sin la unidad indicada.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ */
 export function eliminarUnidad(unidades, num) {
   const base = Array.isArray(unidades) ? unidades : []
   const n = Number(num)
   return base.filter((u) => Number(u?.num) !== n)
 }
 
+/**
+ * Aplica un patch a una unidad (por `num`) normalizando campos conocidos.
+ *
+ * @param {Array<object>} unidades - Unidades actuales.
+ * @param {number|string} num - Número de unidad a actualizar.
+ * @param {object} patch - Parcial de campos a actualizar.
+ * @returns {Array<object>} Nuevo arreglo con la unidad actualizada.
+ *
+ * Lógica:
+ * 1) Recorre y clona solo la unidad objetivo.
+ * 2) Normaliza `area` a número, y `fecha/sustrato/cubierta` a string trimmed cuando vienen en el patch.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ */
 export function updateUnidad(unidades, num, patch) {
   const base = Array.isArray(unidades) ? unidades : []
   const n = Number(num)
@@ -99,6 +233,24 @@ export function updateUnidad(unidades, num, patch) {
   })
 }
 
+/**
+ * Setea una coordenada (x/y/lon/lat) de una unidad, guardándola como número o `null`.
+ *
+ * @param {Array<object>} unidades - Unidades actuales.
+ * @param {number|string} num - Número de unidad a actualizar.
+ * @param {'x'|'y'|'lon'|'lat'|string} key - Clave solicitada.
+ * @param {unknown} value - Valor a asignar.
+ * @returns {Array<object>} Nuevo arreglo con la unidad actualizada.
+ *
+ * Dependencias externas:
+ * - `normNum` (este módulo).
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Notas de mantenimiento:
+ * - Mapea a campos: `coordX`, `coordY`, `coordLong`, `coordLat`.
+ */
 export function setUnidadCoord(unidades, num, key, value) {
   const base = Array.isArray(unidades) ? unidades : []
   const n = Number(num)
@@ -109,6 +261,25 @@ export function setUnidadCoord(unidades, num, key, value) {
   return base.map((u) => (Number(u?.num) !== n ? u : { ...u, [field]: v }))
 }
 
+/**
+ * Agrega una especie al conteo (`counts`) de una unidad tipo transecto.
+ *
+ * @param {Array<object>} unidades - Unidades actuales.
+ * @param {number|string} num - Número de unidad a actualizar.
+ * @param {number|string} especieId - Id de especie.
+ * @returns {Array<object>} Nuevo arreglo con la unidad actualizada.
+ *
+ * Lógica:
+ * 1) Ignora ids inválidos.
+ * 2) Solo aplica a transectos (cuadrantes tienen una especie única).
+ * 3) Si no existe la clave en `counts`, la agrega con valor 0.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ */
 export function addEspecieToUnidad(unidades, num, especieId) {
   const base = Array.isArray(unidades) ? unidades : []
   const n = Number(num)
@@ -123,6 +294,20 @@ export function addEspecieToUnidad(unidades, num, especieId) {
   })
 }
 
+/**
+ * Elimina una especie del conteo (`counts`) de una unidad tipo transecto.
+ *
+ * @param {Array<object>} unidades - Unidades actuales.
+ * @param {number|string} num - Número de unidad a actualizar.
+ * @param {number|string} especieId - Id de especie.
+ * @returns {Array<object>} Nuevo arreglo con la unidad actualizada.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ */
 export function removeEspecieFromUnidad(unidades, num, especieId) {
   const base = Array.isArray(unidades) ? unidades : []
   const n = Number(num)
@@ -139,6 +324,21 @@ export function removeEspecieFromUnidad(unidades, num, especieId) {
   })
 }
 
+/**
+ * Setea el conteo de una especie dentro de una unidad.
+ *
+ * @param {Array<object>} unidades - Unidades actuales.
+ * @param {number|string} num - Número de unidad.
+ * @param {number|string} especieId - Id de especie.
+ * @param {unknown} value - Valor a setear (se normaliza a entero >= 0).
+ * @returns {Array<object>} Nuevo arreglo con la unidad actualizada.
+ *
+ * Dependencias externas:
+ * - `normInt` (este módulo).
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ */
 export function setUnidadCount(unidades, num, especieId, value) {
   const base = Array.isArray(unidades) ? unidades : []
   const n = Number(num)
@@ -152,6 +352,25 @@ export function setUnidadCount(unidades, num, especieId, value) {
   })
 }
 
+/**
+ * Cambia la especie asociada a un cuadrante, preservando el valor actual si es posible.
+ *
+ * @param {Array<object>} unidades - Unidades actuales.
+ * @param {number|string} num - Número de unidad.
+ * @param {number|string} especieId - Nueva especie id.
+ * @returns {Array<object>} Nuevo arreglo con el cuadrante actualizado.
+ *
+ * Lógica:
+ * 1) Solo aplica a unidades tipo `cuadrante`.
+ * 2) Lee el conteo actual de la especie previa (si existía).
+ * 3) Reescribe `especieId` y reemplaza `counts` a `{ [newId]: oldCount }`.
+ *
+ * Dependencias externas:
+ * - `normInt` (este módulo).
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ */
 export function setCuadranteEspecie(unidades, num, especieId) {
   const base = Array.isArray(unidades) ? unidades : []
   const n = Number(num)

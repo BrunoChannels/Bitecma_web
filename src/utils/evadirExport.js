@@ -1,6 +1,25 @@
 import { getTxCoordValue, numOrBlank } from '../services/evadirPreviewService.js'
 
 let xlsxPromise = null
+
+/**
+ * Carga lazy del módulo `xlsx-js-style` (import dinámico) y cachea el resultado.
+ *
+ * @returns {Promise<any>} Módulo XLSX ya resuelto.
+ *
+ * Lógica:
+ * 1) Si no existe promesa en cache, crea un `import()` y normaliza default/named export.
+ * 2) Retorna la promesa cacheada para evitar múltiples descargas/cargas.
+ *
+ * Dependencias externas:
+ * - `xlsx-js-style` (dependencia del proyecto).
+ *
+ * Efectos secundarios:
+ * - Carga un chunk dinámico en runtime.
+ *
+ * Notas de mantenimiento:
+ * - Mantener este patrón para que el bundle principal no incluya XLSX si no se exporta.
+ */
 async function loadXlsx() {
   if (!xlsxPromise) {
     xlsxPromise = import('xlsx-js-style').then((m) => m?.default || m)
@@ -8,6 +27,25 @@ async function loadXlsx() {
   return xlsxPromise
 }
 
+/**
+ * Sanitiza un string para usarlo como parte de un nombre de archivo (Windows-safe).
+ *
+ * @param {unknown} s - Texto de entrada.
+ * @returns {string} Texto sin caracteres inválidos y con espacios normalizados.
+ *
+ * Lógica:
+ * 1) Reemplaza control chars y caracteres prohibidos (`<>:"/\\|?*`) por espacio.
+ * 2) Colapsa espacios y recorta.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Notas de mantenimiento:
+ * - Está pensado para Windows, pero también es seguro en la mayoría de SOs.
+ */
 function safeFilePart(s) {
   const raw = String(s || '')
   let out = ''
@@ -27,6 +65,40 @@ function safeFilePart(s) {
   return out.replace(/\s+/g, ' ').trim()
 }
 
+/**
+ * Exporta una operación a XLSX con formato EVADIR.
+ *
+ * Genera una sheet principal “EVADIR” (densidad) y múltiples sheets para L/P/D por especie,
+ * aplicando estilos y formatos numéricos para facilitar revisión y envío.
+ *
+ * @param {object} args - Parámetros.
+ * @param {object} args.db - DB en memoria (se usa `db.operaciones` y `db.especies`).
+ * @param {string|number} args.opId - Id de la operación a exportar.
+ * @param {(msg: string, color?: string) => void} args.toast - Notificador UI (opcional).
+ * @returns {Promise<void>} Promesa que resuelve al finalizar la descarga.
+ *
+ * Lógica (alto nivel):
+ * 1) Busca la operación por id y valida existencia.
+ * 2) Carga `xlsx-js-style` de forma lazy.
+ * 3) Construye workbook y hojas (AOA) con headers dinámicos por especies presentes.
+ * 4) Aplica estilos y formatos numéricos (densidad, IC, coordenadas, áreas).
+ * 5) Genera nombre de archivo y dispara descarga vía XLSX.
+ *
+ * Dependencias externas:
+ * - `xlsx-js-style` (generación de workbook).
+ * - [getTxCoordValue/numOrBlank](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/services/evadirPreviewService.js) para coordenadas y celdas vacías.
+ *
+ * Efectos secundarios:
+ * - Puede mostrar toast y gatillar descarga de archivo.
+ *
+ * Manejo de errores:
+ * - Si no encuentra operación, notifica y retorna.
+ * - Errores de carga/generación se capturan y se notifican (ver bloque try/catch).
+ *
+ * Notas de mantenimiento:
+ * - Mantener headers/nombres de columnas alineados con requerimientos EVADIR.
+ * - Hay compatibilidad con datos mixtos (transectos + cuadrantes, y estructuras heredadas de LP).
+ */
 export async function exportEvadirXlsx({ db, opId, toast }) {
   const op = (db?.operaciones || []).find((o) => o.id === opId)
   const ESPECIES = Array.isArray(db?.especies) ? db.especies : []

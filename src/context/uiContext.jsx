@@ -4,6 +4,24 @@ const UiContext = createContext(null)
 
 const THEME_KEY = 'bitecma_theme_v1'
 
+/**
+ * Lee el tema persistido (light/dark) desde localStorage.
+ *
+ * @returns {'light'|'dark'} Tema.
+ *
+ * Lógica:
+ * 1) Intenta leer `THEME_KEY`.
+ * 2) Si el valor es 'dark', retorna 'dark'; en otro caso, 'light'.
+ *
+ * Dependencias externas:
+ * - `localStorage` (browser).
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - En navegadores/entornos sin acceso a storage, retorna 'light'.
+ */
 function readTheme() {
   try {
     const v = localStorage.getItem(THEME_KEY)
@@ -13,6 +31,21 @@ function readTheme() {
   }
 }
 
+/**
+ * Persiste el tema en localStorage.
+ *
+ * @param {'light'|'dark'|string} v - Tema a guardar.
+ * @returns {void}
+ *
+ * Dependencias externas:
+ * - `localStorage` (browser).
+ *
+ * Efectos secundarios:
+ * - Escribe en storage.
+ *
+ * Manejo de errores:
+ * - Si falla, no hace nada (silencioso).
+ */
 function writeTheme(v) {
   try {
     localStorage.setItem(THEME_KEY, v)
@@ -21,6 +54,33 @@ function writeTheme(v) {
   }
 }
 
+/**
+ * Provider del contexto de UI.
+ *
+ * Centraliza estado de:
+ * - Toasts
+ * - Modal (título, body, tamaño)
+ * - Tema (light/dark)
+ * - Sidebar móvil (open/close)
+ *
+ * @param {{ children: import('react').ReactNode }} props - Props del provider.
+ * @returns {import('react').JSX.Element} Provider que envuelve la app.
+ *
+ * Lógica (alto nivel):
+ * 1) Maneja toasts con timeout interno.
+ * 2) Maneja modal global (open/close).
+ * 3) Sincroniza `theme` con atributo `data-theme` del `<html>`.
+ * 4) Controla `sidebarOpen` y lo resetea al entrar a viewport móvil (<= 767.98px).
+ *
+ * Dependencias externas:
+ * - `localStorage`, `document.documentElement`, `matchMedia`.
+ *
+ * Efectos secundarios:
+ * - Modifica atributos del DOM (`data-theme`) y escribe en storage.
+ *
+ * Notas de mantenimiento:
+ * - El breakpoint de sidebar está alineado con `main.css` (max-width: 767.98px).
+ */
 export function UiProvider({ children }) {
   const [toastState, setToastState] = useState({ show: false, msg: 'OK', type: '' })
   const toastT = useRef(null)
@@ -89,6 +149,27 @@ export function UiProvider({ children }) {
   return <UiContext.Provider value={value}>{children}</UiContext.Provider>
 }
 
+/**
+ * Hook para consumir el contexto UI.
+ *
+ * @returns {{
+ *  toastState: { show: boolean, msg: string, type: string },
+ *  toast: (msg: string, type?: string) => void,
+ *  modalState: { open: boolean, title: string, body: any, size: string },
+ *  openModal: (title: string, body: any, size?: string) => void,
+ *  closeModal: () => void,
+ *  theme: 'light'|'dark',
+ *  setTheme: (t: 'light'|'dark') => void,
+ *  toggleTheme: () => void,
+ *  sidebarOpen: boolean,
+ *  openSidebar: () => void,
+ *  closeSidebar: () => void,
+ *  toggleSidebar: () => void,
+ * }} API de UI (toast, modal, theme, sidebar).
+ *
+ * Manejo de errores:
+ * - Lanza si se usa fuera de `UiProvider`.
+ */
 export function useUi() {
   const ctx = useContext(UiContext)
   if (!ctx) throw new Error('UiProvider missing')

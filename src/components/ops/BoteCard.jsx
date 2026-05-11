@@ -150,6 +150,28 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
   }, [bote, especies])
 
   const totalUnidades = Array.isArray(bote?.transectos) ? bote.transectos.length : 0
+
+  /**
+   * Calcula el total de muestras L/P/D del bote, soportando estructuras mixtas de `lpMuestras`.
+   *
+   * @returns {number} Total de muestras registradas para el bote.
+   *
+   * Lógica:
+   * 1) Normaliza `bote.lpMuestras` a objeto.
+   * 2) Para cada especie:
+   *    - Si el entry es array, suma su largo (formato heredado).
+   *    - Si el entry es `{ ms: [] }`, suma `ms.length` (formato heredado).
+   *    - Si el entry es objeto con claves `LP/L/D`, suma largos de cada arreglo.
+   *
+   * Dependencias externas:
+   * - Ninguna.
+   *
+   * Efectos secundarios:
+   * - Ninguno.
+   *
+   * Notas de mantenimiento:
+   * - Mantener compatibilidad con `lpMuestrasService` (esquemas antiguos importados).
+   */
   const totalMuestras = (() => {
     const map = bote?.lpMuestras && typeof bote.lpMuestras === 'object' ? bote.lpMuestras : {}
     return Object.values(map).reduce((acc, entry) => {

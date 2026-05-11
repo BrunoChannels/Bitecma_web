@@ -233,6 +233,25 @@ function LpScatter({ points, width = 520, height = 170, title = 'Relación Peso 
     const xMax = maxX > 0 ? Math.ceil(maxX * 1.05) : 1
     const yMax = maxY > 0 ? Math.ceil(maxY * 1.05) : 1
 
+    /**
+     * Calcula parámetros de regresión potencia `y = a * x^b` y R² en el espacio log.
+     *
+     * @returns {{a:number,b:number,r2:number|null}|null} Parámetros de regresión o `null` si no aplica.
+     *
+     * Lógica:
+     * 1) Requiere al menos 2 puntos con `x>0` y `y>0`.
+     * 2) Ajusta por mínimos cuadrados en log-log: `log(y)=a0 + b*log(x)`.
+     * 3) Convierte `a = exp(a0)` y calcula R² en log.
+     *
+     * Dependencias externas:
+     * - `forReg` (puntos válidos para regresión).
+     *
+     * Efectos secundarios:
+     * - Ninguno.
+     *
+     * Notas de mantenimiento:
+     * - Si cambia la forma del modelo (lineal, expo, etc.), ajustar aquí y el label de ecuación.
+     */
     const reg = (() => {
       const n = forReg.length
       if (n < 2) return null
@@ -304,6 +323,22 @@ function LpScatter({ points, width = 520, height = 170, title = 'Relación Peso 
         meta: it.p,
       }))
 
+    /**
+     * Construye el path SVG de la curva de regresión (si existe regresión).
+     *
+     * @returns {string|null} String `d` para `<path />` o `null` si no hay regresión.
+     *
+     * Lógica:
+     * 1) Samplea `x` en `[0..xMax]` (omitiendo x<=0).
+     * 2) Calcula `y = a*x^b`.
+     * 3) Proyecta a coordenadas SVG con `sx/sy` y genera comandos `M/L`.
+     *
+     * Dependencias externas:
+     * - `stats.reg`, `stats.xMax`, `sx`, `sy`.
+     *
+     * Efectos secundarios:
+     * - Ninguno.
+     */
     const line = (() => {
       if (!stats.reg) return null
       const { a, b } = stats.reg
@@ -859,6 +894,26 @@ export default function EvadirPreview({ db, op }) {
   const lpPreview = useMemo(() => {
     if (!isLpTab) return null
     const ESPECIES = Array.isArray(especies) ? especies : []
+
+    /**
+     * Índice de especies por clave normalizada (común y científico) para resolver `especieId`.
+     *
+     * @returns {Map<string, number>} Map `key -> especieId`.
+     *
+     * Lógica:
+     * 1) Recorre `ESPECIES`.
+     * 2) Normaliza `com` y `sci` con `normKey`.
+     * 3) Indexa ambas claves apuntando al id.
+     *
+     * Dependencias externas:
+     * - `ESPECIES`, `normKey`.
+     *
+     * Efectos secundarios:
+     * - Ninguno.
+     *
+     * Notas de mantenimiento:
+     * - Se usa como fallback para tabs cuyo nombre viene como `LP <Especie>`.
+     */
     const spKeyToId = (() => {
       const m = new Map()
       ESPECIES.forEach((e) => {

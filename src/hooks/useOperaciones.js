@@ -2,6 +2,41 @@ import { useMemo, useState } from 'react'
 import { useDb } from '../context/dbContext.jsx'
 import { filterOperaciones } from '../services/operacionesService.js'
 
+/**
+ * Hook de estado/selector para el listado de operaciones.
+ *
+ * Expone operaciones desde el contexto DB y un set de filtros (sector/mes/texto),
+ * junto con colecciones derivadas para poblar combos en UI.
+ *
+ * @returns {{
+ *  operaciones: Array<object>,
+ *  filtered: Array<object>,
+ *  sector: string,
+ *  setSector: (v: string) => void,
+ *  mes: string,
+ *  setMes: (v: string) => void,
+ *  texto: string,
+ *  setTexto: (v: string) => void,
+ *  sectores: Array<string>,
+ *  meses: Array<string>,
+ * }} Estado y selectores del módulo Operaciones.
+ *
+ * Lógica:
+ * 1) Lee `db.operaciones` desde contexto y lo normaliza a arreglo.
+ * 2) Mantiene filtros locales (state).
+ * 3) Deriva `sectores` únicos y `meses` (YYYY-MM) desde `fechaInicio`.
+ * 4) Deriva `filtered` usando `filterOperaciones`.
+ *
+ * Dependencias externas:
+ * - [useDb](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/context/dbContext.jsx)
+ * - [filterOperaciones](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/services/operacionesService.js)
+ *
+ * Efectos secundarios:
+ * - Ninguno (solo estados locales).
+ *
+ * Notas de mantenimiento:
+ * - Este hook no pagina ni ordena; la UI decide orden/segmentación por región.
+ */
 export function useOperaciones() {
   const { db } = useDb()
   const ops = useMemo(() => (Array.isArray(db?.operaciones) ? db.operaciones : []), [db])

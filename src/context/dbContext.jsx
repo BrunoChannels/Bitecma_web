@@ -5,6 +5,24 @@ const DbContext = createContext(null)
 
 const TOKEN_KEY = 'bitecma_token'
 
+/**
+ * Retorna el estado inicial de la DB en memoria.
+ *
+ * @returns {{
+ *  especies: Array<object>,
+ *  operaciones: Array<object>,
+ *  regionesChile: Array<object>,
+ *  caletasByRegionStatic: Record<string, Array<string>>,
+ *  sectoresAmerb: Array<object>,
+ *  opa: Array<object>,
+ *  botesMaestro: Array<object>,
+ *  perfiles: Array<object>,
+ * }} Estructura base.
+ *
+ * Notas de mantenimiento:
+ * - Mantener las claves estables: la UI y servicios asumen estos nombres.
+ * - `caletasByRegionStatic` proviene de un catálogo estático para modo offline/auxiliar.
+ */
 function initialDb() {
   return {
     especies: [],
@@ -18,6 +36,35 @@ function initialDb() {
   }
 }
 
+/**
+ * Provider del contexto de datos (DB en memoria + persistencia vía API).
+ *
+ * Este contexto expone:
+ * - `db`: snapshot de datos en memoria (especies, operaciones, maestros).
+ * - `ensure*Loaded`: cargadores idempotentes (cacheados con refs) para poblar `db`.
+ * - Mutadores de operaciones y maestros (`upsert*`, `delete*`, `saveOperacion`, etc.).
+ *
+ * @param {{ children: import('react').ReactNode }} props - Props del provider.
+ * @returns {import('react').JSX.Element} Provider.
+ *
+ * Lógica (alto nivel):
+ * 1) Resuelve modo API (`VITE_API_URL`) y crea `apiFetch`.
+ * 2) Mantiene “refs” de carga para evitar doble fetch por recurso.
+ * 3) Ejecuta cargas base al montar si API está habilitada.
+ * 4) Expone un `value` memoizado con API pública del contexto.
+ *
+ * Dependencias externas:
+ * - `fetch` y `localStorage` (para token bearer).
+ * - `CALETAS_BY_REGION_STATIC` (catálogo local).
+ *
+ * Efectos secundarios:
+ * - Puede hacer requests HTTP para cargar y persistir datos.
+ * - Lee token desde localStorage para autenticar llamadas a API.
+ *
+ * Notas de mantenimiento:
+ * - El contrato de `apiFetch` debe mantenerse consistente con el backend (`{ ok, data, error }`).
+ * - Si se agregan nuevos maestros/endpoints, seguir el patrón `ensureXLoaded` con ref `{done,promise}`.
+ */
 export function DbProvider({ children }) {
   const [db, setDb] = useState(() => initialDb())
   const apiUrl = String(import.meta.env?.VITE_API_URL || '').trim().replace(/\/+$/, '')
@@ -402,6 +449,32 @@ export function DbProvider({ children }) {
   return <DbContext.Provider value={value}>{children}</DbContext.Provider>
 }
 
+/**
+ * Hook para consumir el contexto DB.
+ *
+ * @returns {{
+ *  db: any,
+ *  setDb: (updater: any) => void,
+ *  apiEnabled: boolean,
+ *  ensureBotesMaestroLoaded: () => Promise<void>|void,
+ *  ensureSectoresAmerbLoaded: () => Promise<void>|void,
+ *  ensureOpaLoaded: () => Promise<void>|void,
+ *  ensureEspeciesLoaded: () => Promise<void>|void,
+ *  ensureRegionesLoaded: () => Promise<void>|void,
+ *  ensureOperacionesLoaded: () => Promise<void>|void,
+ *  ensurePerfilesLoaded: () => Promise<void>|void,
+ *  upsertOperacion: (op: any) => Promise<any>,
+ *  deleteOperacion: (id: any) => void,
+ *  saveOperacion: (id: any) => Promise<any>,
+ *  deleteOperacionApi: (id: any) => Promise<any>,
+ *  updateOperacion: (opId: any, updater: (cur: any) => any) => void,
+ *  upsertBoteMaestro: (bote: any) => Promise<any>,
+ *  deleteBoteMaestro: (id: any) => Promise<any>,
+ * }} API de datos para UI.
+ *
+ * Manejo de errores:
+ * - Lanza si se usa fuera de `DbProvider`.
+ */
 export function useDb() {
   const ctx = useContext(DbContext)
   if (!ctx) throw new Error('DbProvider missing')

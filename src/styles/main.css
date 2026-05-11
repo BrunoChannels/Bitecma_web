@@ -427,7 +427,8 @@ input[type=number].lp-num-inp{-moz-appearance:textfield;appearance:textfield;}
   .lp-species-action .btn{width:100%;}
 }
 
-.ops-region-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:stretch;}
+.ops-region-grid{display:flex;flex-direction:column;gap:12px;align-items:stretch;}
+.ops-region-grid .card{width:100%;}
 .ops-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:12px;align-items:start;}
 .ops-grid .op-card{margin-bottom:0;}
 .ops-grid .mb{margin-bottom:0;}

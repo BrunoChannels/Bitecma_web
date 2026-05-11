@@ -8,6 +8,18 @@ const ACTIVE_PROFILE_KEY = 'bitecma_active_profile'
 const PROFILE_DATA_KEY = 'bitecma_profile_data'
 const TOKEN_KEY = 'bitecma_token'
 
+/**
+ * Normaliza texto para comparaciones (minúsculas, sin diacríticos).
+ *
+ * @param {unknown} s - Texto a normalizar.
+ * @returns {string} Texto normalizado.
+ *
+ * Dependencias externas:
+ * - `String.prototype.normalize` (API estándar).
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ */
 function normKey(s) {
   return String(s || '')
     .toLowerCase()
@@ -16,6 +28,21 @@ function normKey(s) {
     .trim()
 }
 
+/**
+ * Normaliza el rol del usuario a un set acotado usado por la app.
+ *
+ * @param {unknown} rol - Rol leído del perfil (API o local).
+ * @returns {'Admin'|'Usuario'|'Visualizador'} Rol normalizado.
+ *
+ * Lógica:
+ * - Mapea variantes comunes (biologo/biologa/viewer/readonly) a las etiquetas internas.
+ *
+ * Dependencias externas:
+ * - `normKey` (este módulo).
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ */
 function normalizeRole(rol) {
   const r = normKey(rol)
   if (r === 'admin') return 'Admin'
@@ -24,6 +51,17 @@ function normalizeRole(rol) {
   return String(rol || '').trim() || 'Usuario'
 }
 
+/**
+ * Lee el id del perfil activo desde localStorage (modo offline).
+ *
+ * @returns {string|null} Id persistido o `null`.
+ *
+ * Dependencias externas:
+ * - `localStorage`.
+ *
+ * Manejo de errores:
+ * - Si falla el acceso a storage, retorna `null`.
+ */
 function readActiveProfileId() {
   try {
     return localStorage.getItem(ACTIVE_PROFILE_KEY)
@@ -32,6 +70,15 @@ function readActiveProfileId() {
   }
 }
 
+/**
+ * Persiste el id del perfil activo en localStorage (modo offline).
+ *
+ * @param {unknown} id - Id del perfil; si es falsy se elimina.
+ * @returns {void}
+ *
+ * Efectos secundarios:
+ * - Escribe/elimina en storage.
+ */
 function writeActiveProfileId(id) {
   try {
     if (!id) localStorage.removeItem(ACTIVE_PROFILE_KEY)
@@ -41,6 +88,17 @@ function writeActiveProfileId(id) {
   }
 }
 
+/**
+ * Lee el mapa de datos de perfil extendidos desde localStorage (modo offline).
+ *
+ * @returns {Record<string, any>} Mapa por id de perfil.
+ *
+ * Lógica:
+ * - Parsea JSON y valida que sea objeto.
+ *
+ * Manejo de errores:
+ * - Si falla parseo o acceso, retorna `{}`.
+ */
 function readProfileMap() {
   try {
     const raw = localStorage.getItem(PROFILE_DATA_KEY)
@@ -51,6 +109,15 @@ function readProfileMap() {
   }
 }
 
+/**
+ * Persiste el mapa de perfiles en localStorage (modo offline).
+ *
+ * @param {Record<string, any>} map - Mapa a guardar.
+ * @returns {void}
+ *
+ * Efectos secundarios:
+ * - Escribe en storage.
+ */
 function writeProfileMap(map) {
   try {
     localStorage.setItem(PROFILE_DATA_KEY, JSON.stringify(map || {}))
@@ -59,6 +126,11 @@ function writeProfileMap(map) {
   }
 }
 
+/**
+ * Lee el token API desde localStorage (modo online/API).
+ *
+ * @returns {string|null} Token o `null`.
+ */
 function readToken() {
   try {
     return localStorage.getItem(TOKEN_KEY)
@@ -67,6 +139,12 @@ function readToken() {
   }
 }
 
+/**
+ * Persiste el token API en localStorage (modo online/API).
+ *
+ * @param {unknown} token - Token; si es falsy se elimina.
+ * @returns {void}
+ */
 function writeToken(token) {
   try {
     if (!token) localStorage.removeItem(TOKEN_KEY)
@@ -76,6 +154,36 @@ function writeToken(token) {
   }
 }
 
+/**
+ * Provider del contexto de App (navegación, sesión, permisos y perfil).
+ *
+ * Soporta dos modos:
+ * - Modo offline: usa perfiles locales `db.perfiles` y una contraseña fija/guardada.
+ * - Modo API: usa `VITE_API_URL`, token bearer y endpoints `/auth/*`.
+ *
+ * @param {{ children: import('react').ReactNode }} props - Props del provider.
+ * @returns {import('react').JSX.Element} Provider que envuelve la app.
+ *
+ * Lógica (alto nivel):
+ * 1) Resuelve configuración API (`apiUrl`/`apiEnabled`).
+ * 2) Mantiene estado de navegación (`page`) y sesión (usuario/token).
+ * 3) Expone helpers: `navigate`, `login`, `logout`, `updateProfile`, `changePassword`, `uploadAvatar`.
+ * 4) Deriva `role`, `isAdmin`, `isViewer`, `canWrite`.
+ * 5) En modo API, intenta hidratar `/auth/me` si hay token persistido.
+ *
+ * Dependencias externas:
+ * - [useDb](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/context/dbContext.jsx)
+ * - [useUi](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/context/uiContext.jsx)
+ * - `fetch`, `FormData`, `localStorage` (browser).
+ *
+ * Efectos secundarios:
+ * - Lee/escribe en storage (perfil activo, mapa de perfiles, token).
+ * - Puede ejecutar requests a API.
+ *
+ * Notas de mantenimiento:
+ * - Si se agregan nuevas páginas, mantener el contrato de `navigate(pageKey)` alineado con `App.jsx`.
+ * - En modo offline, la contraseña default '12345678' es solo para demo/local.
+ */
 export function AppProvider({ children }) {
   const { db } = useDb()
   const { toast } = useUi()
@@ -365,6 +473,28 @@ export function AppProvider({ children }) {
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
 }
 
+/**
+ * Hook para consumir el contexto de App.
+ *
+ * @returns {{
+ *  page: string,
+ *  navigate: (next: string) => void,
+ *  isAuthed: boolean,
+ *  user: any,
+ *  role: string,
+ *  isAdmin: boolean,
+ *  isViewer: boolean,
+ *  canWrite: boolean,
+ *  login: (email: string, pass: string) => Promise<boolean> | boolean,
+ *  logout: () => void,
+ *  updateProfile: (payload: any) => Promise<boolean> | boolean,
+ *  uploadAvatar: (file: File) => Promise<string|null>,
+ *  changePassword: (payload: any) => boolean,
+ * }} API principal de la app.
+ *
+ * Manejo de errores:
+ * - Lanza si se usa fuera de `AppProvider`.
+ */
 export function useApp() {
   const ctx = useContext(AppContext)
   if (!ctx) throw new Error('AppProvider missing')

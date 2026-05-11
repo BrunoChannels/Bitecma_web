@@ -1,3 +1,20 @@
+/**
+ * Normaliza un valor a número finito o `null` (utilidad para export EVADIR).
+ *
+ * @param {unknown} v - Valor a normalizar.
+ * @returns {number|null} Número finito o `null`.
+ *
+ * Lógica:
+ * 1) `null/undefined/''` => `null`.
+ * 2) Si es number finito, retorna tal cual.
+ * 3) Si es string, parsea tolerando coma decimal.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ */
 export function normNumber(v) {
   if (v === null || v === undefined || v === '') return null
   if (typeof v === 'number') return Number.isFinite(v) ? v : null
@@ -5,11 +22,38 @@ export function normNumber(v) {
   return Number.isFinite(n) ? n : null
 }
 
+/**
+ * Devuelve un número normalizado o un string vacío, para celdas de planilla.
+ *
+ * @param {unknown} v - Valor candidato.
+ * @returns {number|string} Número si es válido; si no, ''.
+ *
+ * Dependencias externas:
+ * - `normNumber` (este módulo).
+ *
+ * Notas de mantenimiento:
+ * - EVADIR suele preferir celdas vacías en vez de `0` cuando no hay dato.
+ */
 export function numOrBlank(v) {
   const n = normNumber(v)
   return n === null ? '' : n
 }
 
+/**
+ * Formatea un valor de coordenada para celda EVADIR con 4 decimales (cuando aplica).
+ *
+ * @param {unknown} v - Valor de coordenada (número o string).
+ * @returns {string} String listo para celda (vacío si no hay valor).
+ *
+ * Lógica:
+ * - Si es número finito => `toFixed(4)`.
+ * - Si es entero en string => agrega `.0000`.
+ * - Si tiene decimales => recorta/completea a 4 decimales.
+ * - Si no parsea => devuelve el original (para no destruir formatos externos).
+ *
+ * Notas de mantenimiento:
+ * - Se prefiere devolver string (no number) para mantener formato exacto en export.
+ */
 function coordCell(v) {
   if (v === null || v === undefined || v === '') return ''
 
@@ -29,6 +73,27 @@ function coordCell(v) {
   return `${m[1]}.${dec4}`
 }
 
+/**
+ * Obtiene el valor de coordenada de un transecto/cuadrante usando claves alternas.
+ *
+ * @param {object} t - Transecto/cuadrante.
+ * @param {'x'|'y'|'lon'|'lat'} key - Coordenada solicitada.
+ * @returns {number|string} Número (si parseable) o string (si viene textual); '' si no hay dato.
+ *
+ * Lógica:
+ * 1) Recorre candidatos por key: `coordX/x`, `coordY/y`, `coordLong/lon`, `coordLat/lat`.
+ * 2) Si es number finito, retorna número.
+ * 3) Si es string numérico, intenta parsearlo; si no, retorna string original.
+ *
+ * Dependencias externas:
+ * - `normNumber` (este módulo).
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Notas de mantenimiento:
+ * - Este fallback existe para soportar datos importados con distintas claves.
+ */
 export function getTxCoordValue(t, key) {
   if (!t) return ''
   const map = {
@@ -50,6 +115,33 @@ export function getTxCoordValue(t, key) {
   return ''
 }
 
+/**
+ * Construye las “sheets” (arreglo-de-arreglos) para previsualizar/exportar EVADIR.
+ *
+ * @param {object} args - Parámetros.
+ * @param {object} args.db - DB en memoria (se usa `db.especies`).
+ * @param {object} args.op - Operación a exportar (con `botes`, `transectos`, `lpMuestras`).
+ * @returns {{ sheets: Array<{name:string, aoa:any[][]}>, meta: any }} Sheets para export y metadata opcional.
+ *
+ * Lógica (alto nivel):
+ * 1) Construye mapa de especies por id.
+ * 2) Determina especies usadas en densidad (transectos/cuadrantes) y arma header EVADIR dinámico.
+ * 3) Genera AOA de densidad, incluyendo conteos, densidades y coordenadas.
+ * 4) Agrupa muestras L/P/D por especie y genera una sheet por especie/tipo.
+ *
+ * Dependencias externas:
+ * - `normNumber`, `numOrBlank`, `coordCell`, `getTxCoordValue` (este módulo).
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Si `op` es falsy retorna `{ sheets: [], meta: null }`.
+ *
+ * Notas de mantenimiento:
+ * - Mantener nombres/headers alineados a las plantillas EVADIR vigentes.
+ * - Hay compatibilidad con formatos heredados de `lpMuestras` (array, `{ ms }`, entry por tipo).
+ */
 export function buildEvadirPreviewSheets({ db, op }) {
   const ESPECIES = Array.isArray(db?.especies) ? db.especies : []
   if (!op) return { sheets: [], meta: null }

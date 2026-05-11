@@ -419,6 +419,26 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       const regionesChile = Array.isArray(db?.regionesChile) ? db.regionesChile : []
       const opaArr = Array.isArray(db?.opa) ? db.opa : []
 
+      /**
+       * Construye un índice de especies por clave normalizada (nombre común y científico).
+       *
+       * @returns {Map<string, number>} Map `key -> especieId`.
+       *
+       * Lógica:
+       * 1) Recorre `especies`.
+       * 2) Para cada especie, genera claves normalizadas de `com` y `sci` con `normHeader`.
+       * 3) Indexa ambas claves apuntando al `id`.
+       *
+       * Dependencias externas:
+       * - `especies` (catálogo en memoria).
+       * - `normHeader` (helper local).
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Notas de mantenimiento:
+       * - Este map se usa como base de resolución rápida durante el parseo de columnas EVADIR.
+       */
       const speciesIdByKey = (() => {
         const m = new Map()
         for (const sp of especies) {
@@ -432,6 +452,25 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         return m
       })()
 
+      /**
+       * Construye un set de ids de especies que se consideran “algas”.
+       *
+       * Se usa para forzar tipo de muestreo a diámetro (D) al interpretar hojas LP/L/D.
+       *
+       * @returns {Set<number>} Set de ids de especies clasificadas como algas.
+       *
+       * Lógica:
+       * - Aplica heurísticas por nombre común/científico (tokens como lessonia/huiro/cochayuyo/luga).
+       *
+       * Dependencias externas:
+       * - `especies`, `normHeader`.
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Notas de mantenimiento:
+       * - Si el catálogo define taxonomía/categoría explícita, reemplazar heurística por campo oficial.
+       */
       const algaIdSet = (() => {
         const m = new Set()
         for (const sp of especies) {
@@ -454,6 +493,25 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         return m
       })()
 
+      /**
+       * Construye un índice tolerante para nombres científicos abreviados tipo “L berteroana”.
+       *
+       * @returns {Map<string, number>} Map de claves abreviadas a id de especie.
+       *
+       * Lógica:
+       * 1) Normaliza `sp.sci`.
+       * 2) Toma primera letra del género + epíteto (ej: "l berteroana").
+       * 3) Indexa variantes con/ sin espacio (ej: "l berteroana" y "lberteroana").
+       *
+       * Dependencias externas:
+       * - `especies`, `normHeader`.
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Notas de mantenimiento:
+       * - Útil para planillas que usan abreviaturas en headers/nombres de hoja.
+       */
       const genusInitialEpithetToId = (() => {
         const m = new Map()
         for (const sp of especies) {
@@ -471,6 +529,23 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         return m
       })()
 
+      /**
+       * Tabla de alias científicos (strings) para compatibilidad con variantes históricas/typos.
+       *
+       * @returns {Map<string, string>} Map `aliasSci -> sciCanon`.
+       *
+       * Lógica:
+       * - Normaliza ambos extremos con `normHeader` y guarda el mapping.
+       *
+       * Dependencias externas:
+       * - `normHeader`.
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Notas de mantenimiento:
+       * - Este map se usa por `resolveSpeciesId` antes de resolver a un id final.
+       */
       const sciAliases = (() => {
         const m = new Map()
         const add = (from, to) => {
@@ -488,6 +563,25 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         return m
       })()
 
+      /**
+       * Construye un índice de alias de nombre común a id de especie.
+       *
+       * @returns {Map<string, number>} Map `aliasCommon -> especieId`.
+       *
+       * Lógica:
+       * 1) Agrega el nombre común completo normalizado.
+       * 2) Agrega variantes sin espacios (para matches compactos).
+       * 3) Agrega abreviatura “InicialDelPrimero + último” evitando stop-words.
+       *
+       * Dependencias externas:
+       * - `especies`, `normHeader`.
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Notas de mantenimiento:
+       * - Se utiliza para inferir especie desde nombres de hoja (LP/L/D) cuando no viene explícita.
+       */
       const comAliasToId = (() => {
         const m = new Map()
         const stop = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y', 'spp', 'sp'])
@@ -661,6 +755,25 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         return best?.id ?? null
       }
 
+      /**
+       * Índice de regiones por claves normalizadas (nombre, romano e id).
+       *
+       * @returns {Map<string, number>} Map `key -> regionId`.
+       *
+       * Lógica:
+       * 1) Recorre `regionesChile`.
+       * 2) Indexa `nom`, `rom` y el propio `id` como texto.
+       *
+       * Dependencias externas:
+       * - `regionesChile` (catálogo en memoria).
+       * - `normHeader` (helper local).
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Notas de mantenimiento:
+       * - Se usa por `resolveRegionId` para tolerar entradas variadas del Excel.
+       */
       const regionsByKey = (() => {
         const m = new Map()
         for (const r of regionesChile) {
@@ -765,6 +878,31 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         .slice(hdrRowIdx + 1)
         .filter((r) => Array.isArray(r) && r.some((c) => String(c ?? '').trim() !== ''))
 
+      /**
+       * Resuelve el índice de una columna en base a una lista de tests contra headers normalizados.
+       *
+       * @param {Array<string|RegExp>} tests - Tests (match exacto o regex) en `keys`.
+       * @returns {number} Índice de columna encontrado o -1 si no hay match.
+       *
+       * Lógica:
+       * 1) Recorre `keys` (headers ya normalizados con `normHeader`).
+       * 2) Para cada key no vacía, intenta:
+       *    - match exacto con strings,
+       *    - match con `RegExp.test`.
+       * 3) Retorna el primer índice que calza.
+       *
+       * Dependencias externas:
+       * - `keys` (del scope de importación).
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Manejo de errores:
+       * - Tolerante a keys vacías.
+       *
+       * Notas de mantenimiento:
+       * - Este helper concentra heurísticas de matching de columnas; ajustar tests si cambian plantillas.
+       */
       const idxBy = (tests) => {
         for (let i = 0; i < keys.length; i++) {
           const k = keys[i]
@@ -784,6 +922,26 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       const iTipoOrg = idxBy([/tipo de organizacion/, /tipo organizacion/, /^tipo org$/, /de organiza/])
       const iOrgNombre = idxBy([/^nombre organizacion$/, /nombre.*organizacion/, /^nombre org$/, /nombre.*org/])
       const iOrgGenerico = idxBy([/^organizacion$/, /organizacion/])
+
+      /**
+       * Resuelve el índice “más probable” de la columna Organización.
+       *
+       * @returns {number} Índice de columna para organización o -1.
+       *
+       * Lógica:
+       * 1) Prioriza `iOrgNombre` si existe.
+       * 2) Si solo existe una columna genérica `organizacion`, evita confundirla con `tipo organizacion`.
+       * 3) Si está confundida, busca otra columna que contenga 'organizacion' pero no 'tipo'.
+       *
+       * Dependencias externas:
+       * - `keys`, `iOrgNombre`, `iOrgGenerico`, `iTipoOrg`.
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Notas de mantenimiento:
+       * - Esta heurística existe por plantillas con headers similares; ajustar si cambian columnas reales.
+       */
       const iOrg = (() => {
         if (iOrgNombre >= 0) return iOrgNombre
         if (iOrgGenerico < 0) return -1
@@ -813,6 +971,29 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       const iCubierta = idxBy([/cubierta biologica/, /cubierta/])
       const iX = idxBy(['x'])
       const iY = idxBy(['y'])
+
+      /**
+       * Resuelve el índice de una columna comparando el header crudo en UPPERCASE (sin normalización).
+       *
+       * Esto es útil para columnas que en plantillas EVADIR aparecen como siglas exactas (ej: 'LONG', 'LAT').
+       *
+       * @param {string} rawUpper - Header esperado en UPPERCASE (match exacto).
+       * @returns {number} Índice de columna encontrado o -1 si no existe.
+       *
+       * Lógica:
+       * 1) Itera `headerRow` (celdas originales).
+       * 2) Convierte a string, trim y uppercase.
+       * 3) Compara con `rawUpper`.
+       *
+       * Dependencias externas:
+       * - `headerRow` (del scope de importación).
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Notas de mantenimiento:
+       * - Mantener este helper separado de `idxBy` para no introducir falsos positivos por normalización.
+       */
       const idxByRawUpper = (rawUpper) => {
         for (let i = 0; i < headerRow.length; i++) {
           const h = String(headerRow[i] ?? '').trim().toUpperCase()
@@ -857,6 +1038,26 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         }
       }
 
+      /**
+       * Normaliza el nombre del bote para matching tolerante entre hojas EVADIR y hojas LP/L/D.
+       *
+       * @param {unknown} name - Nombre crudo del bote.
+       * @returns {string} Nombre normalizado (sin artículos comunes y sin prefijo "bote").
+       *
+       * Lógica:
+       * 1) Normaliza texto con `normHeader` y lo tokeniza.
+       * 2) Elimina tokens iniciales tipo artículos ("el/la/los/las") y la palabra "bote".
+       * 3) Une tokens restantes.
+       *
+       * Dependencias externas:
+       * - `normHeader` (helper de normalización del importador).
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Notas de mantenimiento:
+       * - Si aparecen prefijos nuevos en planillas reales, agregarlos al set de tokens removidos.
+       */
       const normBoat = (name) => {
         const toks = normHeader(name).split(' ').filter(Boolean)
         while (toks.length && ['el', 'la', 'los', 'las', 'bote'].includes(toks[0])) toks.shift()
@@ -993,6 +1194,26 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       }
 
       const mergedBoats = (() => {
+        /**
+         * Normaliza una entrada de `lpMuestras` a formato `{ LP?, L?, D? }`.
+         *
+         * @param {unknown} entry - Entrada cruda por especie (formatos heredados o actuales).
+         * @returns {{ LP?: any[], L?: any[], D?: any[] }} Mapa por tipo.
+         *
+         * Lógica:
+         * - Si es array, infiere tipo por shape (d/p/l) y agrupa.
+         * - Si es objeto con `{ ms }`, usa `type` como selector.
+         * - Si es objeto con claves `LP/L/D`, conserva arreglos válidos.
+         *
+         * Dependencias externas:
+         * - Ninguna (helpers embebidos para mantener el importador autocontenido).
+         *
+         * Efectos secundarios:
+         * - Ninguno.
+         *
+         * Notas de mantenimiento:
+         * - Mantener alineado con `lpMuestrasService.normalizeEntry` si se unifica lógica en un solo lugar.
+         */
         const normalizeEntry = (entry) => {
           if (Array.isArray(entry)) {
             const out = {}
@@ -1019,6 +1240,28 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
           return {}
         }
 
+        /**
+         * Fusiona dos mapas `lpMuestras`, concatenando muestras por especie y tipo.
+         *
+         * @param {unknown} a - Mapa base (puede ser null/formatos mixtos).
+         * @param {unknown} b - Mapa entrante (puede ser null/formatos mixtos).
+         * @returns {object} Nuevo mapa fusionado.
+         *
+         * Lógica:
+         * 1) Clona `a` como base.
+         * 2) Para cada especie en `b`:
+         *    - si no existe, asigna directo,
+         *    - si existe, normaliza ambos entries y concatena arrays por tipo.
+         *
+         * Dependencias externas:
+         * - `normalizeEntry` (helper local del merge).
+         *
+         * Efectos secundarios:
+         * - Ninguno.
+         *
+         * Notas de mantenimiento:
+         * - No deduplica muestras; asume que entradas vienen de fuentes distintas (EVADIR vs LP).
+         */
         const mergeLpMuestras = (a, b) => {
           const ma = a && typeof a === 'object' ? a : {}
           const mb = b && typeof b === 'object' ? b : {}
@@ -1042,6 +1285,26 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
           return out
         }
 
+        /**
+         * Fusiona dos unidades (transecto/cuadrante) preservando el “mejor” dato disponible.
+         *
+         * @param {unknown} a - Unidad base.
+         * @param {unknown} b - Unidad entrante.
+         * @returns {object} Unidad fusionada.
+         *
+         * Lógica:
+         * 1) Preserva datos existentes de `a` y completa desde `b` solo cuando faltan.
+         * 2) Para `counts`, combina claves y toma el máximo por especie.
+         *
+         * Dependencias externas:
+         * - Ninguna.
+         *
+         * Efectos secundarios:
+         * - Ninguno.
+         *
+         * Notas de mantenimiento:
+         * - Se usa para deduplicar cuando una misma unidad aparece en múltiples filas/hojas.
+         */
         const mergeUnidad = (a, b) => {
           const out = { ...(a && typeof a === 'object' ? a : {}) }
           const src = b && typeof b === 'object' ? b : {}
@@ -1196,6 +1459,17 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         norm: normBoat(b?.nombre),
       }))
 
+      /**
+       * Índice de botes por `zona::nombreNormalizado` (match exacto con desambiguación por zona).
+       *
+       * @returns {Map<string, object>} Map `zona::norm -> bote`.
+       *
+       * Dependencias externas:
+       * - `boatCandidates`.
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       */
       const boatByZonaNorm = (() => {
         const m = new Map()
         boatCandidates.forEach((x) => {
@@ -1205,6 +1479,20 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         return m
       })()
 
+      /**
+       * Índice de botes por `nombreNormalizado` (match exacto sin zona).
+       *
+       * @returns {Map<string, object>} Map `norm -> bote` (primera ocurrencia).
+       *
+       * Dependencias externas:
+       * - `boatCandidates`.
+       *
+       * Efectos secundarios:
+       * - Ninguno.
+       *
+       * Notas de mantenimiento:
+       * - Mantiene la primera ocurrencia para evitar reemplazos inestables; usar `boatByZonaNorm` cuando sea posible.
+       */
       const boatByNorm = (() => {
         const m = new Map()
         boatCandidates.forEach((x) => {
