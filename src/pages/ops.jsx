@@ -396,6 +396,7 @@ export default function OpsPage({ active }) {
   const {
     db,
     ensureRegionesLoaded,
+    ensureCaletasLoaded,
     ensureOperacionesLoaded,
     ensureBotesMaestroLoaded,
     ensureSectoresAmerbLoaded,
@@ -545,6 +546,7 @@ export default function OpsPage({ active }) {
     if (!active) return
     ensureBotesMaestroLoaded?.()
     ensureRegionesLoaded?.()
+    ensureCaletasLoaded?.()
     ensureOperacionesLoaded?.()
     ensureSectoresAmerbLoaded?.()
     ensureOpaLoaded?.()
@@ -552,6 +554,7 @@ export default function OpsPage({ active }) {
     active,
     ensureBotesMaestroLoaded,
     ensureRegionesLoaded,
+    ensureCaletasLoaded,
     ensureOperacionesLoaded,
     ensureSectoresAmerbLoaded,
     ensureOpaLoaded,
@@ -593,7 +596,11 @@ export default function OpsPage({ active }) {
 
   const regiones = useMemo(() => db?.regionesChile || [], [db?.regionesChile])
   const sectorAmerb = db?.sectoresAmerb || []
-  const caletasByRegion = db?.caletasByRegionStatic || {}
+  const caletasByRegion = useMemo(() => {
+    const byId = db?.caletasByRegionId
+    if (byId && typeof byId === 'object' && Object.keys(byId).length) return byId
+    return db?.caletasByRegionStatic || {}
+  }, [db?.caletasByRegionId, db?.caletasByRegionStatic])
   const opa = useMemo(() => db?.opa || [], [db?.opa])
   const regionMetaById = useMemo(() => new Map(regiones.map((r) => [String(r?.id), r])), [regiones])
   const regionNameById = useMemo(
@@ -715,16 +722,41 @@ export default function OpsPage({ active }) {
       toast('Modo solo lectura', 'blue')
       return null
     }
-    upsertOperacion(opData)
+
+    const opId = String(opData?.id || '').trim()
+    const prev = (Array.isArray(operaciones) ? operaciones : []).find((o) => String(o?.id) === opId) || null
+
+    const norm = (op) => {
+      const next = { ...(op || {}) }
+      const caleta = String(next?.caleta ?? next?.sector ?? '').trim()
+      if (caleta) {
+        next.caleta = caleta
+        next.sector = caleta
+      }
+      if (next?.caletaId == null || next.caletaId === '') {
+        const rid = next?.region != null ? Number(next.region) : null
+        const list = Array.isArray(db?.caletas) ? db.caletas : []
+        if (Number.isFinite(rid) && caleta && list.length) {
+          const found = list.find((c) => Number(c?.region_id) === rid && String(c?.nombre || '').trim() === caleta)
+          if (found?.id != null) next.caletaId = Number(found.id)
+        }
+      }
+      return next
+    }
+
+    const payload = norm(opData)
+    upsertOperacion(payload)
     try {
-      const saved = await saveOperacion(opData, { mode })
+      const saved = await saveOperacion(payload, { mode })
       if (saved) {
-        const merged = { ...(opData || {}), ...(saved || {}) }
+        const merged = norm({ ...(payload || {}), ...(saved || {}) })
         upsertOperacion(merged)
         return merged
       }
       return null
     } catch (err) {
+      if (prev) upsertOperacion(prev)
+      else if (mode === 'create' && opId) deleteOperacion(opId)
       toast(String(err?.message || 'Error guardando operación'), 'red')
       return null
     }
@@ -1994,10 +2026,15 @@ export default function OpsPage({ active }) {
    * Notas de mantenimiento:
    * - Mantener validaciones consistentes con backend (seguimiento, sector, etc.).
    */
-  const openEditOp = (op) => {
+  const openEditOp = async (op) => {
     if (!canWrite) {
       toast('Modo solo lectura', 'blue')
       return
+    }
+    try {
+      await ensureCaletasLoaded?.()
+    } catch {
+      void 0
     }
     const iso = todayISO()
     const form = {
@@ -2341,7 +2378,12 @@ export default function OpsPage({ active }) {
    * Notas de mantenimiento:
    * - Si se agrega persistencia de botes en el mismo flujo, ajustar el “handoff” a openBotesTable.
    */
-  const openNewOp = () => {
+  const openNewOp = async () => {
+    try {
+      await ensureCaletasLoaded?.()
+    } catch {
+      void 0
+    }
     const iso = todayISO()
     const y = iso.slice(0, 4)
     const baseRegion = regiones[0]?.id || 1

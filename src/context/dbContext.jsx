@@ -28,6 +28,9 @@ function initialDb() {
     especies: [],
     operaciones: [],
     regionesChile: [],
+    caletas: [],
+    caletasByRegionId: {},
+    caletasByRegionRom: {},
     caletasByRegionStatic: CALETAS_BY_REGION_STATIC,
     sectoresAmerb: [],
     opa: [],
@@ -75,6 +78,7 @@ export function DbProvider({ children }) {
   const opaLoadRef = useRef({ done: false, promise: null })
   const especiesLoadRef = useRef({ done: false, promise: null })
   const regionesLoadRef = useRef({ done: false, promise: null })
+  const caletasLoadRef = useRef({ done: false, promise: null })
   const operacionesLoadRef = useRef({ done: false, promise: null })
   const perfilesLoadRef = useRef({ done: false, promise: null })
   const opAutosaveRef = useRef({ timers: new Map() })
@@ -163,6 +167,58 @@ export function DbProvider({ children }) {
 
     return especiesLoadRef.current.promise
   }, [apiEnabled, apiFetch])
+
+  const ensureCaletasLoaded = useCallback(async () => {
+    if (caletasLoadRef.current.done) return
+    if (caletasLoadRef.current.promise) return caletasLoadRef.current.promise
+    if (!apiEnabled) {
+      caletasLoadRef.current.done = true
+      return
+    }
+
+    caletasLoadRef.current.promise = Promise.resolve()
+      .then(() => ensureRegionesLoaded?.())
+      .then(() => apiFetch('/caletas'))
+      .then((json) => {
+        const arr = json?.data
+        const list = Array.isArray(arr) ? arr : []
+
+        const byId = {}
+        list.forEach((c) => {
+          const rid = c?.region_id != null ? Number(c.region_id) : c?.regionId != null ? Number(c.regionId) : null
+          const nombre = String(c?.nombre ?? '').trim()
+          if (!Number.isFinite(rid) || !nombre) return
+          const key = String(rid)
+          if (!Array.isArray(byId[key])) byId[key] = []
+          byId[key].push(nombre)
+        })
+        Object.keys(byId).forEach((k) => byId[k].sort((a, b) => String(a).localeCompare(String(b))))
+
+        setDb((prev) => {
+          const regiones = Array.isArray(prev?.regionesChile) ? prev.regionesChile : []
+          const romById = new Map(regiones.map((r) => [Number(r?.id), String(r?.rom || '')]))
+          const byRom = {}
+          Object.entries(byId).forEach(([ridStr, names]) => {
+            const rom = romById.get(Number(ridStr))
+            if (!rom) return
+            byRom[String(rom)] = names
+          })
+          return {
+            ...prev,
+            caletas: list,
+            caletasByRegionId: byId,
+            caletasByRegionRom: byRom,
+          }
+        })
+
+        caletasLoadRef.current.done = true
+      })
+      .finally(() => {
+        caletasLoadRef.current.promise = null
+      })
+
+    return caletasLoadRef.current.promise
+  }, [apiEnabled, apiFetch, ensureRegionesLoaded])
 
   const ensureBotesMaestroLoaded = useCallback(async () => {
     if (botesLoadRef.current.done) return
@@ -277,6 +333,7 @@ export function DbProvider({ children }) {
   useEffect(() => {
     if (!apiEnabled) return
     ensureRegionesLoaded?.()
+    ensureCaletasLoaded?.()
     ensureEspeciesLoaded?.()
     ensureOpaLoaded?.()
     ensureSectoresAmerbLoaded?.()
@@ -285,6 +342,7 @@ export function DbProvider({ children }) {
   }, [
     apiEnabled,
     ensureRegionesLoaded,
+    ensureCaletasLoaded,
     ensureEspeciesLoaded,
     ensureOpaLoaded,
     ensureSectoresAmerbLoaded,
@@ -418,6 +476,7 @@ export function DbProvider({ children }) {
       ensureRegionesLoaded,
       ensureOperacionesLoaded,
       ensurePerfilesLoaded,
+      ensureCaletasLoaded,
       upsertOperacion,
       deleteOperacion,
       saveOperacion,
@@ -436,6 +495,7 @@ export function DbProvider({ children }) {
       ensureRegionesLoaded,
       ensureOperacionesLoaded,
       ensurePerfilesLoaded,
+      ensureCaletasLoaded,
       upsertOperacion,
       deleteOperacion,
       saveOperacion,

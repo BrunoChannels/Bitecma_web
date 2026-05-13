@@ -289,6 +289,14 @@ if ($resource === 'regiones') {
     require __DIR__ . '/controllers/RegionController.php';
 }
 
+if ($resource === 'caletas') {
+    require __DIR__ . '/controllers/CaletaController.php';
+}
+
+if ($resource === 'caletas') {
+    require __DIR__ . '/controllers/CaletaController.php';
+}
+
 if ($resource === 'operaciones') {
     require __DIR__ . '/controllers/OperacionController.php';
 }

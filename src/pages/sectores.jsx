@@ -35,12 +35,13 @@ import { useDb } from '../context/dbContext.jsx'
  * - Si crece el dataset, considerar paginación; hoy se limita a 2000 filas.
  */
 export default function SectoresPage({ active }) {
-  const { db, ensureRegionesLoaded, ensureSectoresAmerbLoaded } = useDb()
+  const { db, ensureRegionesLoaded, ensureCaletasLoaded, ensureSectoresAmerbLoaded } = useDb()
   useEffect(() => {
     if (!active) return
     ensureRegionesLoaded?.()
+    ensureCaletasLoaded?.()
     ensureSectoresAmerbLoaded?.()
-  }, [active, ensureRegionesLoaded, ensureSectoresAmerbLoaded])
+  }, [active, ensureRegionesLoaded, ensureCaletasLoaded, ensureSectoresAmerbLoaded])
 
   const regiones = useMemo(() => {
     const arr = db?.regionesChile
@@ -51,8 +52,8 @@ export default function SectoresPage({ active }) {
     return Array.isArray(arr) ? arr : []
   }, [db?.sectoresAmerb])
   const caletasByRegion = useMemo(() => {
-    return db?.caletasByRegionStatic || {}
-  }, [db?.caletasByRegionStatic])
+    return db?.caletasByRegionId || db?.caletasByRegionStatic || {}
+  }, [db?.caletasByRegionId, db?.caletasByRegionStatic])
 
   const [regionId, setRegionId] = useState(regiones[0]?.id || 1)
   const [q, setQ] = useState('')

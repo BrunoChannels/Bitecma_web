@@ -37,14 +37,15 @@ import { useUi } from '../context/uiContext.jsx'
  * - Si crece el maestro, considerar paginación/virtualización (hoy se limita a 2000 filas).
  */
 export default function BotesPage({ active }) {
-  const { db, ensureRegionesLoaded, ensureBotesMaestroLoaded, upsertBoteMaestro } = useDb()
+  const { db, ensureRegionesLoaded, ensureCaletasLoaded, ensureBotesMaestroLoaded, upsertBoteMaestro } = useDb()
   const { openModal, closeModal, toast } = useUi()
 
   useEffect(() => {
     if (!active) return
     ensureRegionesLoaded?.()
+    ensureCaletasLoaded?.()
     ensureBotesMaestroLoaded?.()
-  }, [active, ensureRegionesLoaded, ensureBotesMaestroLoaded])
+  }, [active, ensureRegionesLoaded, ensureCaletasLoaded, ensureBotesMaestroLoaded])
   const regiones = useMemo(() => {
     const arr = db?.regionesChile
     return Array.isArray(arr) ? arr : []
@@ -53,7 +54,10 @@ export default function BotesPage({ active }) {
     const arr = db?.botesMaestro
     return Array.isArray(arr) ? arr : []
   }, [db?.botesMaestro])
-  const caletasByRegion = useMemo(() => db?.caletasByRegionStatic || {}, [db?.caletasByRegionStatic])
+  const caletasByRegion = useMemo(
+    () => db?.caletasByRegionRom || db?.caletasByRegionStatic || {},
+    [db?.caletasByRegionRom, db?.caletasByRegionStatic],
+  )
 
   const [regionRom, setRegionRom] = useState(regiones[0]?.rom || 'I')
   const [q, setQ] = useState('')

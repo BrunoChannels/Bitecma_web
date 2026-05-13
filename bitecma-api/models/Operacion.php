@@ -4,10 +4,13 @@ class Operacion
 {
     private static function mapOperacionRow($r)
     {
+        $caleta = $r['caleta'] ?? ($r['sector'] ?? null);
         return [
             'id' => $r['id'],
             'region' => $r['region_id'] !== null ? (int)$r['region_id'] : null,
-            'sector' => $r['sector'],
+            'sector' => $caleta,
+            'caleta' => $caleta,
+            'caletaId' => array_key_exists('caleta_id', $r) && $r['caleta_id'] !== null ? (int)$r['caleta_id'] : null,
             'sectorAmerbId' => $r['sector_amerb_id'] !== null ? (int)$r['sector_amerb_id'] : null,
             'sectorAmerb' => $r['sector_amerb'] ?? null,
             'tipoOrg' => $r['tipo_org'] ?? null,
@@ -100,7 +103,7 @@ class Operacion
     public static function all(PDO $db)
     {
         $stmt = $db->query(
-            "SELECT o.id, o.region_id, o.sector, o.sector_amerb_id, o.sector_amerb, o.tipo_org, o.opa_id, o.org_nombre, o.num_seg_esba, o.fecha_inicio, o.fecha_fin,
+            "SELECT o.id, o.region_id, o.caleta, o.caleta_id, o.sector_amerb_id, o.sector_amerb, o.tipo_org, o.opa_id, o.org_nombre, o.num_seg_esba, o.fecha_inicio, o.fecha_fin,
                     o.created_by, u.nombre AS created_by_nombre
              FROM operaciones o
              LEFT JOIN usuarios u ON u.id = o.created_by
@@ -246,7 +249,7 @@ class Operacion
     public static function find(PDO $db, $id)
     {
         $stmt = $db->prepare(
-            "SELECT o.id, o.region_id, o.sector, o.sector_amerb_id, o.sector_amerb, o.tipo_org, o.opa_id, o.org_nombre, o.num_seg_esba, o.fecha_inicio, o.fecha_fin,
+            "SELECT o.id, o.region_id, o.caleta, o.caleta_id, o.sector_amerb_id, o.sector_amerb, o.tipo_org, o.opa_id, o.org_nombre, o.num_seg_esba, o.fecha_inicio, o.fecha_fin,
                     o.created_by, u.nombre AS created_by_nombre
              FROM operaciones o
              LEFT JOIN usuarios u ON u.id = o.created_by
@@ -384,8 +387,8 @@ class Operacion
     {
         $id = trim((string)($data['id'] ?? ''));
         if ($id === '') return ['error' => 'id requerido'];
-        $sector = trim((string)($data['sector'] ?? ''));
-        if ($sector === '') return ['error' => 'sector requerido'];
+        $caleta = trim((string)($data['caleta'] ?? $data['sector'] ?? ''));
+        if ($caleta === '') return ['error' => 'caleta requerida'];
 
         $stmtE = $db->prepare("SELECT id FROM operaciones WHERE id = :id LIMIT 1");
         $stmtE->execute([':id' => $id]);
@@ -393,15 +396,16 @@ class Operacion
 
         $stmt = $db->prepare(
             "INSERT INTO operaciones (
-                id, region_id, sector, sector_amerb_id, sector_amerb, tipo_org, opa_id, org_nombre, num_seg_esba, fecha_inicio, fecha_fin, created_by
+                id, region_id, caleta_id, caleta, sector_amerb_id, sector_amerb, tipo_org, opa_id, org_nombre, num_seg_esba, fecha_inicio, fecha_fin, created_by
              ) VALUES (
-                :id, :region_id, :sector, :sector_amerb_id, :sector_amerb, :tipo_org, :opa_id, :org_nombre, :num_seg_esba, :fecha_inicio, :fecha_fin, :created_by
+                :id, :region_id, :caleta_id, :caleta, :sector_amerb_id, :sector_amerb, :tipo_org, :opa_id, :org_nombre, :num_seg_esba, :fecha_inicio, :fecha_fin, :created_by
              )"
         );
         $stmt->execute([
             ':id' => $id,
             ':region_id' => isset($data['region']) && $data['region'] !== '' ? (int)$data['region'] : null,
-            ':sector' => $sector,
+            ':caleta_id' => isset($data['caletaId']) && $data['caletaId'] !== '' ? (int)$data['caletaId'] : (isset($data['caleta_id']) && $data['caleta_id'] !== '' ? (int)$data['caleta_id'] : null),
+            ':caleta' => $caleta,
             ':sector_amerb_id' => isset($data['sectorAmerbId']) && $data['sectorAmerbId'] !== '' && $data['sectorAmerbId'] !== 'custom' ? (int)$data['sectorAmerbId'] : null,
             ':sector_amerb' => trim((string)($data['sectorAmerb'] ?? '')) ?: null,
             ':tipo_org' => trim((string)($data['tipoOrg'] ?? '')) ?: null,
@@ -422,13 +426,16 @@ class Operacion
         $cur = self::find($db, $id);
         if (!$cur) return null;
 
-        $sector = array_key_exists('sector', $data) ? trim((string)$data['sector']) : (string)$cur['sector'];
-        if ($sector === '') return ['error' => 'sector requerido'];
+        $caleta = array_key_exists('caleta', $data) || array_key_exists('sector', $data)
+            ? trim((string)($data['caleta'] ?? $data['sector'] ?? ''))
+            : (string)($cur['caleta'] ?? $cur['sector'] ?? '');
+        if ($caleta === '') return ['error' => 'caleta requerida'];
 
         $stmt = $db->prepare(
             "UPDATE operaciones SET
                 region_id = :region_id,
-                sector = :sector,
+                caleta_id = :caleta_id,
+                caleta = :caleta,
                 sector_amerb_id = :sector_amerb_id,
                 sector_amerb = :sector_amerb,
                 tipo_org = :tipo_org,
@@ -442,7 +449,10 @@ class Operacion
         $stmt->execute([
             ':id' => (string)$id,
             ':region_id' => array_key_exists('region', $data) ? ($data['region'] !== '' ? (int)$data['region'] : null) : $cur['region'],
-            ':sector' => $sector,
+            ':caleta_id' => array_key_exists('caletaId', $data) || array_key_exists('caleta_id', $data)
+                ? ((isset($data['caletaId']) && $data['caletaId'] !== '' ? (int)$data['caletaId'] : (isset($data['caleta_id']) && $data['caleta_id'] !== '' ? (int)$data['caleta_id'] : null)))
+                : ($cur['caletaId'] ?? null),
+            ':caleta' => $caleta,
             ':sector_amerb_id' => array_key_exists('sectorAmerbId', $data)
                 ? ($data['sectorAmerbId'] !== '' && $data['sectorAmerbId'] !== 'custom' ? (int)$data['sectorAmerbId'] : null)
                 : $cur['sectorAmerbId'],

@@ -11,10 +11,10 @@ import { useUi } from '../context/uiContext.jsx'
  * @returns {import('react').JSX.Element} Componente Sidebar.
  *
  * Lógica:
- * 1) Lee `page`, `navigate`, `logout` e `isViewer` desde el contexto App.
+ * 1) Lee `page`, `navigate` y `logout` desde el contexto App.
  * 2) Lee `closeSidebar` desde el contexto UI.
  * 3) Define `go(to)` para navegar y cerrar sidebar (UX móvil).
- * 4) Renderiza items con estado activo (`.on`) y oculta Operaciones si es visualizador.
+ * 4) Renderiza items con estado activo (`.on`).
  *
  * Dependencias externas:
  * - [useApp](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/context/appContext.jsx)
@@ -32,7 +32,7 @@ import { useUi } from '../context/uiContext.jsx'
  * - Si se agrega una nueva página, sumar aquí y en el router interno de `App.jsx`.
  */
 export default function Sidebar() {
-  const { page, navigate, logout, isViewer } = useApp()
+  const { page, navigate, logout } = useApp()
   const { closeSidebar } = useUi()
 
   /**
