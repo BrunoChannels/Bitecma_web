@@ -191,10 +191,12 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
   })()
 
   return (
-    <div className="bote-card" ref={rootRef}>
+    <div className="bote-card" ref={rootRef} data-tutorial-role="bote-card">
       <div
         className={`bote-hd${open ? ' open-hd' : ''}`}
         onClick={() => setOpen((v) => !v)}
+        data-tutorial-role="bote-header"
+        data-tutorial-advance="true"
       >
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
           <div className={`bote-icon${open ? ' open-ic' : ''}`} />
@@ -229,10 +231,20 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
 
       <div className={`bote-body${open ? ' open' : ''}`}>
         <div className="btabs">
-          <div className={`btab${tab === 'dens' ? ' on' : ''}`} onClick={() => setTab('dens')}>
+          <div
+            className={`btab${tab === 'dens' ? ' on' : ''}`}
+            onClick={() => setTab('dens')}
+            data-tutorial-role="bote-tab-dens"
+            data-tutorial-advance="true"
+          >
             Densidad
           </div>
-          <div className={`btab${tab === 'lp' ? ' on' : ''}`} onClick={() => setTab('lp')}>
+          <div
+            className={`btab${tab === 'lp' ? ' on' : ''}`}
+            onClick={() => setTab('lp')}
+            data-tutorial-role="bote-tab-lp"
+            data-tutorial-advance="true"
+          >
             Peso-Longitud
           </div>
         </div>

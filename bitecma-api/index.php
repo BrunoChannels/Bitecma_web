@@ -301,4 +301,8 @@ if ($resource === 'operaciones') {
     require __DIR__ . '/controllers/OperacionController.php';
 }
 
+if ($resource === 'backup') {
+    require __DIR__ . '/controllers/BackupController.php';
+}
+
 api_send(404, ['ok' => false, 'error' => 'No encontrado']);

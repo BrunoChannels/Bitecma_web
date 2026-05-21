@@ -1076,6 +1076,13 @@ export default function OpsPage({ active }) {
     const [currentRowIdx, setCurrentRowIdx] = useState(null)
     const [searchTerm, setSearchTerm] = useState('')
 
+    const hasDensidadUnitsForRow = (row) => {
+      const id = String(row?.sourceId || '').trim()
+      if (!id) return false
+      const b = (Array.isArray(base?.botes) ? base.botes : []).find((x) => String(x?.id || '') === id) || null
+      return !!(b && Array.isArray(b?.transectos) && b.transectos.length)
+    }
+
     /**
      * Agrega una fila nueva de bote con zona incremental.
      *
@@ -1400,8 +1407,10 @@ export default function OpsPage({ active }) {
                       onChange={(e) => {
                         const newDensTipo = e.target.value
                         if (r.densTipo !== newDensTipo) {
-                          const ok = confirm('Al cambiar la unidad de muestreo, solo se perderán los datos de densidad (los datos de peso-longitud se mantendrán). ¿Continuar?')
-                          if (!ok) return
+                          if (hasDensidadUnitsForRow(r)) {
+                            const ok = confirm('Al cambiar la unidad de muestreo, solo se perderán los datos de densidad (los datos de peso-longitud se mantendrán). ¿Continuar?')
+                            if (!ok) return
+                          }
                         }
                         setRows((p) => p.map((x, i) => (i === idx ? { ...x, densTipo: newDensTipo } : x)))
                       }}
@@ -1580,6 +1589,13 @@ export default function OpsPage({ active }) {
       const [showPanel, setShowPanel] = useState(false)
       const [currentRowIdx, setCurrentRowIdx] = useState(null)
       const [searchTerm, setSearchTerm] = useState('')
+
+      const hasDensidadUnitsForRow = (row) => {
+        const id = String(row?.sourceId || '').trim()
+        if (!id) return false
+        const b = (Array.isArray(opBase?.botes) ? opBase.botes : []).find((x) => String(x?.id || '') === id) || null
+        return !!(b && Array.isArray(b?.transectos) && b.transectos.length)
+      }
 
       /**
        * Agrega una fila nueva de bote con zona incremental.
@@ -1882,8 +1898,10 @@ export default function OpsPage({ active }) {
                         onChange={(e) => {
                           const newDensTipo = e.target.value
                           if (r.densTipo !== newDensTipo) {
-                            const ok = confirm('Al cambiar la unidad de muestreo, solo se perderán los datos de densidad (los datos de peso-longitud se mantendrán). ¿Continuar?')
-                            if (!ok) return
+                            if (hasDensidadUnitsForRow(r)) {
+                              const ok = confirm('Al cambiar la unidad de muestreo, solo se perderán los datos de densidad (los datos de peso-longitud se mantendrán). ¿Continuar?')
+                              if (!ok) return
+                            }
                           }
                           setRows((p) => p.map((x, i) => (i === idx ? { ...x, densTipo: newDensTipo } : x)))
                         }}

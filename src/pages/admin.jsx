@@ -48,6 +48,7 @@ export default function AdminPage({ active }) {
   const [tab, setTab] = useState('usuarios')
   const apiUrl = String(import.meta.env?.VITE_API_URL || '').trim().replace(/\/+$/, '')
   const apiEnabled = !!apiUrl
+  const [backupLoading, setBackupLoading] = useState(false)
 
   const perfiles = useMemo(() => {
     const arr = db?.perfiles
@@ -254,6 +255,88 @@ export default function AdminPage({ active }) {
     [apiEnabled, apiFetch, closeModal, loadUsers, openModal, toast],
   )
 
+  const downloadSqlBackup = useCallback(async ({ auto } = {}) => {
+    if (!apiEnabled) {
+      toast('API no configurada', 'red')
+      return
+    }
+    if (backupLoading) return
+    setBackupLoading(true)
+    try {
+      const token = (() => {
+        try {
+          return localStorage.getItem('bitecma_token')
+        } catch {
+          return null
+        }
+      })()
+      if (!token) throw new Error('No autorizado')
+
+      const url = `${apiUrl}/backup/sql`
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => null)
+        const msg = String(json?.error || res.statusText || 'Error')
+        throw new Error(msg)
+      }
+
+      const blob = await res.blob()
+      const cd = res.headers.get('content-disposition') || ''
+      const m = cd.match(/filename="([^"]+)"/i)
+      const now = new Date()
+      const pad2 = (n) => String(n).padStart(2, '0')
+      const ts = `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}_${pad2(now.getHours())}${pad2(
+        now.getMinutes(),
+      )}${pad2(now.getSeconds())}`
+      const filename = m?.[1] || `backup_${ts}.sql`
+
+      const objUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objUrl
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(objUrl)
+
+      try {
+        if (auto) localStorage.setItem('bitecma_last_backup_download_at', String(Date.now()))
+      } catch {
+        ;
+      }
+      toast('Respaldo descargado', 'green')
+    } catch (err) {
+      toast(String(err?.message || 'Error descargando respaldo'), 'red')
+    } finally {
+      setBackupLoading(false)
+    }
+  }, [apiEnabled, apiUrl, backupLoading, toast])
+
+  useEffect(() => {
+    if (!active) return
+    if (!apiEnabled) return
+    if (!isAdmin) return
+    if (tab !== 'usuarios') return
+    if (backupLoading) return
+
+    const key = 'bitecma_last_backup_download_at'
+    const weekMs = 7 * 24 * 60 * 60 * 1000
+    const now = Date.now()
+    const last = (() => {
+      try {
+        const raw = localStorage.getItem(key)
+        const n = raw ? Number(raw) : 0
+        return Number.isFinite(n) ? n : 0
+      } catch {
+        return 0
+      }
+    })()
+    if (last > 0 && now - last < weekMs) return
+
+    downloadSqlBackup({ auto: true })
+  }, [active, apiEnabled, backupLoading, downloadSqlBackup, isAdmin, tab])
+
   const usuariosRows = users
     .map((u) => {
       const rol = u?.rol || '—'
@@ -302,6 +385,9 @@ export default function AdminPage({ active }) {
           </div>
           <div className={`admin-item ${tab === 'roles' ? 'on' : ''}`} onClick={() => setTab('roles')}>
             Roles y Accesos
+          </div>
+          <div className={`admin-item ${tab === 'respaldo' ? 'on' : ''}`} onClick={() => setTab('respaldo')}>
+            Respaldo de Datos
           </div>
         </div>
         <div className="admin-content card">
@@ -410,6 +496,34 @@ export default function AdminPage({ active }) {
                   </tbody>
                 </table>
               </div>
+            </>
+          ) : null}
+
+          {tab === 'respaldo' ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontFamily: 'var(--ff-d)', fontSize: 16, fontWeight: 800, color: 'var(--navy)' }}>
+                    Respaldo de Datos
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+                    Descarga un respaldo SQL de la base de datos desde la API
+                  </div>
+                  <div>
+                    <button
+                    className="btn b-out"
+                    onClick={() => downloadSqlBackup()}
+                    disabled={!apiEnabled || backupLoading}
+                  >
+                    {backupLoading ? 'Generando…' : 'Descargar respaldo SQL'}
+                  </button>
+                  </div>
+                </div>
+                  
+              </div>
+              {!apiEnabled ? (
+                <div style={{ fontSize: 12, color: 'var(--text3)' }}>API no configurada</div>
+              ) : null}
             </>
           ) : null}
         </div>

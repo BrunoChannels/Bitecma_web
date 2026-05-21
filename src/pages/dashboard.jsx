@@ -238,24 +238,24 @@ export default function DashboardPage({ active }) {
         <div className="ph-a"></div>
       </div>
       <div className="g3 mb">
-        <div className="sc sc-tl" onClick={() => navigate('ops')}>
+        <div className="sc sc-tl" data-tutorial-id="dash-ops" onClick={() => navigate('ops')}>
           <div className="sc-lbl">Operaciones</div>
           <div className="sc-val">{totalOps}</div>
           <div className="sc-sub">Total registradas</div>
         </div>
-        <div className="sc sc-gr">
+        <div className="sc sc-gr" data-tutorial-id="dash-lp">
           <div className="sc-lbl">Muestras L-P</div>
           <div className="sc-val">{totalMuestras}</div>
           <div className="sc-sub">Subconjunto</div>
         </div>
-        <div className="sc sc-pu">
+        <div className="sc sc-pu" data-tutorial-id="dash-dens">
           <div className="sc-lbl">Unidades densidad</div>
           <div className="sc-val">{totalUnidades}</div>
           <div className="sc-sub">Transectos y cuadrantes</div>
         </div>
       </div>
       <div className="dashboard-grid g2 mb">
-        <div className="card" style={{ minHeight: 440, display: 'flex', flexDirection: 'column' }}>
+        <div className="card" data-tutorial-id="dash-recent" style={{ minHeight: 440, display: 'flex', flexDirection: 'column' }}>
           <div className="ct">
             Operaciones recientes
             <button className="btn b-out b-sm" onClick={() => navigate('evadir')}>Ver todas</button>
@@ -288,7 +288,7 @@ export default function DashboardPage({ active }) {
           </div>
         </div>
 
-        <div className="dashboard-chart-card">
+        <div className="dashboard-chart-card" data-tutorial-id="dash-chart">
           <div className="ct">Composición de muestras por especie</div>
           <div className="dashboard-chart-wrap">
             <div style={{ minHeight: 320, display: 'grid', gridTemplateColumns: '34px 1fr', gap: 0 }}>

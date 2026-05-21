@@ -28,6 +28,6 @@ describe('Página Dashboard', () => {
 
     expect(screen.getByTestId('page')).toHaveTextContent('dashboard')
     await userEvent.click(screen.getByRole('button', { name: 'Ver todas' }))
-    expect(await screen.findByTestId('page')).toHaveTextContent('ops')
+    expect(await screen.findByTestId('page')).toHaveTextContent('evadir')
   })
 })

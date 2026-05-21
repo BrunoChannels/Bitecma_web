@@ -23,8 +23,8 @@ describe('Página Sectores', () => {
     await userEvent.type(await screen.findByPlaceholderText('Buscar sector AMERB...'), 'HUAPE')
     expect(await screen.findByText('HUAPE SECTOR B')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByText('II — Antofagasta'))
+    const matches = screen.getAllByText('II — Antofagasta')
+    await userEvent.click(matches[matches.length - 1])
     expect(await screen.findByText('Sin resultados')).toBeInTheDocument()
   })
 })
-

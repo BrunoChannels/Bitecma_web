@@ -54,6 +54,8 @@ export default function SearchableSelect({
   onAdd,
   addLabel,
   disabled,
+  dataTutorialId,
+  dataTutorialAdvance,
 }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
@@ -251,7 +253,13 @@ export default function SearchableSelect({
   }, [])
 
   return (
-    <div className="ig" ref={wrapRef} style={{ position: 'relative' }}>
+    <div
+      className="ig"
+      ref={wrapRef}
+      style={{ position: 'relative' }}
+      data-tutorial-id={dataTutorialId}
+      data-tutorial-advance={dataTutorialAdvance}
+    >
       {label ? <label className="il">{label}</label> : null}
       <div style={{ display: 'flex', gap: 8 }}>
         <input

@@ -4,6 +4,33 @@ import userEvent from '@testing-library/user-event'
 import BotesPage from '../../src/pages/botes.jsx'
 import { renderWithProviders } from '../utils/render.jsx'
 
+function withViteApiUrl(value, fn) {
+  const prev = import.meta.env?.VITE_API_URL
+  try {
+    import.meta.env.VITE_API_URL = value
+  } catch {
+    try {
+      Object.defineProperty(import.meta.env, 'VITE_API_URL', { value, configurable: true, writable: true })
+    } catch {
+      void 0
+    }
+  }
+
+  try {
+    return fn()
+  } finally {
+    try {
+      import.meta.env.VITE_API_URL = prev
+    } catch {
+      try {
+        Object.defineProperty(import.meta.env, 'VITE_API_URL', { value: prev, configurable: true, writable: true })
+      } catch {
+        void 0
+      }
+    }
+  }
+}
+
 describe('Página Botes', () => {
   it('abre el modal "Agregar Nuevo Bote"', async () => {
     renderWithProviders(<BotesPage active />, {
@@ -46,16 +73,18 @@ describe('Página Botes', () => {
   })
 
   it('muestra error al intentar guardar con nombre cuando API no está configurada', async () => {
-    renderWithProviders(<BotesPage active />, {
-      dbSeed: {
-        regionesChile: [{ id: 1, rom: 'I', nom: 'Tarapacá' }],
-        caletasByRegionStatic: { I: ['Chipana'] },
-      },
-    })
+    await withViteApiUrl('', async () => {
+      renderWithProviders(<BotesPage active />, {
+        dbSeed: {
+          regionesChile: [{ id: 1, rom: 'I', nom: 'Tarapacá' }],
+          caletasByRegionRom: { I: ['Chipana'] },
+        },
+      })
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Agregar' }))
-    await userEvent.type(screen.getByPlaceholderText('Ej: CHIPANA'), 'CHIPANA')
-    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
-    expect(await screen.findByTestId('toast')).toHaveTextContent('API no configurada (VITE_API_URL)')
+      await userEvent.click(await screen.findByRole('button', { name: 'Agregar' }))
+      await userEvent.type(screen.getByPlaceholderText('Ej: CHIPANA'), 'CHIPANA')
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+      expect(await screen.findByTestId('toast')).toHaveTextContent('API no configurada (VITE_API_URL)')
+    })
   })
 })

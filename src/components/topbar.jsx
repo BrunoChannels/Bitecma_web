@@ -194,6 +194,38 @@ function ConfigModalBody() {
         </div>
       </div>
 
+      <div className="cfg-row">
+        <div>
+          <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Tutorial</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Recorre el dashboard paso a paso</div>
+        </div>
+        <button
+          className="btn b-teal b-sm"
+          onClick={() => {
+            closeModal()
+            window.dispatchEvent(new CustomEvent('bitecma:tutorial', { detail: { action: 'start', tour: 'dashboard' } }))
+          }}
+        >
+          Iniciar
+        </button>
+      </div>
+
+      <div className="cfg-row">
+        <div>
+          <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Tutorial Operaciones</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Simula crear una operación (página señuelo)</div>
+        </div>
+        <button
+          className="btn b-teal b-sm"
+          onClick={() => {
+            closeModal()
+            window.dispatchEvent(new CustomEvent('bitecma:tutorial', { detail: { action: 'start', tour: 'ops' } }))
+          }}
+        >
+          Iniciar
+        </button>
+      </div>
+
       {isAdmin ? (
         <>
           <div className="cfg-row">
@@ -349,6 +381,7 @@ export default function Topbar() {
     {
       dashboard: 'Dashboard',
       ops: 'Operaciones',
+      'ops-tutorial': 'Operaciones (Tutorial)',
       evadir: 'EVADIR',
       historico: 'Registro Histórico',
       informe: 'Informe',

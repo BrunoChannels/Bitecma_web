@@ -9,11 +9,13 @@ const EvadirPage = lazy(() => import('./pages/evadir.jsx'))
 const HistoricoPage = lazy(() => import('./pages/historico.jsx'))
 const InformePage = lazy(() => import('./pages/informe.jsx'))
 const OpsPage = lazy(() => import('./pages/ops.jsx'))
+const OpsTutorialPage = lazy(() => import('./pages/opsTutorial.jsx'))
 const OrgsPage = lazy(() => import('./pages/orgs.jsx'))
 const PerfilPage = lazy(() => import('./pages/perfil.jsx'))
 const SectoresPage = lazy(() => import('./pages/sectores.jsx'))
 import Topbar from './components/topbar.jsx'
 import Sidebar from './components/sidebar.jsx'
+import Tutorial from './components/tutorial.jsx'
 import { AppProvider, useApp } from './context/appContext.jsx'
 import { DbProvider } from './context/dbContext.jsx'
 import { UiProvider, useUi } from './context/uiContext.jsx'
@@ -60,6 +62,7 @@ function AppShell() {
     () => ({
       dashboard: DashboardPage,
       ops: OpsPage,
+      'ops-tutorial': OpsTutorialPage,
       evadir: EvadirPage,
       historico: HistoricoPage,
       informe: InformePage,
@@ -127,6 +130,7 @@ function AppShell() {
     <>
       <ToastHost />
       <ModalHost />
+      <Tutorial />
 
       <LoginScreen active={!isAuthed} />
 

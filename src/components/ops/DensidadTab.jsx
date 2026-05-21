@@ -291,18 +291,20 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
 
       if (pick) {
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div data-tutorial-id="ops-dens-species-panel" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>
               Especies — Transecto {pick.num}
             </div>
-            <SpeciesGrid
-              especies={especiesAll}
-              selectedIds={pick.sel}
-              onChange={(ids) => setPick((p) => ({ ...p, sel: ids }))}
-              multi
-              columns={3}
-              maxHeight={420}
-            />
+            <div data-tutorial-id="ops-dens-species-grid">
+              <SpeciesGrid
+                especies={especiesAll}
+                selectedIds={pick.sel}
+                onChange={(ids) => setPick((p) => ({ ...p, sel: ids }))}
+                multi
+                columns={3}
+                maxHeight={420}
+              />
+            </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn b-out" style={{ flex: 1 }} onClick={() => setPick(null)}>
                 Volver
@@ -310,6 +312,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
               <button
                 className="btn b-teal"
                 style={{ flex: 1 }}
+                data-tutorial-id="ops-dens-species-apply"
                 onClick={() => {
                   setRows((prev) => prev.map((x) => (x.num === pick.num ? { ...x, especiesIds: pick.sel } : x)))
                   setPick(null)
@@ -323,14 +326,14 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
       }
 
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div data-tutorial-id="ops-dens-transectos-panel" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div className="info-box blue">
             <span>i</span>
             <div>Completa el primer transecto y usa “Replicar” para copiar la configuración al resto.</div>
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn b-out b-sm" onClick={replicate}>
+            <button className="btn b-out b-sm" data-tutorial-id="ops-dens-replicar" onClick={replicate}>
               Replicar fila 1
             </button>
             <button
@@ -372,6 +375,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                         type="number"
                         step="any"
                         value={r.area}
+                        data-tutorial-id={idx === 0 ? 'ops-dens-tx-area' : undefined}
                         onChange={(e) => {
                           const v = e.target.value
                           setRows((prev) => prev.map((x) => (x.num === r.num ? { ...x, area: v } : x)))
@@ -382,6 +386,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                       <input
                         className="ii"
                         value={r.sustrato}
+                        data-tutorial-id={idx === 0 ? 'ops-dens-tx-sustrato' : undefined}
                         onChange={(e) => setRows((prev) => prev.map((x) => (x.num === r.num ? { ...x, sustrato: e.target.value } : x)))}
                       />
                     </td>
@@ -389,11 +394,16 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                       <input
                         className="ii"
                         value={r.cubierta}
+                        data-tutorial-id={idx === 0 ? 'ops-dens-tx-cubierta' : undefined}
                         onChange={(e) => setRows((prev) => prev.map((x) => (x.num === r.num ? { ...x, cubierta: e.target.value } : x)))}
                       />
                     </td>
                     <td style={{ minWidth: 240 }}>
-                      <button className="btn b-out b-sm" onClick={() => setPick({ num: r.num, sel: (r.especiesIds || []).slice() })}>
+                      <button
+                        className="btn b-out b-sm"
+                        data-tutorial-id={idx === 0 ? 'ops-dens-tx-especies' : undefined}
+                        onClick={() => setPick({ num: r.num, sel: (r.especiesIds || []).slice() })}
+                      >
                         {Array.isArray(r.especiesIds) && r.especiesIds.length ? `${r.especiesIds.length} especies` : 'Seleccionar especies'}
                       </button>
                     </td>
@@ -416,6 +426,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
               className="btn b-teal"
               style={{ flex: 1 }}
               disabled={!canSave}
+              data-tutorial-id="ops-dens-tx-save"
               onClick={() => {
                 if (!canSave) return
                 updateOperacion(op.id, (cur) => {
@@ -471,23 +482,68 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
 
                 if (newlyAdded.length > 0) {
                   setTimeout(() => {
-                    const transferir = window.confirm(
-                      '¿Deseas agregar también estas especies a la pestaña Peso-Longitud de este bote?'
-                    )
-                    if (transferir) {
-                      updateOperacion(op.id, (cur) => {
-                        const nextBotes = (cur.botes || []).map((x) => {
-                          if (x.id !== bote.id) return x
-                          let map = x.lpMuestras || {}
-                          newlyAdded.forEach((id) => {
-                            map = ensureKind(map, id, 'LP')
-                          })
-                          return { ...x, lpMuestras: map }
-                        })
-                        return { ...cur, botes: nextBotes }
-                      })
-                      toast?.('Especies agregadas a Peso-Longitud', 'blue')
+                    const BodyTransfer = () => {
+                      const names = newlyAdded
+                        .map((id) => byId.get(Number(id))?.com)
+                        .filter(Boolean)
+                        .slice(0, 8)
+                      const extra = newlyAdded.length - names.length
+
+                      return (
+                        <div data-tutorial-id="ops-dens-transfer-modal" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          <div style={{ color: 'var(--text3)', fontSize: 13 }}>
+                            ¿Deseas agregar también estas especies a la pestaña Peso-Longitud de este bote?
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {names.map((n) => (
+                              <span key={n} className="pill p-blu">
+                                {n}
+                              </span>
+                            ))}
+                            {extra > 0 ? <span className="pill p-out">+{extra}</span> : null}
+                          </div>
+                          <div data-tutorial-id="ops-dens-transfer-actions" style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                            <button
+                              className="btn b-out"
+                              style={{ flex: 1 }}
+                              data-tutorial-id="ops-dens-transfer-no"
+                              onClick={() => {
+                                window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-dens-transfer-done' } }))
+                                closeModal()
+                              }}
+                            >
+                              No, gracias
+                            </button>
+                            <button
+                              className="btn b-teal"
+                              style={{ flex: 1 }}
+                              data-tutorial-id="ops-dens-transfer-yes"
+                              onClick={() => {
+                                window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-dens-transfer-done' } }))
+                                updateOperacion(op.id, (cur) => {
+                                  const nextBotes = (cur.botes || []).map((x) => {
+                                    if (x.id !== bote.id) return x
+                                    let map = x.lpMuestras || {}
+                                    newlyAdded.forEach((id) => {
+                                      map = ensureKind(map, id, 'LP')
+                                    })
+                                    return { ...x, lpMuestras: map }
+                                  })
+                                  return { ...cur, botes: nextBotes }
+                                })
+                                closeModal()
+                                toast?.('Especies agregadas a Peso-Longitud', 'blue')
+                              }}
+                            >
+                              Sí, agregar
+                            </button>
+                          </div>
+                        </div>
+                      )
                     }
+
+                    openModal('Transferir especies', <BodyTransfer />, 'normal')
+                    window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-dens-transfer-open' } }))
                   }, 150)
                 }
               }}
@@ -622,7 +678,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
         <div style={{ fontFamily: 'var(--ff-d)', fontSize: 14, fontWeight: 800, color: 'var(--navy)' }}>
           {bote?.densTipo === 'cuadrante' ? 'Cuadrantes' : 'Transectos'}
         </div>
-        <button className="btn b-teal b-sm" onClick={openCrearUnidades}>
+        <button className="btn b-teal b-sm" data-tutorial-id="ops-dens-add-transecto" onClick={openCrearUnidades}>
           {bote?.densTipo === 'cuadrante' ? '+ Crear' : 'Agregar Transecto'}
         </button>
       </div>
