@@ -409,13 +409,56 @@ export default function OpsPage({ active }) {
     upsertBoteMaestro,
   } = useDb()
   const { toast, openModal, closeModal } = useUi()
-  const { canWrite, isAdmin } = useApp()
+  const { canWrite, isAdmin, page } = useApp()
   const { filtered, meses, sector, setSector, mes, setMes, texto, setTexto, operaciones } =
     useOperaciones()
 
   const [expanded, setExpanded] = useState('')
   const [regionSel, setRegionSel] = useState('')
   const [lpJump, setLpJump] = useState(null)
+
+  useEffect(() => {
+    if (!active) return
+    if (page !== 'ops') return
+    const KEY = 'bitecma_tutorial_ops_prompt_v1'
+    let already = false
+    try {
+      already = localStorage.getItem(KEY) === '1'
+    } catch {
+      already = false
+    }
+    if (already) return
+    try {
+      localStorage.setItem(KEY, '1')
+    } catch {
+      void 0
+    }
+
+    const Body = () => (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ fontSize: 13, color: 'var(--text2)' }}>
+          ¿Deseas iniciar el tutorial de Operaciones? Te guiará por el flujo completo para crear y editar una operación.
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+            No, gracias
+          </button>
+          <button
+            className="btn b-teal"
+            style={{ flex: 1 }}
+            onClick={() => {
+              closeModal()
+              window.dispatchEvent(new CustomEvent('bitecma:tutorial', { detail: { action: 'start', tour: 'ops' } }))
+            }}
+          >
+            Iniciar tutorial
+          </button>
+        </div>
+      </div>
+    )
+
+    openModal('Tutorial Operaciones', <Body />)
+  }, [active, page, openModal, closeModal])
 
   useEffect(() => {
     /**
