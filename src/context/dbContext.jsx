@@ -517,6 +517,229 @@ export function DbProvider({ children }) {
     [apiEnabled, apiFetch],
   )
 
+  const createSectorAmerb = useCallback(
+    async (sector) => {
+      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      const json = await apiFetch('/sectores', { method: 'POST', body: JSON.stringify(sector || {}) })
+      const saved = normalizeSectorAmerb(json?.data)
+      if (saved) {
+        setDb((prev) => {
+          const list = Array.isArray(prev.sectoresAmerb) ? prev.sectoresAmerb : []
+          const idx = list.findIndex((x) => Number(x?.id) === Number(saved?.id))
+          const next = idx >= 0 ? list.map((x, i) => (i === idx ? saved : x)) : [saved, ...list]
+          return { ...prev, sectoresAmerb: next }
+        })
+      }
+      return saved
+    },
+    [apiEnabled, apiFetch, normalizeSectorAmerb],
+  )
+
+  const updateSectorAmerb = useCallback(
+    async (sectorId, patch) => {
+      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      const id = String(sectorId ?? '').trim()
+      if (!id) throw new Error('id requerido')
+      const json = await apiFetch(`/sectores/${id}`, { method: 'PUT', body: JSON.stringify(patch || {}) })
+      const saved = normalizeSectorAmerb(json?.data)
+      if (saved) {
+        setDb((prev) => {
+          const list = Array.isArray(prev.sectoresAmerb) ? prev.sectoresAmerb : []
+          const idx = list.findIndex((x) => Number(x?.id) === Number(saved?.id))
+          const next = idx >= 0 ? list.map((x, i) => (i === idx ? saved : x)) : [saved, ...list]
+          return { ...prev, sectoresAmerb: next }
+        })
+      }
+      return saved
+    },
+    [apiEnabled, apiFetch, normalizeSectorAmerb],
+  )
+
+  const deleteSectorAmerb = useCallback(
+    async (sectorId) => {
+      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      const id = String(sectorId ?? '').trim()
+      if (!id) throw new Error('id requerido')
+      await apiFetch(`/sectores/${id}`, { method: 'DELETE' })
+      setDb((prev) => {
+        const list = Array.isArray(prev.sectoresAmerb) ? prev.sectoresAmerb : []
+        return { ...prev, sectoresAmerb: list.filter((x) => String(x?.id) !== id) }
+      })
+      return true
+    },
+    [apiEnabled, apiFetch],
+  )
+
+  const createCaleta = useCallback(
+    async (caleta) => {
+      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      const json = await apiFetch('/caletas', { method: 'POST', body: JSON.stringify(caleta || {}) })
+      const saved = json?.data
+      if (saved) {
+        setDb((prev) => {
+          const list = Array.isArray(prev.caletas) ? prev.caletas : []
+          const idx = list.findIndex((x) => Number(x?.id) === Number(saved?.id))
+          const nextList = idx >= 0 ? list.map((x, i) => (i === idx ? saved : x)) : [saved, ...list]
+
+          const byId = {}
+          nextList.forEach((c) => {
+            const rid = c?.region_id != null ? Number(c.region_id) : c?.regionId != null ? Number(c.regionId) : null
+            const nombre = String(c?.nombre ?? '').trim()
+            if (!Number.isFinite(rid) || !nombre) return
+            const key = String(rid)
+            if (!Array.isArray(byId[key])) byId[key] = []
+            byId[key].push(nombre)
+          })
+          Object.keys(byId).forEach((k) => byId[k].sort((a, b) => String(a).localeCompare(String(b))))
+
+          const regiones = Array.isArray(prev?.regionesChile) ? prev.regionesChile : []
+          const romById = new Map(regiones.map((r) => [Number(r?.id), String(r?.rom || '')]))
+          const byRom = {}
+          Object.entries(byId).forEach(([ridStr, names]) => {
+            const rom = romById.get(Number(ridStr))
+            if (!rom) return
+            byRom[String(rom)] = names
+          })
+
+          return { ...prev, caletas: nextList, caletasByRegionId: byId, caletasByRegionRom: byRom }
+        })
+      }
+      return saved
+    },
+    [apiEnabled, apiFetch],
+  )
+
+  const updateCaleta = useCallback(
+    async (caletaId, patch) => {
+      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      const id = String(caletaId ?? '').trim()
+      if (!id) throw new Error('id requerido')
+      const json = await apiFetch(`/caletas/${id}`, { method: 'PUT', body: JSON.stringify(patch || {}) })
+      const saved = json?.data
+      if (saved) {
+        setDb((prev) => {
+          const list = Array.isArray(prev.caletas) ? prev.caletas : []
+          const idx = list.findIndex((x) => Number(x?.id) === Number(saved?.id))
+          const nextList = idx >= 0 ? list.map((x, i) => (i === idx ? saved : x)) : [saved, ...list]
+
+          const byId = {}
+          nextList.forEach((c) => {
+            const rid = c?.region_id != null ? Number(c.region_id) : c?.regionId != null ? Number(c.regionId) : null
+            const nombre = String(c?.nombre ?? '').trim()
+            if (!Number.isFinite(rid) || !nombre) return
+            const key = String(rid)
+            if (!Array.isArray(byId[key])) byId[key] = []
+            byId[key].push(nombre)
+          })
+          Object.keys(byId).forEach((k) => byId[k].sort((a, b) => String(a).localeCompare(String(b))))
+
+          const regiones = Array.isArray(prev?.regionesChile) ? prev.regionesChile : []
+          const romById = new Map(regiones.map((r) => [Number(r?.id), String(r?.rom || '')]))
+          const byRom = {}
+          Object.entries(byId).forEach(([ridStr, names]) => {
+            const rom = romById.get(Number(ridStr))
+            if (!rom) return
+            byRom[String(rom)] = names
+          })
+
+          return { ...prev, caletas: nextList, caletasByRegionId: byId, caletasByRegionRom: byRom }
+        })
+      }
+      return saved
+    },
+    [apiEnabled, apiFetch],
+  )
+
+  const deleteCaleta = useCallback(
+    async (caletaId) => {
+      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      const id = String(caletaId ?? '').trim()
+      if (!id) throw new Error('id requerido')
+      await apiFetch(`/caletas/${id}`, { method: 'DELETE' })
+      setDb((prev) => {
+        const list = Array.isArray(prev.caletas) ? prev.caletas : []
+        const nextList = list.filter((x) => String(x?.id) !== id)
+
+        const byId = {}
+        nextList.forEach((c) => {
+          const rid = c?.region_id != null ? Number(c.region_id) : c?.regionId != null ? Number(c.regionId) : null
+          const nombre = String(c?.nombre ?? '').trim()
+          if (!Number.isFinite(rid) || !nombre) return
+          const key = String(rid)
+          if (!Array.isArray(byId[key])) byId[key] = []
+          byId[key].push(nombre)
+        })
+        Object.keys(byId).forEach((k) => byId[k].sort((a, b) => String(a).localeCompare(String(b))))
+
+        const regiones = Array.isArray(prev?.regionesChile) ? prev.regionesChile : []
+        const romById = new Map(regiones.map((r) => [Number(r?.id), String(r?.rom || '')]))
+        const byRom = {}
+        Object.entries(byId).forEach(([ridStr, names]) => {
+          const rom = romById.get(Number(ridStr))
+          if (!rom) return
+          byRom[String(rom)] = names
+        })
+
+        return { ...prev, caletas: nextList, caletasByRegionId: byId, caletasByRegionRom: byRom }
+      })
+      return true
+    },
+    [apiEnabled, apiFetch],
+  )
+
+  const createOpa = useCallback(
+    async (org) => {
+      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      const json = await apiFetch('/organizaciones', { method: 'POST', body: JSON.stringify(org || {}) })
+      const saved = json?.data
+      if (saved) {
+        setDb((prev) => {
+          const list = Array.isArray(prev.opa) ? prev.opa : []
+          const idx = list.findIndex((x) => Number(x?.id) === Number(saved?.id))
+          const next = idx >= 0 ? list.map((x, i) => (i === idx ? saved : x)) : [saved, ...list]
+          return { ...prev, opa: next }
+        })
+      }
+      return saved
+    },
+    [apiEnabled, apiFetch],
+  )
+
+  const updateOpa = useCallback(
+    async (orgId, patch) => {
+      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      const id = String(orgId ?? '').trim()
+      if (!id) throw new Error('id requerido')
+      const json = await apiFetch(`/organizaciones/${id}`, { method: 'PUT', body: JSON.stringify(patch || {}) })
+      const saved = json?.data
+      if (saved) {
+        setDb((prev) => {
+          const list = Array.isArray(prev.opa) ? prev.opa : []
+          const idx = list.findIndex((x) => Number(x?.id) === Number(saved?.id))
+          const next = idx >= 0 ? list.map((x, i) => (i === idx ? saved : x)) : [saved, ...list]
+          return { ...prev, opa: next }
+        })
+      }
+      return saved
+    },
+    [apiEnabled, apiFetch],
+  )
+
+  const deleteOpa = useCallback(
+    async (orgId) => {
+      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      const id = String(orgId ?? '').trim()
+      if (!id) throw new Error('id requerido')
+      await apiFetch(`/organizaciones/${id}`, { method: 'DELETE' })
+      setDb((prev) => {
+        const list = Array.isArray(prev.opa) ? prev.opa : []
+        return { ...prev, opa: list.filter((x) => String(x?.id) !== id) }
+      })
+      return true
+    },
+    [apiEnabled, apiFetch],
+  )
+
   const value = useMemo(
     () => ({
       db,
@@ -540,6 +763,15 @@ export function DbProvider({ children }) {
       createEspecie,
       updateEspecie,
       deleteEspecie,
+      createSectorAmerb,
+      updateSectorAmerb,
+      deleteSectorAmerb,
+      createCaleta,
+      updateCaleta,
+      deleteCaleta,
+      createOpa,
+      updateOpa,
+      deleteOpa,
     }),
     [
       db,
@@ -562,6 +794,15 @@ export function DbProvider({ children }) {
       createEspecie,
       updateEspecie,
       deleteEspecie,
+      createSectorAmerb,
+      updateSectorAmerb,
+      deleteSectorAmerb,
+      createCaleta,
+      updateCaleta,
+      deleteCaleta,
+      createOpa,
+      updateOpa,
+      deleteOpa,
     ],
   )
 
