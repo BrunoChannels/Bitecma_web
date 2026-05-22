@@ -14,6 +14,43 @@ import {
 import SpeciesGrid from '../common/SpeciesGrid.jsx'
 import { ensureKind } from '../../services/lpMuestrasService.js'
 
+function normKey(s) {
+  return String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
+const ALGA_COM = new Set(
+  [
+    'Huiro negro',
+    'Huiro palo',
+    'Cochayuyo',
+    'Huiro canutillo',
+    'Huiro',
+    'Luga roja',
+    'Luga negra',
+    'Luga cuchara',
+  ].map(normKey),
+)
+const ALGA_SCI = new Set(
+  [
+    'Lessonia berteroana',
+    'Lessonia trabeculata',
+    'Durvillaea antarctica',
+    'Macrocystis integrifolia',
+    'Macrocystis pyrifera',
+    'Gigartina skottsbergii',
+    'Sarcothalia crispata',
+    'Mazzaella laminarioides',
+  ].map(normKey),
+)
+
+function isAlgaSpecies(sp) {
+  return ALGA_COM.has(normKey(sp?.com)) || ALGA_SCI.has(normKey(sp?.sci))
+}
+
 /**
  * Mueve el foco al siguiente input de densidad (navegación por Enter) dentro de un contenedor.
  *
@@ -142,6 +179,18 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
     const arr = Array.isArray(bote?.transectos) ? bote.transectos : []
     return [...arr].sort((a, b) => (Number(a?.num) || 0) - (Number(b?.num) || 0))
   }, [bote?.transectos])
+
+  const firstTranNum = useMemo(() => {
+    const u = (Array.isArray(unidades) ? unidades : []).find((x) => String(x?.tipo || 'transecto') === 'transecto')
+    const n = Number(u?.num)
+    return Number.isFinite(n) ? n : null
+  }, [unidades])
+
+  const firstCuadNum = useMemo(() => {
+    const u = (Array.isArray(unidades) ? unidades : []).find((x) => String(x?.tipo || '') === 'cuadrante')
+    const n = Number(u?.num)
+    return Number.isFinite(n) ? n : null
+  }, [unidades])
 
   const especiesAll = useMemo(() => {
     const arr = Array.isArray(especies) ? especies : []
@@ -299,14 +348,22 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
               <SpeciesGrid
                 especies={especiesAll}
                 selectedIds={pick.sel}
-                onChange={(ids) => setPick((p) => ({ ...p, sel: ids }))}
+                onChange={(ids) => {
+                  const nextIds = Array.isArray(ids) ? ids : []
+                  setPick((p) => ({ ...p, sel: nextIds }))
+                  if (nextIds.length > 0) {
+                    window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-dens-species-selected' } }))
+                  } else {
+                    window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-dens-species-cleared' } }))
+                  }
+                }}
                 multi
                 columns={3}
                 maxHeight={420}
               />
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn b-out" style={{ flex: 1 }} onClick={() => setPick(null)}>
+              <button className="btn b-out" style={{ flex: 1 }} disabled onClick={() => setPick(null)}>
                 Volver
               </button>
               <button
@@ -349,7 +406,10 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
             </button>
           </div>
 
-          <div style={{ overflow: 'auto', border: '1px solid var(--border)', borderRadius: 10, maxHeight: '55vh' }}>
+          <div
+            data-tutorial-id="ops-dens-tx-table"
+            style={{ overflow: 'auto', border: '1px solid var(--border)', borderRadius: 10, maxHeight: '55vh' }}
+          >
             <table className="tbl">
               <thead>
                 <tr>
@@ -364,7 +424,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
               </thead>
               <tbody>
                 {rows.map((r, idx) => (
-                  <tr key={r.num}>
+                  <tr key={r.num} data-tutorial-id={idx === 0 ? 'ops-dens-tx-row1' : undefined}>
                     <td>{idx + 1}</td>
                     <td>
                       <strong>Transecto {r.num}</strong>
@@ -419,7 +479,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
           </div>
 
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+            <button className="btn b-out" style={{ flex: 1 }} disabled onClick={closeModal}>
               Cancelar
             </button>
             <button
@@ -525,7 +585,8 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                                     if (x.id !== bote.id) return x
                                     let map = x.lpMuestras || {}
                                     newlyAdded.forEach((id) => {
-                                      map = ensureKind(map, id, 'LP')
+                                      const sp = byId.get(Number(id))
+                                      map = ensureKind(map, id, isAlgaSpecies(sp) ? 'D' : 'LP')
                                     })
                                     return { ...x, lpMuestras: map }
                                   })
@@ -577,20 +638,25 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
 
       if (showPick) {
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div data-tutorial-id="ops-cuad-especie-panel" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>Especie del cuadrante</div>
-            <SpeciesGrid
-              especies={especiesAll}
-              selectedIds={form.especieId ? [Number(form.especieId)] : []}
-              onChange={(ids) => {
-                const id = ids?.[0]
-                setForm((s) => ({ ...s, especieId: id ? String(id) : '' }))
-                setShowPick(false)
-              }}
-              multi={false}
-              columns={3}
-              maxHeight={420}
-            />
+            <div data-tutorial-id="ops-cuad-especie-grid">
+              <SpeciesGrid
+                especies={especiesAll}
+                selectedIds={form.especieId ? [Number(form.especieId)] : []}
+                onChange={(ids) => {
+                  const id = ids?.[0]
+                  setForm((s) => ({ ...s, especieId: id ? String(id) : '' }))
+                  setShowPick(false)
+                  if (id) {
+                    window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-cuad-especie-picked' } }))
+                  }
+                }}
+                multi={false}
+                columns={3}
+                maxHeight={420}
+              />
+            </div>
             <button className="btn b-out" onClick={() => setShowPick(false)}>
               Volver
             </button>
@@ -599,15 +665,26 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
       }
 
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div data-tutorial-id="ops-cuad-panel" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="i2">
             <div className="ig">
               <label className="il">Cantidad</label>
-              <input className="ii" type="number" value={form.cantidad} onChange={(e) => setForm((s) => ({ ...s, cantidad: parseInt(e.target.value, 10) || 0 }))} />
+              <input
+                className="ii"
+                type="number"
+                data-tutorial-id="ops-cuad-cantidad"
+                value={form.cantidad}
+                onChange={(e) => setForm((s) => ({ ...s, cantidad: parseInt(e.target.value, 10) || 0 }))}
+              />
             </div>
             <div className="ig">
               <label className="il">Área cuadrante</label>
-              <select className="is" value={String(form.area)} onChange={(e) => setForm((s) => ({ ...s, area: Number(e.target.value) }))}>
+              <select
+                className="is"
+                data-tutorial-id="ops-cuad-area"
+                value={String(form.area)}
+                onChange={(e) => setForm((s) => ({ ...s, area: Number(e.target.value) }))}
+              >
                 <option value="1">1 m²</option>
                 <option value="0.25">0.25 m²</option>
                 <option value="0.0625">0.0625 m²</option>
@@ -617,23 +694,30 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
           <div className="i2">
             <div className="ig">
               <label className="il">Tipo sustrato</label>
-              <input className="ii" value={form.sustrato} onChange={(e) => setForm((s) => ({ ...s, sustrato: e.target.value }))} />
+              <input
+                className="ii"
+                data-tutorial-id="ops-cuad-sustrato"
+                value={form.sustrato}
+                onChange={(e) => setForm((s) => ({ ...s, sustrato: e.target.value }))}
+              />
             </div>
             <div className="ig">
               <label className="il">Especie</label>
-              <button className="btn b-out" onClick={() => setShowPick(true)}>
+              <button className="btn b-out" data-tutorial-id="ops-cuad-especie-btn" data-tutorial-advance="true" onClick={() => setShowPick(true)}>
                 {selectedSp ? `${selectedSp.com} — ${selectedSp.sci}` : 'Seleccionar especie'}
               </button>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+            <button className="btn b-out" style={{ flex: 1 }} disabled onClick={closeModal}>
               Cancelar
             </button>
             <button
               className="btn b-teal"
               style={{ flex: 1 }}
               disabled={!canSave}
+              data-tutorial-id="ops-cuad-crear"
+              data-tutorial-advance="true"
               onClick={() => {
                 if (!canSave) return
                 updateOperacion(op.id, (cur) => {
@@ -673,13 +757,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
   }
 
   return (
-    <div ref={rootRef}>
+    <div ref={rootRef} data-tutorial-id={bote?.densTipo === 'cuadrante' ? 'ops-cuad-dens-panel' : undefined}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 10 }}>
         <div style={{ fontFamily: 'var(--ff-d)', fontSize: 14, fontWeight: 800, color: 'var(--navy)' }}>
           {bote?.densTipo === 'cuadrante' ? 'Cuadrantes' : 'Transectos'}
         </div>
         <button className="btn b-teal b-sm" data-tutorial-id="ops-dens-add-transecto" onClick={openCrearUnidades}>
-          {bote?.densTipo === 'cuadrante' ? '+ Crear' : 'Agregar Transecto'}
+          {bote?.densTipo === 'cuadrante' ? 'Agregar Cuadrante' : 'Agregar Transecto'}
         </button>
       </div>
 
@@ -737,6 +821,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                         step="1"
                         min="0"
                         data-nav="dens"
+                        data-tutorial-id={firstCuadNum != null && num === firstCuadNum ? 'ops-cuad-count' : undefined}
                         value={String(cnt)}
                         onClick={(e) => e.stopPropagation()}
                         onKeyDown={(e) => {
@@ -972,7 +1057,11 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
           const open = openUnits.has(num)
 
           return (
-            <div key={`${bote.id}-${num}`} className="tx-card">
+            <div
+              key={`${bote.id}-${num}`}
+              className="tx-card"
+              data-tutorial-id={firstTranNum != null && num === firstTranNum ? 'ops-dens-transecto-card' : undefined}
+            >
               <div className="tx-hd">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <div style={{ fontWeight: 800, color: 'var(--navy)' }}>{`Transecto ${num}`}</div>
@@ -1233,7 +1322,8 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                                           if (x.id !== bote.id) return x
                                           let map = x.lpMuestras || {}
                                           added.forEach((id) => {
-                                            map = ensureKind(map, id, 'LP')
+                                            const sp = byId.get(Number(id))
+                                            map = ensureKind(map, id, isAlgaSpecies(sp) ? 'D' : 'LP')
                                           })
                                           return { ...x, lpMuestras: map }
                                         })
@@ -1278,6 +1368,8 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                         const sp = byId.get(Number(spId))
                         const cnt = Number(counts?.[spId] ?? 0)
                         const dens = calcDensidad(cnt, area)
+                        const isFirstCount =
+                          firstTranNum != null && num === firstTranNum && spIds.length && Number(spIds[0]) === Number(spId)
                         return (
                           <tr key={`${num}-${spId}`}>
                             <td style={{ textAlign: 'left' }}>{sp?.com || spId}</td>
@@ -1289,6 +1381,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                                 step="1"
                                 min="0"
                                 data-nav="dens-transecto"
+                                data-tutorial-id={isFirstCount ? 'ops-dens-transecto-count' : undefined}
                                 value={String(cnt)}
                                 onKeyDown={(e) => {
                                   if (e.key !== 'Enter') return

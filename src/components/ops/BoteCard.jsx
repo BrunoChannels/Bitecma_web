@@ -87,6 +87,15 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
   const lastTokenRef = useRef(null)
 
   useEffect(() => {
+    const onCollapse = () => {
+      setOpen(false)
+      setTab('dens')
+    }
+    window.addEventListener('bitecma:tutorial:collapse-botes', onCollapse)
+    return () => window.removeEventListener('bitecma:tutorial:collapse-botes', onCollapse)
+  }, [])
+
+  useEffect(() => {
     const token = lpJump?.token ?? null
     if (!token || lastTokenRef.current === token) return
 
@@ -197,6 +206,7 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
         onClick={() => setOpen((v) => !v)}
         data-tutorial-role="bote-header"
         data-tutorial-advance="true"
+        data-tutorial-boteid={String(bote?.id ?? '')}
       >
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
           <div className={`bote-icon${open ? ' open-ic' : ''}`} />

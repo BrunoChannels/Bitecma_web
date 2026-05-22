@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDb } from '../context/dbContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
 import BoteCard from '../components/ops/BoteCard.jsx'
 import SearchableSelect from '../components/common/SearchableSelect.jsx'
+import SvgIcon from '../components/svgIcon.jsx'
 
 function todayISO() {
   const d = new Date()
@@ -42,9 +43,68 @@ function nextOpId(ops, year) {
   return `OP-${y}-${String(max + 1).padStart(3, '0')}`
 }
 
+function getOperacionYear(op) {
+  const id = String(op?.id || '')
+  const m = id.match(/^OP-(\d{4})-/)
+  if (m) return m[1]
+  const fi = String(op?.fechaInicio || '')
+  if (/^\d{4}-\d{2}-\d{2}$/.test(fi)) return fi.slice(0, 4)
+  return ''
+}
+
+function getOperacionSegLabel(op) {
+  const n = op?.numSeg
+  if (n == null || n === '') return 'SEG —'
+  return `SEG ${n}`
+}
+
+function getOperacionEspeciesComunes(op, especiesById) {
+  const counts = new Map()
+  const botes = Array.isArray(op?.botes) ? op.botes : []
+  botes.forEach((b) => {
+    const units = Array.isArray(b?.transectos) ? b.transectos : []
+    units.forEach((u) => {
+      const c = u?.counts && typeof u.counts === 'object' ? u.counts : {}
+      Object.keys(c)
+        .map(Number)
+        .filter((x) => Number.isFinite(x))
+        .forEach((id) => counts.set(id, (counts.get(id) || 0) + 1))
+      if (u?.tipo === 'cuadrante') {
+        const spId = Number(u?.especieId)
+        if (Number.isFinite(spId)) counts.set(spId, (counts.get(spId) || 0) + 1)
+      }
+    })
+    const lp = b?.lpMuestras && typeof b.lpMuestras === 'object' ? b.lpMuestras : {}
+    Object.keys(lp)
+      .map(Number)
+      .filter((x) => Number.isFinite(x))
+      .forEach((id) => counts.set(id, (counts.get(id) || 0) + 1))
+  })
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => especiesById.get(Number(id)))
+    .filter(Boolean)
+    .map((sp) => String(sp?.com || sp?.sci || '').trim())
+    .filter(Boolean)
+}
+
 export default function OpsTutorialPage({ active }) {
   const { db } = useDb()
   const { toast, openModal, closeModal } = useUi()
+
+  const safeClone = (v) => {
+    try {
+      if (typeof structuredClone === 'function') return structuredClone(v)
+    } catch {
+      //
+    }
+    try {
+      return JSON.parse(JSON.stringify(v))
+    } catch {
+      return null
+    }
+  }
 
   useEffect(() => {
     const onCloseAll = () => {
@@ -65,6 +125,16 @@ export default function OpsTutorialPage({ active }) {
   })()
 
   const regiones = useMemo(() => (Array.isArray(db?.regionesChile) ? db.regionesChile : []), [db?.regionesChile])
+  const regionNameById = useMemo(() => {
+    const m = new Map()
+    ;(Array.isArray(regiones) ? regiones : []).forEach((r) => m.set(String(r?.id ?? ''), String(r?.rom || r?.nom || r?.id || '').trim()))
+    return m
+  }, [regiones])
+  const especiesById = useMemo(() => {
+    const m = new Map()
+    ;(Array.isArray(especies) ? especies : []).forEach((e) => m.set(Number(e?.id), e))
+    return m
+  }, [especies])
   const sectorAmerb = useMemo(() => (Array.isArray(db?.sectoresAmerb) ? db.sectoresAmerb : []), [db?.sectoresAmerb])
   const opa = useMemo(() => (Array.isArray(db?.opa) ? db.opa : []), [db?.opa])
   const caletasByRegion = useMemo(() => {
@@ -77,6 +147,150 @@ export default function OpsTutorialPage({ active }) {
   const [expanded, setExpanded] = useState('')
   const [localBotesMaestro, setLocalBotesMaestro] = useState([])
   const [regionSel, setRegionSel] = useState('')
+  const [sector, setSector] = useState('')
+  const [mes, setMes] = useState('')
+  const [texto, setTexto] = useState('')
+
+  const snapshotRef = useRef({
+    tutorialOps: [],
+    expanded: '',
+    localBotesMaestro: [],
+    regionSel: '',
+    sector: '',
+    mes: '',
+    texto: '',
+  })
+
+  useEffect(() => {
+    snapshotRef.current = {
+      tutorialOps,
+      expanded,
+      localBotesMaestro,
+      regionSel,
+      sector,
+      mes,
+      texto,
+    }
+  }, [tutorialOps, expanded, localBotesMaestro, regionSel, sector, mes, texto])
+
+  useEffect(() => {
+    const onReq = (e) => {
+      if (!active) return
+      const tour = String(e?.detail?.tour || '')
+      if (tour && tour !== 'ops') return
+      const token = String(e?.detail?.token || '')
+      if (!token) return
+      const state = safeClone(snapshotRef.current)
+      window.dispatchEvent(new CustomEvent('bitecma:tutorial:snapshot:response', { detail: { token, state } }))
+    }
+
+    const onRestore = (e) => {
+      if (!active) return
+      const tour = String(e?.detail?.tour || '')
+      if (tour && tour !== 'ops') return
+      const s = e?.detail?.state
+      if (!s || typeof s !== 'object') return
+      closeModal()
+      setTutorialOps(Array.isArray(s.tutorialOps) ? s.tutorialOps : [])
+      setExpanded(String(s.expanded || ''))
+      setLocalBotesMaestro(Array.isArray(s.localBotesMaestro) ? s.localBotesMaestro : [])
+      setRegionSel(String(s.regionSel || ''))
+      setSector(String(s.sector || ''))
+      setMes(String(s.mes || ''))
+      setTexto(String(s.texto || ''))
+    }
+
+    window.addEventListener('bitecma:tutorial:snapshot:request', onReq)
+    window.addEventListener('bitecma:tutorial:snapshot:restore', onRestore)
+    return () => {
+      window.removeEventListener('bitecma:tutorial:snapshot:request', onReq)
+      window.removeEventListener('bitecma:tutorial:snapshot:restore', onRestore)
+    }
+  }, [active, closeModal])
+
+  const regionMetaById = useMemo(() => new Map((Array.isArray(regiones) ? regiones : []).map((r) => [String(r?.id), r])), [regiones])
+
+  const regionButtons = useMemo(() => {
+    const ops = Array.isArray(tutorialOps) ? tutorialOps : []
+    const ids = ops.map((o) => (o?.region == null ? '' : String(o.region))).filter((x) => x)
+    const uniq = [...new Set(ids)]
+    uniq.sort((a, b) => (Number(a) || 0) - (Number(b) || 0))
+    return uniq.map((id) => {
+      const r = regionMetaById.get(String(id))
+      const nom = String(r?.nom || '')
+      const rom = String(r?.rom || '')
+      const det = rom || ''
+      const label = nom ? `Región de ${nom}` : `Región ${id}`
+      return { id: String(id), label, det }
+    })
+  }, [tutorialOps, regionMetaById])
+
+  const sectoresInRegion = useMemo(() => {
+    const rid = String(regionSel || '')
+    if (!rid) return []
+    const set = new Set()
+    ;(Array.isArray(tutorialOps) ? tutorialOps : []).forEach((o) => {
+      if (String(o?.region ?? '') !== rid) return
+      const s = String(o?.sector || '').trim()
+      if (s) set.add(s)
+    })
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [tutorialOps, regionSel])
+
+  const meses = useMemo(() => {
+    const rid = String(regionSel || '')
+    if (!rid) return []
+    const set = new Set()
+    ;(Array.isArray(tutorialOps) ? tutorialOps : []).forEach((o) => {
+      if (String(o?.region ?? '') !== rid) return
+      const fi = String(o?.fechaInicio || '')
+      if (/^\d{4}-\d{2}-\d{2}$/.test(fi)) set.add(fi.slice(0, 7))
+    })
+    return Array.from(set).sort((a, b) => b.localeCompare(a))
+  }, [tutorialOps, regionSel])
+
+  useEffect(() => {
+    if (!regionSel) return
+    if (!sector) return
+    if (sectoresInRegion.includes(sector)) return
+    setSector('')
+  }, [regionSel, sector, sectoresInRegion])
+
+  useEffect(() => {
+    if (!regionSel) return
+    if (!mes) return
+    if (meses.includes(mes)) return
+    setMes('')
+  }, [regionSel, mes, meses])
+
+  const filteredByRegion = useMemo(() => {
+    const rid = String(regionSel || '')
+    if (!rid) return []
+    const arr = (Array.isArray(tutorialOps) ? tutorialOps : []).filter((o) => String(o?.region ?? '') === rid)
+    const term = normKey(texto)
+    return arr.filter((o) => {
+      if (sector && String(o?.sector || '').trim() !== sector) return false
+      if (mes) {
+        const fi = String(o?.fechaInicio || '')
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(fi)) return false
+        if (fi.slice(0, 7) !== mes) return false
+      }
+      if (!term) return true
+      const hay = [
+        o?.id,
+        o?.sectorAmerb,
+        o?.sector,
+        o?.caleta,
+        o?.org,
+        o?.opaId,
+        o?.tipoOrg,
+        getOperacionSegLabel(o),
+      ]
+        .map(normKey)
+        .join(' ')
+      return hay.includes(term)
+    })
+  }, [tutorialOps, regionSel, sector, mes, texto])
 
   const safeUpdateOperacion = (opId, updater) => {
     const id = String(opId || '')
@@ -552,6 +766,18 @@ export default function OpsTutorialPage({ active }) {
     openModal(`Botes — ${opId}`, <BotesEditor opId={opId} opFallback={opFallback} />, 'wide')
   }
 
+  useEffect(() => {
+    const onEnsureBotes = () => {
+      if (!active) return
+      const op = (Array.isArray(tutorialOps) ? tutorialOps : [])[0] || null
+      const opId = String(op?.id || '').trim()
+      if (!opId) return
+      openBotesModal(opId, op)
+    }
+    window.addEventListener('bitecma:tutorial:ensure-botes-modal', onEnsureBotes)
+    return () => window.removeEventListener('bitecma:tutorial:ensure-botes-modal', onEnsureBotes)
+  }, [active, tutorialOps])
+
   const openNewOp = () => {
     const iso = todayISO()
     const y = iso.slice(0, 4)
@@ -620,6 +846,11 @@ export default function OpsTutorialPage({ active }) {
         }
 
         setTutorialOps((prev) => [op, ...(Array.isArray(prev) ? prev : [])])
+        setExpanded('')
+        setRegionSel('')
+        setSector('')
+        setMes('')
+        setTexto('')
         closeModal()
         toast('Operación creada (tutorial)', 'green')
         setTimeout(() => openBotesModal(opId, { id: opId, sector: s.sector, caleta: s.sector, sectorAmerb: s.sectorAmerb, region: s.region }), 50)
@@ -753,6 +984,229 @@ export default function OpsTutorialPage({ active }) {
     openModal('Nueva operación', <Body />, 'wide')
   }
 
+  const openEditOp = (op) => {
+    const opId = String(op?.id || '').trim()
+    if (!opId) return
+
+    const Body = () => {
+      const [tab, setTab] = useState('op')
+      const [s, setS] = useState(() => ({
+        region: Number(op?.region) || regiones[0]?.id || 1,
+        sectorAmerbId: String(op?.sectorAmerbId || ''),
+        sectorAmerb: String(op?.sectorAmerb || ''),
+        sector: String(op?.sector || op?.caleta || ''),
+        tipoOrg: String(op?.tipoOrg || 'STI'),
+        opaId: String(op?.opaId || ''),
+        org: String(op?.org || ''),
+        numSeg: op?.numSeg == null ? '' : String(op.numSeg),
+        fechaInicio: String(op?.fechaInicio || todayISO()),
+        fechaFin: String(op?.fechaFin || todayISO()),
+      }))
+
+      const amerbOpts = sectorAmerb
+        .filter((a) => a.region === s.region)
+        .slice()
+        .sort((a, b) => String(a.nombreamerb || '').localeCompare(String(b.nombreamerb || '')))
+        .slice(0, 4000)
+      const caletasOpts = (Array.isArray(caletasByRegion?.[s.region]) ? caletasByRegion[s.region] : [])
+        .slice()
+        .sort((a, b) => String(a).localeCompare(String(b)))
+        .slice(0, 4000)
+      const opaOpts = opa
+        .filter((o) => o.region === s.region)
+        .slice()
+        .sort((a, b) => String(a.nombre || a.nombrecorto || '').localeCompare(String(b.nombre || b.nombrecorto || '')))
+        .slice(0, 4000)
+
+      const onSave = () => {
+        const segRaw = String(s.numSeg || '').trim()
+        const segNum = segRaw === '' ? null : parseInt(segRaw, 10)
+        if (segRaw !== '' && !Number.isFinite(segNum)) {
+          toast('SEG inválido', 'red')
+          return
+        }
+        if (!String(s.opaId || '').trim()) {
+          toast('Selecciona Organización (OPA)', 'red')
+          return
+        }
+        if (!String(s.sector || '').trim()) {
+          toast('Ingresa sector/caleta', 'red')
+          return
+        }
+
+        safeUpdateOperacion(opId, (cur) => ({
+          ...(cur || {}),
+          region: s.region,
+          sectorAmerbId: s.sectorAmerbId,
+          sectorAmerb: s.sectorAmerb,
+          sector: s.sector,
+          caleta: s.sector,
+          tipoOrg: s.tipoOrg,
+          org: s.org,
+          opaId: s.opaId,
+          numSeg: segNum,
+          fechaInicio: s.fechaInicio,
+          fechaFin: s.fechaFin,
+        }))
+        closeModal()
+        toast('Operación actualizada (tutorial)', 'green')
+      }
+
+      return (
+        <div data-tutorial-id="ops-editop-panel" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="btabs">
+            <div
+              className={`btab${tab === 'op' ? ' on' : ''}`}
+              data-tutorial-id="ops-editop-tab-op"
+              onClick={() => setTab('op')}
+            >
+              Operación
+            </div>
+            <div
+              className={`btab${tab === 'botes' ? ' on' : ''}`}
+              data-tutorial-id="ops-editop-tab-botes"
+              onClick={() => setTab('botes')}
+            >
+              Botes
+            </div>
+          </div>
+
+          {tab === 'op' ? (
+            <>
+              <div className="i2">
+                <div className="ig">
+                  <label className="il">Región</label>
+                  <select
+                    className="is"
+                    value={s.region}
+                    onChange={(e) => {
+                      const rid = parseInt(e.target.value, 10)
+                      setS((p) => ({
+                        ...p,
+                        region: Number.isFinite(rid) ? rid : p.region,
+                        sectorAmerbId: '',
+                        sectorAmerb: '',
+                        sector: '',
+                        opaId: '',
+                        org: '',
+                      }))
+                    }}
+                  >
+                    {regiones.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.rom} — {r.nom}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="ig">
+                  <label className="il">N° Seguimiento / ESBA</label>
+                  <input className="ii" placeholder="Ej: 16" value={s.numSeg} onChange={(e) => setS((p) => ({ ...p, numSeg: e.target.value }))} />
+                </div>
+              </div>
+
+              <SearchableSelect
+                label="Sector AMERB"
+                value={s.sectorAmerbId}
+                options={amerbOpts.map((a) => ({ value: String(a.id), label: a.nombreamerb }))}
+                placeholder="Buscar sector AMERB..."
+                onChange={(id) => {
+                  const f = amerbOpts.find((x) => String(x.id) === String(id))
+                  setS((p) => ({ ...p, sectorAmerbId: String(id || ''), sectorAmerb: f?.nombreamerb || '' }))
+                }}
+                onAdd={() => {
+                  const name = prompt('Nuevo Sector AMERB (no se guardará aún):')
+                  if (!name) return
+                  toast('Sector AMERB agregado solo para esta operación (pendiente BD)', 'blue')
+                  setS((p) => ({ ...p, sectorAmerbId: 'custom', sectorAmerb: String(name).trim() }))
+                }}
+                addLabel="Agregar Sector..."
+              />
+
+              <SearchableSelect
+                label="Caleta"
+                value={s.sector}
+                options={caletasOpts.map((c) => ({ value: c, label: c }))}
+                placeholder="Buscar caleta..."
+                onChange={(v) => setS((p) => ({ ...p, sector: String(v || '') }))}
+                onAdd={() => {
+                  const name = prompt('Nueva Caleta (no se guardará aún):')
+                  if (!name) return
+                  toast('Caleta agregada solo para esta operación (pendiente BD)', 'blue')
+                  setS((p) => ({ ...p, sector: String(name).trim() }))
+                }}
+                addLabel="Agregar Caleta..."
+              />
+
+              <div className="i2">
+                <div className="ig">
+                  <label className="il">Tipo organización</label>
+                  <select className="is" value={s.tipoOrg} onChange={(e) => setS((p) => ({ ...p, tipoOrg: e.target.value }))}>
+                    <option value="STI">STI</option>
+                    <option value="ASOC">ASOC</option>
+                    <option value="OTRO">OTRO</option>
+                  </select>
+                </div>
+                <SearchableSelect
+                  label="Organización (OPA)"
+                  value={s.opaId}
+                  options={opaOpts.map((o) => ({ value: String(o.id), label: o.nombre || o.nombrecorto }))}
+                  placeholder="Buscar organización..."
+                  onChange={(id) => {
+                    const f = opaOpts.find((x) => String(x.id) === String(id))
+                    setS((p) => ({ ...p, opaId: String(id || ''), org: f?.nombre || '' }))
+                  }}
+                  onAdd={() => {
+                    const name = prompt('Nueva Organización (pendiente BD):')
+                    if (!name) return
+                    toast('Organización agregada solo para esta operación (pendiente BD)', 'blue')
+                    setS((p) => ({ ...p, opaId: 'custom', org: String(name).trim() }))
+                  }}
+                  addLabel="Agregar Organización..."
+                />
+              </div>
+
+              <div className="i2">
+                <div className="ig">
+                  <label className="il">Fecha inicio</label>
+                  <input className="ii" type="date" value={s.fechaInicio} onChange={(e) => setS((p) => ({ ...p, fechaInicio: e.target.value }))} />
+                </div>
+                <div className="ig">
+                  <label className="il">Fecha fin</label>
+                  <input className="ii" type="date" value={s.fechaFin} onChange={(e) => setS((p) => ({ ...p, fechaFin: e.target.value }))} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+                  Cancelar
+                </button>
+                <button className="btn b-teal" style={{ flex: 1 }} onClick={onSave}>
+                  Guardar cambios
+                </button>
+              </div>
+            </>
+          ) : (
+            <div data-tutorial-id="ops-editop-botes-panel" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className="info-box blue">
+                <span>i</span>
+                <div>Editor de botes (tutorial). Para ver el detalle, usa el botón “Abrir” en la operación.</div>
+              </div>
+              <button className="btn b-teal" data-tutorial-id="ops-editop-open-botes-editor" onClick={() => openBotesModal(opId, op)}>
+                Abrir editor de botes
+              </button>
+              <button className="btn b-out" onClick={closeModal}>
+                Volver
+              </button>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    openModal(`Editar operación — ${opId}`, <Body />, 'wide')
+  }
+
   return (
     <div className={`page${active ? ' active' : ''}`} id="pg-ops-tutorial">
       <div className="ph">
@@ -761,16 +1215,8 @@ export default function OpsTutorialPage({ active }) {
           <p>Replica local: no se hacen peticiones a la API.</p>
         </div>
         <div className="ph-a">
-          <button
-            className="btn b-out b-sm"
-            onClick={() => {
-              setExpanded('')
-              setTutorialOps([])
-              setRegionSel('')
-              toast('Demo reiniciada', 'green')
-            }}
-          >
-            Reiniciar demo
+          <button className="btn b-out b-sm" disabled>
+            Subir EVADIR
           </button>
           <button className="btn b-teal b-sm" data-tutorial-id="ops-newop" onClick={openNewOp}>
             Nueva operación
@@ -779,119 +1225,207 @@ export default function OpsTutorialPage({ active }) {
       </div>
 
       {String(regionSel || '') === '' ? (
-        <div className="card" style={{ padding: 14 }}>
-          <div style={{ fontFamily: 'var(--ff-d)', fontWeight: 800, color: 'var(--navy)', marginBottom: 10 }}>Regiones</div>
-          {(tutorialOps || []).length ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-              {Array.from(new Set((tutorialOps || []).map((o) => Number(o?.region)).filter((x) => Number.isFinite(x)))).map((rid) => {
-                const r = (Array.isArray(regiones) ? regiones : []).find((x) => Number(x?.id) === Number(rid))
-                const label = r ? `${r.rom} — ${r.nom}` : `Región ${rid}`
-                const isPrimary = Number(tutorialOps?.[0]?.region) === Number(rid)
-                return (
-                  <button
-                    key={rid}
-                    className="btn b-out"
-                    data-tutorial-id={isPrimary ? 'ops-region-btn' : undefined}
-                    onClick={() => {
-                      setExpanded('')
-                      setRegionSel(String(rid))
-                    }}
-                  >
-                    {label}
-                  </button>
-                )
-              })}
+        <div className="ops-region-grid" data-tutorial-id="ops-region-panel">
+          {regionButtons.map((r) => {
+            const isPrimary = Number(tutorialOps?.[0]?.region) === Number(r.id)
+            return (
+              <button
+                key={r.id}
+                className="card"
+                data-tutorial-id={isPrimary ? 'ops-region-btn' : undefined}
+                onClick={() => {
+                  setExpanded('')
+                  setSector('')
+                  setMes('')
+                  setTexto('')
+                  setRegionSel(r.id)
+                }}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '18px 18px',
+                  borderRadius: 18,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg)',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span>{r.label}</span>
+                  {r.det ? (
+                    <span style={{ fontFamily: 'var(--ff-m)', fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
+                      — {r.det}
+                    </span>
+                  ) : null}
+                </div>
+              </button>
+            )
+          })}
+          {!regionButtons.length ? (
+            <div className="info-box amber">
+              <span>i</span>
+              <div>Sin operaciones registradas.</div>
             </div>
-          ) : (
-            <div style={{ color: 'var(--text3)' }}>Crea una operación para ver sus regiones.</div>
-          )}
+          ) : null}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
             <button
               className="btn b-out b-sm"
               onClick={() => {
                 setExpanded('')
                 setRegionSel('')
+                setSector('')
+                setMes('')
+                setTexto('')
               }}
             >
               Volver a regiones
             </button>
-            <div className="pill p-teal">Región {regionSel}</div>
+            <div className="region-title">{regionButtons.find((x) => x.id === String(regionSel))?.label || `Región ${regionSel}`}</div>
           </div>
 
+          {regionSel ? (
+            <div className="filters">
+              <select className="flt" value={sector} onChange={(e) => setSector(e.target.value)}>
+                <option value="">Todos los sectores</option>
+                {sectoresInRegion.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+              <select className="flt" value={mes} onChange={(e) => setMes(e.target.value)}>
+                <option value="">Todas las fechas</option>
+                {meses.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="flt"
+                type="text"
+                placeholder="Buscar operación, buzo, org..."
+                style={{ minWidth: 220 }}
+                value={texto}
+                onChange={(e) => setTexto(e.target.value)}
+              />
+              <button
+                className="btn b-out b-sm"
+                onClick={() => {
+                  setSector('')
+                  setMes('')
+                  setTexto('')
+                }}
+              >
+                Limpiar
+              </button>
+              <span style={{ fontFamily: 'var(--ff-m)', fontSize: 11, color: 'var(--text3)', marginLeft: 4 }}>
+                {filteredByRegion.length} operaciones
+              </span>
+            </div>
+          ) : null}
+
+          {filteredByRegion.length === 0 ? (
+            <div className="info-box amber">
+              <span>i</span>
+              <div>Sin operaciones para esta región con los filtros actuales.</div>
+            </div>
+          ) : null}
+
           <div className="ops-grid">
-            {(tutorialOps || [])
-              .filter((o) => String(o?.region) === String(regionSel))
-              .map((op) => {
-          const open = String(expanded || '') === String(op?.id ?? '')
-          return (
-            <div
-              key={op.id}
-              className={`op-card card${open ? ' op-open' : ''}`}
-              data-tutorial-id="ops-op-card"
-              data-tutorial-advance="true"
-              style={{ padding: 12, cursor: open ? 'default' : 'pointer' }}
-              onClick={() => {
-                if (open) return
-                toggleExpanded(op.id)
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, color: 'var(--text)' }}>{`${op?.numSeg || '—'}, ${op?.sectorAmerb || '—'}`}</div>
-                  <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <span className="pill p-teal">Región {op?.region || '—'}</span>
-                    <span className="pill p-blu">{op?.sector || '—'}</span>
-                    <span className="pill p-grn">{fmtDMY(op?.fechaInicio)}</span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <button
-                    className="btn b-out b-sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
+            {filteredByRegion.map((op) => {
+                const open = String(expanded || '') === String(op?.id ?? '')
+                const isPrimary = String(op?.id ?? '') === String(tutorialOps?.[0]?.id ?? '')
+                const year = getOperacionYear(op)
+                const segLabel = getOperacionSegLabel(op)
+                const regionLabel = regionNameById.get(String(op?.region ?? '')) || String(op?.region || '—')
+                const caletaLabel = String(op?.sector || op?.caleta || '').trim() || '—'
+                const sectorAmerbLabel = String(op?.sectorAmerb || '').trim() || caletaLabel || '—'
+                const especiesComunes = getOperacionEspeciesComunes(op, especiesById)
+
+                return (
+                  <div
+                    key={op.id}
+                    className={`op-card card${open ? ' op-open' : ''}`}
+                    data-tutorial-id="ops-op-card"
+                    data-tutorial-advance="true"
+                    style={{ padding: 12, cursor: open ? 'default' : 'pointer' }}
+                    onClick={() => {
+                      if (open) return
                       toggleExpanded(op.id)
                     }}
                   >
-                    {open ? 'Ocultar' : 'Abrir'}
-                  </button>
-                  <button
-                    className="btn b-teal b-sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      openBotesModal(op.id, op)
-                    }}
-                  >
-                    Editar botes
-                  </button>
-                </div>
-              </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, color: 'var(--text)' }}>
+                          {year || '—'}, {segLabel}, {sectorAmerbLabel}
+                        </div>
+                        <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <span className="pill p-teal">Región {regionLabel}</span>
+                          <span className="pill p-blu">{caletaLabel}</span>
+                          <span className="pill p-grn">{fmtDMY(op.fechaInicio)}</span>
+                          {especiesComunes.slice(0, 6).map((name, idx) => (
+                            <span key={`${name}-${idx}`} className="pill p-pur">
+                              {name}
+                            </span>
+                          ))}
+                          {especiesComunes.length > 6 ? <span className="pill p-amb">+{especiesComunes.length - 6}</span> : null}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <button
+                          className="btn b-out b-sm"
+                          data-tutorial-id={isPrimary && open ? 'ops-op-close' : undefined}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleExpanded(op.id)
+                          }}
+                        >
+                          {open ? 'Ocultar' : 'Abrir'}
+                        </button>
+                        <button className="btn b-teal b-sm" disabled onClick={(e) => e.stopPropagation()}>
+                          PREVISUALIZAR EVADIR
+                        </button>
+                        <button
+                          className="tb-btn"
+                          title="Editar"
+                          data-tutorial-id={isPrimary ? 'ops-op-edit-btn' : undefined}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openEditOp(op)
+                          }}
+                        >
+                          <SvgIcon name="edit" aria-hidden="true" />
+                        </button>
+                      </div>
+                    </div>
 
-              {open ? (
-                <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
-                  <div style={{ fontFamily: 'var(--ff-d)', fontSize: 14, fontWeight: 800, color: 'var(--navy)', marginBottom: 10 }}>
-                    Botes
+                    {open ? (
+                      <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                          <div style={{ fontFamily: 'var(--ff-d)', fontSize: 14, fontWeight: 800, color: 'var(--navy)' }}>Botes</div>
+                        </div>
+                        {(op.botes || []).map((b) => (
+                          <BoteCard
+                            key={b.id}
+                            op={op}
+                            bote={b}
+                            especies={especies}
+                            updateOperacion={safeUpdateOperacion}
+                            canWrite={true}
+                            toast={toast}
+                            openModal={openModal}
+                            closeModal={closeModal}
+                            lpJump={null}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                  {(op.botes || []).map((b) => (
-                    <BoteCard
-                      key={b.id}
-                      op={op}
-                      bote={b}
-                      especies={especies}
-                      updateOperacion={safeUpdateOperacion}
-                      canWrite={true}
-                      toast={toast}
-                      openModal={openModal}
-                      closeModal={closeModal}
-                      lpJump={null}
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          )
+                )
               })}
           </div>
         </div>

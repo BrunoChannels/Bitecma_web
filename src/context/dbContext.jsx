@@ -464,6 +464,59 @@ export function DbProvider({ children }) {
     [apiEnabled, apiFetch],
   )
 
+  const createEspecie = useCallback(
+    async (especie) => {
+      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      const json = await apiFetch('/especies', { method: 'POST', body: JSON.stringify(especie || {}) })
+      const saved = json?.data
+      if (saved) {
+        setDb((prev) => {
+          const especies = Array.isArray(prev.especies) ? prev.especies : []
+          const idx = especies.findIndex((x) => Number(x?.id) === Number(saved?.id))
+          const nextEspecies = idx >= 0 ? especies.map((x, i) => (i === idx ? saved : x)) : [saved, ...especies]
+          return { ...prev, especies: nextEspecies }
+        })
+      }
+      return saved
+    },
+    [apiEnabled, apiFetch],
+  )
+
+  const updateEspecie = useCallback(
+    async (especieId, patch) => {
+      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      const id = String(especieId ?? '').trim()
+      if (!id) throw new Error('id requerido')
+      const json = await apiFetch(`/especies/${id}`, { method: 'PUT', body: JSON.stringify(patch || {}) })
+      const saved = json?.data
+      if (saved) {
+        setDb((prev) => {
+          const especies = Array.isArray(prev.especies) ? prev.especies : []
+          const idx = especies.findIndex((x) => Number(x?.id) === Number(saved?.id))
+          const nextEspecies = idx >= 0 ? especies.map((x, i) => (i === idx ? saved : x)) : [saved, ...especies]
+          return { ...prev, especies: nextEspecies }
+        })
+      }
+      return saved
+    },
+    [apiEnabled, apiFetch],
+  )
+
+  const deleteEspecie = useCallback(
+    async (especieId) => {
+      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      const id = String(especieId ?? '').trim()
+      if (!id) throw new Error('id requerido')
+      await apiFetch(`/especies/${id}`, { method: 'DELETE' })
+      setDb((prev) => {
+        const especies = Array.isArray(prev.especies) ? prev.especies : []
+        return { ...prev, especies: especies.filter((x) => String(x?.id) !== id) }
+      })
+      return true
+    },
+    [apiEnabled, apiFetch],
+  )
+
   const value = useMemo(
     () => ({
       db,
@@ -484,6 +537,9 @@ export function DbProvider({ children }) {
       updateOperacion,
       upsertBoteMaestro,
       deleteBoteMaestro,
+      createEspecie,
+      updateEspecie,
+      deleteEspecie,
     }),
     [
       db,
@@ -503,6 +559,9 @@ export function DbProvider({ children }) {
       updateOperacion,
       upsertBoteMaestro,
       deleteBoteMaestro,
+      createEspecie,
+      updateEspecie,
+      deleteEspecie,
     ],
   )
 

@@ -275,6 +275,10 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
     .map(Number)
     .filter((x) => Number.isFinite(x))
     .sort((a, b) => a - b)
+  const firstNonAlgaId = spIds.find((id) => {
+    const sp = byId.get(Number(id))
+    return !isAlgaSpecies(sp)
+  })
 
   /**
    * Abre un modal para seleccionar especies habilitadas para muestreo (y tipo LP/L).
@@ -361,9 +365,13 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
       const removed = [...prevSet].filter((x) => !nextSet.has(x))
 
       const sortedSel = [...nextSet].sort((a, b) => a - b)
+      const firstNonAlgaId = sortedSel.find((id) => {
+        const sp = byId.get(Number(id))
+        return !isAlgaSpecies(sp)
+      })
 
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div data-tutorial-id="ops-lp-select-modal" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div className="info-box blue">
             <span>i</span>
             <div>
@@ -371,10 +379,11 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
             </div>
           </div>
 
-          <SpeciesGrid
-            especies={especiesAll}
-            selectedIds={sel}
-            onChange={(ids) => {
+          <div data-tutorial-id="ops-lp-species-grid">
+            <SpeciesGrid
+              especies={especiesAll}
+              selectedIds={sel}
+              onChange={(ids) => {
               const next = (Array.isArray(ids) ? ids : []).map(Number).filter((x) => Number.isFinite(x))
               setSel(next)
               setKindsBySpId((prev) => {
@@ -398,15 +407,19 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                 })
                 return out
               })
-            }}
-            multi
-            columns={3}
-            maxHeight={320}
-          />
+              }}
+              multi
+              columns={3}
+              maxHeight={320}
+            />
+          </div>
 
           {sortedSel.length ? (
-            <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
-              <div style={{ fontFamily: 'var(--ff-d)', fontSize: 12, fontWeight: 800, color: 'var(--navy)', marginBottom: 8 }}>
+            <div data-tutorial-id="ops-lp-kinds" style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
+              <div
+                data-tutorial-id="ops-lp-kinds-title"
+                style={{ fontFamily: 'var(--ff-d)', fontSize: 12, fontWeight: 800, color: 'var(--navy)', marginBottom: 8 }}
+              >
                 Tipos de muestreo por especie
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -426,7 +439,10 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                       {isAlga ? (
                         <div style={{ whiteSpace: 'nowrap', color: 'var(--text2)' }}>D</div>
                       ) : (
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <div
+                          data-tutorial-id={Number(spId) === Number(firstNonAlgaId) ? 'ops-lp-kind-checkboxes' : undefined}
+                          style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}
+                        >
                           <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                             <input
                               type="checkbox"
@@ -449,8 +465,13 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                               type="checkbox"
                               checked={!!cfg.L}
                               disabled={cntL > 0}
+                              data-tutorial-id={Number(spId) === Number(firstNonAlgaId) ? 'ops-lp-kind-L' : undefined}
+                              data-tutorial-advance={Number(spId) === Number(firstNonAlgaId) ? 'true' : undefined}
                               onChange={(e) => {
                                 const checked = e.target.checked
+                                if (Number(spId) === Number(firstNonAlgaId) && checked) {
+                                  window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-lp-kind-L-checked' } }))
+                                }
                                 setKindsBySpId((prev) => {
                                   const cur = prev?.[spId] || { LP: true, L: false }
                                   const nextCfg = { ...cur, L: checked }
@@ -477,6 +498,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
             <button
               className="btn b-teal"
               style={{ flex: 1 }}
+              data-tutorial-id="ops-lp-confirm"
               onClick={() => {
                 if (removed.length) {
                   const ok = confirm(
@@ -510,6 +532,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                 })
                 closeModal()
                 toast?.('Especies actualizadas', 'green')
+                window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-lp-confirmed' } }))
               }}
             >
               Confirmar
@@ -763,7 +786,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
             </div>
           </div>
 
-          <div className="lp-input-row">
+          <div className="lp-input-row" data-tutorial-id="ops-lp-input-row">
             {kind === 'LP' ? (
               <>
                 <div className="ig">
@@ -774,6 +797,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                     type="number"
                     step="any"
                     value={draft.l}
+                    data-tutorial-id="ops-lp-inp-l"
                     onChange={(e) => setDraft((s) => ({ ...s, l: e.target.value }))}
                     onKeyDown={(e) => {
                       if (e.key !== 'Enter') return
@@ -791,6 +815,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                     type="number"
                     step="any"
                     value={draft.p}
+                    data-tutorial-id="ops-lp-inp-p"
                     onChange={(e) => setDraft((s) => ({ ...s, p: e.target.value }))}
                     onKeyDown={(e) => {
                       if (e.key !== 'Enter') return
@@ -826,6 +851,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                   type="number"
                   step="any"
                   value={draft.l}
+                  data-tutorial-id="ops-lp-inp-l-only"
                   onChange={(e) => setDraft((s) => ({ ...s, l: e.target.value }))}
                   onKeyDown={(e) => {
                     if (e.key !== 'Enter') return
@@ -837,7 +863,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
               <div className="lp-counter">{samplesNow.length} muestra(s)</div>
-              <button className="btn b-teal b-sm" onClick={addOrUpdate}>
+              <button className="btn b-teal b-sm" data-tutorial-id="ops-lp-sample-save" data-tutorial-advance="true" onClick={addOrUpdate}>
                 {editIdx == null ? 'Agregar' : 'Guardar'}
               </button>
             </div>
@@ -859,7 +885,12 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                     .map((m, idx) => ({ m, idx }))
                     .reverse()
                     .map(({ m, idx }, displayIdx) => (
-                    <tr key={idx} data-lp-sample-idx={idx} className={idx === flashIdx ? 'lp-flash' : ''}>
+                    <tr
+                      key={idx}
+                      data-lp-sample-idx={idx}
+                      data-tutorial-id={displayIdx === 0 ? 'ops-lp-sample-row' : undefined}
+                      className={idx === flashIdx ? 'lp-flash' : ''}
+                    >
                       <td>{samplesNow.length - displayIdx}</td>
                       <td>{kind === 'D' ? m?.d ?? '' : m?.l ?? ''}</td>
                       {kind === 'LP' ? <td>{m?.p ?? ''}</td> : null}
@@ -932,7 +963,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
           </div>
 
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+            <button className="btn b-out" style={{ flex: 1 }} data-tutorial-id="ops-lp-sample-close" onClick={closeModal}>
               Cerrar
             </button>
             <button
@@ -984,10 +1015,10 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
   }, [lpJump, op?.id, bote?.id, openIngreso])
 
   return (
-    <div>
+    <div data-tutorial-id="ops-lp-panel">
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 10 }}>
         <div style={{ fontFamily: 'var(--ff-d)', fontSize: 14, fontWeight: 800, color: 'var(--navy)' }}>Peso-Longitud</div>
-        <button className="btn b-teal b-sm" onClick={openSeleccionarEspecies}>
+        <button className="btn b-teal b-sm" data-tutorial-id="ops-lp-select-btn" onClick={openSeleccionarEspecies}>
           Seleccionar especies
         </button>
       </div>
@@ -998,7 +1029,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
           <div>Sin especies para muestreo. Agrega una especie para ingresar muestras.</div>
         </div>
       ) : (
-        <div className="lp-species-wrap">
+        <div className="lp-species-wrap" data-tutorial-id="ops-lp-species-table">
           <table className="tbl tbl-static-mobile lp-species-tbl">
             <thead>
               <tr>
@@ -1026,7 +1057,10 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                         : String(cntLP)
                       : String(cnt)
                   return (
-                    <tr key={`${spId}-${kind}`}>
+                    <tr
+                      key={`${spId}-${kind}`}
+                      data-tutorial-id={Number(spId) === Number(firstNonAlgaId) && kind === 'L' ? 'ops-lp-row-L' : undefined}
+                    >
                       <td style={{ textAlign: 'left' }}>
                         <strong>{sp?.com || spId}</strong>
                         <div style={{ fontSize: 11, color: 'var(--text3)' }}>{sp?.sci || ''}</div>
@@ -1035,7 +1069,24 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                       <td>{kind === 'LP' ? 'L-P' : kind}</td>
                       <td style={{ textAlign: 'right' }}>
                         <div className="lp-species-action">
-                          <button className="btn b-teal b-sm" onClick={() => openIngreso(spId, kind)}>
+                          <button
+                            className="btn b-teal b-sm"
+                            data-tutorial-id={
+                              Number(spId) === Number(firstNonAlgaId) && kind === 'LP'
+                                ? 'ops-lp-ingresar'
+                                : Number(spId) === Number(firstNonAlgaId) && kind === 'L'
+                                  ? 'ops-lp-ingresar-L'
+                                  : undefined
+                            }
+                            data-tutorial-advance={
+                              Number(spId) === Number(firstNonAlgaId) && kind === 'LP'
+                                ? 'true'
+                                : Number(spId) === Number(firstNonAlgaId) && kind === 'L'
+                                  ? 'true'
+                                  : undefined
+                            }
+                            onClick={() => openIngreso(spId, kind)}
+                          >
                             Ingresar
                           </button>
                         </div>
