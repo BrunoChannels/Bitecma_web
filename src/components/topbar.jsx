@@ -49,7 +49,6 @@ function ConfigModalBody() {
   const { db, setDb } = useDb()
   const { closeModal, toast, theme, setTheme } = useUi()
   const [mode, setMode] = useState('merge')
-  const [showTutorials, setShowTutorials] = useState(false)
 
   /**
    * Exporta operaciones actuales a un archivo JSON descargable.
@@ -195,52 +194,6 @@ function ConfigModalBody() {
         </div>
       </div>
 
-      <div className="cfg-row">
-        <div>
-          <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Tutoriales</div>
-          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Dashboard y Operaciones</div>
-        </div>
-        <button className="btn b-out b-sm" onClick={() => setShowTutorials((v) => !v)}>
-          {showTutorials ? 'Ocultar' : 'Abrir'}
-        </button>
-      </div>
-
-      {showTutorials ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingLeft: 10, borderLeft: '2px solid var(--border)' }}>
-          <div className="cfg-row">
-            <div>
-              <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Tutorial Dashboard</div>
-              <div style={{ fontSize: 12, color: 'var(--text3)' }}>Recorre el dashboard paso a paso</div>
-            </div>
-            <button
-              className="btn b-teal b-sm"
-              onClick={() => {
-                closeModal()
-                window.dispatchEvent(new CustomEvent('bitecma:tutorial', { detail: { action: 'start', tour: 'dashboard' } }))
-              }}
-            >
-              Iniciar
-            </button>
-          </div>
-
-          <div className="cfg-row">
-            <div>
-              <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Tutorial Operaciones</div>
-              <div style={{ fontSize: 12, color: 'var(--text3)' }}>Simula crear una operación (página señuelo)</div>
-            </div>
-            <button
-              className="btn b-teal b-sm"
-              onClick={() => {
-                closeModal()
-                window.dispatchEvent(new CustomEvent('bitecma:tutorial', { detail: { action: 'start', tour: 'ops' } }))
-              }}
-            >
-              Iniciar
-            </button>
-          </div>
-        </div>
-      ) : null}
-
       {isAdmin ? (
         <>
           <div className="cfg-row">
@@ -346,6 +299,50 @@ function ConfigModalBody() {
           <div>Las opciones de migración están disponibles solo para Admin.</div>
         </div>
       )}
+
+      <button className="btn b-teal" onClick={closeModal}>
+        Cerrar
+      </button>
+    </div>
+  )
+}
+
+function TutorialModalBody() {
+  const { closeModal } = useUi()
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="cfg-row">
+        <div>
+          <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Tutorial Dashboard</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Recorre el dashboard paso a paso</div>
+        </div>
+        <button
+          className="btn b-teal b-sm"
+          onClick={() => {
+            closeModal()
+            window.dispatchEvent(new CustomEvent('bitecma:tutorial', { detail: { action: 'start', tour: 'dashboard' } }))
+          }}
+        >
+          Iniciar
+        </button>
+      </div>
+
+      <div className="cfg-row">
+        <div>
+          <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Tutorial Operaciones</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Simula crear una operación (página señuelo)</div>
+        </div>
+        <button
+          className="btn b-teal b-sm"
+          onClick={() => {
+            closeModal()
+            window.dispatchEvent(new CustomEvent('bitecma:tutorial', { detail: { action: 'start', tour: 'ops' } }))
+          }}
+        >
+          Iniciar
+        </button>
+      </div>
 
       <button className="btn b-teal" onClick={closeModal}>
         Cerrar
@@ -477,6 +474,16 @@ export default function Topbar() {
       </div>
       <div className="tb-spacer"></div>
       <div className="tb-actions">
+        <button
+          className="tb-btn"
+          title="Tutoriales"
+          aria-label="Tutoriales"
+          onClick={() => {
+            openModal('Tutoriales', <TutorialModalBody />)
+          }}
+        >
+          ?
+        </button>
         <button
           className="tb-btn"
           onClick={() => {

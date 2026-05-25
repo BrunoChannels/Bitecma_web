@@ -37,14 +37,40 @@ function ToastHost() {
 
 function ModalHost() {
   const { modalState, closeModal } = useUi()
+  const [showX, setShowX] = useState(true)
+
+  useEffect(() => {
+    if (!modalState.open) {
+      setShowX(true)
+      return
+    }
+    const t = setTimeout(() => {
+      const root = document.querySelector('.mb-body')
+      if (!root) return setShowX(true)
+      const explicit = root.querySelector('[data-modal-close="true"]')
+      if (explicit) return setShowX(false)
+      const buttons = Array.from(root.querySelectorAll('button,[role="button"]')).filter((x) => x && x.nodeType === 1)
+      const hasAlt = buttons.some((b) => {
+        const lbl = String(b.getAttribute?.('aria-label') || '').trim().toLowerCase()
+        const txt = String(b.textContent || '').trim().toLowerCase()
+        const v = lbl || txt
+        return v === 'cerrar' || v === 'cancelar' || v === 'volver' || v === 'salir' || v === 'no, gracias'
+      })
+      setShowX(!hasAlt)
+    }, 0)
+    return () => clearTimeout(t)
+  }, [modalState.open, modalState.body])
+
   return (
     <div className={`mo${modalState.open ? ' open' : ''}`}>
       <div className={`mb-box${modalState.size ? ' ' + modalState.size : ''}`}>
         <div className="mh">
           <h3>{modalState.title}</h3>
-          <button type="button" className="mc" onClick={closeModal} aria-label="Cerrar">
-            ×
-          </button>
+          {showX ? (
+            <button type="button" className="mc" onClick={closeModal} aria-label="Cerrar">
+              ×
+            </button>
+          ) : null}
         </div>
         <div className="mb-body">{modalState.body}</div>
       </div>

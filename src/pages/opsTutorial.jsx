@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDb } from '../context/dbContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
 import BoteCard from '../components/ops/BoteCard.jsx'
 import SearchableSelect from '../components/common/SearchableSelect.jsx'
 import SvgIcon from '../components/svgIcon.jsx'
+import { crearUnidades, setUnidadCount } from '../services/densidadService.js'
+import { addSample, ensureKind } from '../services/lpMuestrasService.js'
 
 function todayISO() {
   const d = new Date()
@@ -91,7 +93,7 @@ function getOperacionEspeciesComunes(op, especiesById) {
 
 export default function OpsTutorialPage({ active }) {
   const { db } = useDb()
-  const { toast, openModal, closeModal } = useUi()
+  const { toast, openModal, closeModal, modalState } = useUi()
 
   const safeClone = (v) => {
     try {
@@ -121,6 +123,7 @@ export default function OpsTutorialPage({ active }) {
       { id: 1, com: 'Huiro negro', sci: 'Lessonia berteroana' },
       { id: 2, com: 'Cochayuyo', sci: 'Durvillaea antarctica' },
       { id: 3, com: 'Loco', sci: 'Concholepas concholepas' },
+      { id: 4, com: 'Lapa Negra', sci: 'Cellana nigrolineata' },
     ]
   })()
 
@@ -130,6 +133,7 @@ export default function OpsTutorialPage({ active }) {
     ;(Array.isArray(regiones) ? regiones : []).forEach((r) => m.set(String(r?.id ?? ''), String(r?.rom || r?.nom || r?.id || '').trim()))
     return m
   }, [regiones])
+  const regionMetaById = useMemo(() => new Map((Array.isArray(regiones) ? regiones : []).map((r) => [String(r?.id), r])), [regiones])
   const especiesById = useMemo(() => {
     const m = new Map()
     ;(Array.isArray(especies) ? especies : []).forEach((e) => m.set(Number(e?.id), e))
@@ -150,6 +154,27 @@ export default function OpsTutorialPage({ active }) {
   const [sector, setSector] = useState('')
   const [mes, setMes] = useState('')
   const [texto, setTexto] = useState('')
+  const [tutorialBoteJump, setTutorialBoteJump] = useState(null)
+  const [tutorialStepId, setTutorialStepId] = useState('')
+  const [pendingStep, setPendingStep] = useState(null)
+  const pendingStepTimerRef = useRef(0)
+
+  const seedMeta = useMemo(() => {
+    const y = String(new Date().getFullYear())
+    const opId = `OP-${y}-001`
+    const rid = (Array.isArray(regiones) ? regiones : []).some((r) => Number(r?.id) === 4) ? 4 : regiones?.[0]?.id || 1
+    const rom = String(regionMetaById.get(String(rid))?.rom || 'IV').trim() || 'IV'
+    return {
+      opId,
+      regionId: Number(rid) || 1,
+      regionRom: rom,
+      caleta: 'Las Conchas',
+      sectorAmerb: 'Los Vilos Sector C',
+      org: 'Sindicato de pescadores artesanales',
+      bote1: 'Lobo Solitario',
+      bote2: 'Elvira Yanet',
+    }
+  }, [regiones, regionMetaById])
 
   const snapshotRef = useRef({
     tutorialOps: [],
@@ -172,6 +197,493 @@ export default function OpsTutorialPage({ active }) {
       texto,
     }
   }, [tutorialOps, expanded, localBotesMaestro, regionSel, sector, mes, texto])
+
+  useEffect(() => {
+    const chapterRank = {
+      'ops-ch1': 1,
+      'ops-ch2': 2,
+      'ops-ch3': 3,
+      'ops-ch4': 4,
+      'ops-ch5': 5,
+      'ops-ch6': 6,
+      'ops-ch7': 7,
+      'ops-ch8': 8,
+    }
+
+    const findSpeciesId = (name) => {
+      const key = normKey(name)
+      const sp = (Array.isArray(especies) ? especies : []).find((e) => normKey(e?.com) === key) || null
+      return sp ? Number(sp.id) : null
+    }
+
+    const ensureSeedState = (rank) => {
+      if (rank < 2) return
+
+      const iso = todayISO()
+      const locoId = findSpeciesId('Loco')
+      const lapaId = findSpeciesId('Lapa Negra')
+
+      setLocalBotesMaestro((prev) => {
+        const arr = Array.isArray(prev) ? prev : []
+        const has1 = arr.some((b) => normKey(b?.nombre) === normKey(seedMeta.bote1))
+        const has2 = arr.some((b) => normKey(b?.nombre) === normKey(seedMeta.bote2))
+        const next = [...arr]
+        if (!has1) {
+          next.unshift({
+            id: `TUT-BOAT-${seedMeta.bote1.replace(/\s+/g, '-')}`,
+            region: seedMeta.regionRom,
+            nombre: seedMeta.bote1,
+            nrpa: '',
+            nmatricula: '',
+            caleta: seedMeta.caleta,
+          })
+        }
+        if (!has2) {
+          next.unshift({
+            id: `TUT-BOAT-${seedMeta.bote2.replace(/\s+/g, '-')}`,
+            region: seedMeta.regionRom,
+            nombre: seedMeta.bote2,
+            nrpa: '',
+            nmatricula: '',
+            caleta: seedMeta.caleta,
+          })
+        }
+        return next
+      })
+
+      setTutorialOps((prev) => {
+        const arr = Array.isArray(prev) ? prev : []
+        const existing = arr.find((o) => String(o?.id || '') === seedMeta.opId) || null
+        const baseOp = existing || {
+          id: seedMeta.opId,
+          region: seedMeta.regionId,
+          sectorAmerbId: 'custom',
+          sectorAmerb: seedMeta.sectorAmerb,
+          sector: seedMeta.caleta,
+          caleta: seedMeta.caleta,
+          tipoOrg: 'STI',
+          org: seedMeta.org,
+          opaId: 'custom',
+          numSeg: null,
+          fechaInicio: iso,
+          fechaFin: iso,
+          botes: [],
+        }
+
+        const ensureBotes = rank >= 3
+        const ensureTransectos = rank >= 4
+        const ensureLp = rank >= 6
+        const ensureCuadrantes = rank >= 7
+
+        const prevBotes = Array.isArray(baseOp?.botes) ? baseOp.botes : []
+        const byId = new Map(prevBotes.map((b) => [String(b?.id || ''), b]))
+
+        const mkB1 = () => {
+          const cur = byId.get('B1') || {}
+          const transectosCur = Array.isArray(cur?.transectos) ? cur.transectos : []
+          let transectos = transectosCur
+          if (ensureTransectos && !transectosCur.length && Number.isFinite(locoId) && Number.isFinite(lapaId)) {
+            transectos = crearUnidades({
+              unidades: [],
+              tipo: 'transecto',
+              cantidad: 2,
+              area: 120,
+              fecha: iso,
+              sustrato: 'Roca',
+              cubierta: 'Algas',
+              especieId: null,
+              especiesIds: [locoId, lapaId],
+            })
+            transectos = setUnidadCount(transectos, 1, locoId, 12)
+            transectos = setUnidadCount(transectos, 1, lapaId, 6)
+            transectos = setUnidadCount(transectos, 2, locoId, 10)
+            transectos = setUnidadCount(transectos, 2, lapaId, 4)
+          }
+
+          let lpMuestras = cur?.lpMuestras && typeof cur.lpMuestras === 'object' ? cur.lpMuestras : {}
+          if (ensureLp && Number.isFinite(locoId)) {
+            lpMuestras = ensureKind(lpMuestras, locoId, 'LP')
+            lpMuestras = ensureKind(lpMuestras, locoId, 'L')
+            if (((lpMuestras[locoId] || {})?.LP || []).length === 0) lpMuestras = addSample(lpMuestras, locoId, 'LP', { l: 95, p: 240 })
+            if (((lpMuestras[locoId] || {})?.L || []).length === 0) lpMuestras = addSample(lpMuestras, locoId, 'L', { l: 102 })
+          }
+          if (ensureLp && Number.isFinite(lapaId)) {
+            lpMuestras = ensureKind(lpMuestras, lapaId, 'LP')
+            if (((lpMuestras[lapaId] || {})?.LP || []).length === 0) lpMuestras = addSample(lpMuestras, lapaId, 'LP', { l: 60, p: 120 })
+          }
+
+          return {
+            id: 'B1',
+            nombre: ensureBotes ? seedMeta.bote1 : String(cur?.nombre || ''),
+            buzo: String(cur?.buzo || 'Buzo 1'),
+            zona: Number(cur?.zona) || 1,
+            densTipo: 'transecto',
+            lpMuestras,
+            transectos,
+          }
+        }
+
+        const mkB2 = () => {
+          const cur = byId.get('B2') || {}
+          const transectosCur = Array.isArray(cur?.transectos) ? cur.transectos : []
+          let transectos = transectosCur
+          if (ensureCuadrantes && !transectosCur.length && Number.isFinite(lapaId)) {
+            transectos = crearUnidades({
+              unidades: [],
+              tipo: 'cuadrante',
+              cantidad: 3,
+              area: 1,
+              fecha: iso,
+              sustrato: 'Roca',
+              cubierta: '',
+              especieId: lapaId,
+              especiesIds: [],
+            })
+            transectos = setUnidadCount(transectos, 1, lapaId, 3)
+            transectos = setUnidadCount(transectos, 2, lapaId, 2)
+            transectos = setUnidadCount(transectos, 3, lapaId, 4)
+          }
+
+          return {
+            id: 'B2',
+            nombre: ensureBotes ? seedMeta.bote2 : String(cur?.nombre || ''),
+            buzo: String(cur?.buzo || 'Buzo 2'),
+            zona: Number(cur?.zona) || 2,
+            densTipo: 'cuadrante',
+            lpMuestras: cur?.lpMuestras && typeof cur.lpMuestras === 'object' ? cur.lpMuestras : {},
+            transectos,
+          }
+        }
+
+        const nextOp = ensureBotes ? { ...baseOp, botes: [mkB1(), mkB2()] } : baseOp
+        const rest = arr.filter((o) => String(o?.id || '') !== seedMeta.opId)
+        return [nextOp, ...rest]
+      })
+    }
+
+    const onSeed = (e) => {
+      if (!active) return
+      const chapterId = String(e?.detail?.chapterId || '').trim()
+      if (!chapterId) return
+      const rank = chapterRank[chapterId] || 0
+      ensureSeedState(rank)
+
+      if (rank >= 4) {
+        setRegionSel(String(seedMeta.regionId))
+        setExpanded(seedMeta.opId)
+        setSector('')
+        setMes('')
+        setTexto('')
+      } else {
+        setExpanded('')
+        setRegionSel('')
+        setSector('')
+        setMes('')
+        setTexto('')
+      }
+
+      if (rank >= 8) {
+        setTutorialBoteJump({ token: `${Date.now()}-${Math.random().toString(16).slice(2)}`, opId: seedMeta.opId, boteId: 'B2', tab: 'dens' })
+      } else if (rank >= 5) {
+        setTutorialBoteJump({ token: `${Date.now()}-${Math.random().toString(16).slice(2)}`, opId: seedMeta.opId, boteId: 'B1', tab: 'lp' })
+      } else {
+        setTutorialBoteJump(null)
+      }
+
+      if (rank === 7) window.dispatchEvent(new CustomEvent('bitecma:tutorial:collapse-botes'))
+    }
+
+    window.addEventListener('bitecma:tutorial:seed', onSeed)
+    return () => window.removeEventListener('bitecma:tutorial:seed', onSeed)
+  }, [active, especies, seedMeta])
+
+  const resolveStepNeeds = useCallback(
+    (stepId) => {
+      const isBotesModalStepId = (id) => {
+        if (!id) return false
+        if (id === 'ops-botes-panel') return true
+        if (id === 'ops-botes-save') return true
+        if (id === 'ops-bote-delete') return true
+        if (id === 'ops-bote-addrow') return true
+        if (id.startsWith('ops-bote-name-')) return true
+        if (id.startsWith('ops-bote-picker-')) return true
+        if (id.startsWith('ops-bote-buzo-')) return true
+        if (id.startsWith('ops-bote-unidad-')) return true
+        return false
+      }
+
+      const isEditModalStepId = (id) => {
+        if (!id) return false
+        if (id.startsWith('ops-editop-')) return true
+        return false
+      }
+
+      const mapToChapter = (id) => {
+        if (!id) return ''
+        if (id === 'ops-region-panel') return 'ops-ch3'
+        if (id === 'ops-op-card') return 'ops-ch3'
+        if (isBotesModalStepId(id)) return 'ops-ch2'
+        if (id === 'ops-bote-header' || id === 'ops-tab-dens' || id.startsWith('ops-dens-') || id === 'ops-dens-enter-nav') return 'ops-ch4'
+        if (id === 'ops-tab-lp') return 'ops-ch5'
+        if (id === 'ops-lp-panel' || id.startsWith('ops-lp-')) return 'ops-ch6'
+        if (id === 'ops-bote2-open' || id === 'ops-cuad-dens' || id.startsWith('ops-cuad-')) return 'ops-ch7'
+        if (id === 'ops-close-all-botes' || id.startsWith('ops-op-') || id.startsWith('ops-editop-')) return 'ops-ch8'
+        return ''
+      }
+
+      const op = (Array.isArray(tutorialOps) ? tutorialOps : [])[0] || null
+      if (!op && stepId !== 'ops-region-panel') {
+        const chapterId = mapToChapter(stepId)
+        if (chapterId) {
+          window.dispatchEvent(new CustomEvent('bitecma:tutorial:seed', { detail: { chapterId } }))
+        }
+        return false
+      }
+
+      const opId = String(op?.id || '').trim()
+      const opRegion = op?.region == null ? '' : String(op.region)
+      const botesTitle = opId ? `Botes — ${opId}` : ''
+
+      const shouldCloseModal = (id) => {
+        if (!id) return false
+        if (id === 'ops-region-panel') return true
+        if (id === 'ops-op-card') return true
+        if (id === 'ops-bote-header') return true
+        if (id === 'ops-tab-dens') return true
+        if (id === 'ops-tab-lp') return true
+        if (id === 'ops-lp-panel') return true
+        if (id === 'ops-bote2-open') return true
+        if (id === 'ops-close-all-botes') return true
+        if (id === 'ops-op-edit-btn') return false
+        if (id.startsWith('ops-editop-')) return false
+        if (id.startsWith('ops-op-')) return true
+        return false
+      }
+
+      const ensureRegionGrid = () => {
+        let ok = true
+        if (regionSel !== '') {
+          setRegionSel('')
+          ok = false
+        }
+        if (expanded !== '') {
+          setExpanded('')
+          ok = false
+        }
+        if (tutorialBoteJump) {
+          setTutorialBoteJump(null)
+          ok = false
+        }
+        return ok
+      }
+
+      const ensureRegionList = () => {
+        let ok = true
+        if (opRegion && String(regionSel || '') !== opRegion) {
+          setRegionSel(opRegion)
+          ok = false
+        }
+        if (expanded !== '') {
+          setExpanded('')
+          ok = false
+        }
+        if (tutorialBoteJump) {
+          setTutorialBoteJump(null)
+          ok = false
+        }
+        if (sector !== '' || mes !== '' || texto !== '') {
+          setSector('')
+          setMes('')
+          setTexto('')
+          ok = false
+        }
+        return ok
+      }
+
+      const ensureOpOpen = () => {
+        let ok = true
+        if (opRegion && String(regionSel || '') !== opRegion) {
+          setRegionSel(opRegion)
+          ok = false
+        }
+        if (opId && String(expanded || '') !== opId) {
+          setExpanded(opId)
+          ok = false
+        }
+        if (sector !== '' || mes !== '' || texto !== '') {
+          setSector('')
+          setMes('')
+          setTexto('')
+          ok = false
+        }
+        return ok
+      }
+
+      const ensureBotesModalOpen = () => {
+        if (!opId) return false
+        if (modalState?.open && String(modalState?.title || '').trim() === botesTitle) return true
+        if (modalState?.open) {
+          closeModal()
+          return false
+        }
+        openBotesModal(opId, op, { initialStepId: stepId })
+        return false
+      }
+
+      const ensureEditModalOpen = (initialTab) => {
+        if (!opId) return false
+        const title = `Editar operación — ${opId}`
+        const wantsTab = initialTab === 'botes' ? 'botes' : 'op'
+        const isAlready = modalState?.open && String(modalState?.title || '').trim() === title
+        if (isAlready) {
+          if (wantsTab === 'botes') {
+            window.dispatchEvent(new CustomEvent('bitecma:tutorial:editop-tab', { detail: { opId, tab: 'botes' } }))
+            return false
+          }
+          window.dispatchEvent(new CustomEvent('bitecma:tutorial:editop-tab', { detail: { opId, tab: 'op' } }))
+          return true
+        }
+        if (modalState?.open) {
+          closeModal()
+          return false
+        }
+        openEditOp(op, { initialTab: wantsTab })
+        return false
+      }
+
+      const ensureJump = (boteId, tab) => {
+        if (!opId) return false
+        const cur = tutorialBoteJump && typeof tutorialBoteJump === 'object' ? tutorialBoteJump : null
+        const same =
+          cur &&
+          String(cur.opId || '') === opId &&
+          String(cur.boteId || '') === String(boteId || '') &&
+          String(cur.tab || '') === String(tab || '')
+        if (same) return true
+        const t = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+        setTutorialBoteJump({ token: t, opId, boteId: String(boteId || ''), tab: String(tab || '') })
+        return false
+      }
+
+      if (isBotesModalStepId(stepId)) return ensureBotesModalOpen()
+      if (modalState?.open && shouldCloseModal(stepId)) {
+        closeModal()
+        return false
+      }
+      if (stepId === 'ops-region-panel') return ensureRegionGrid()
+      if (stepId === 'ops-op-card') return ensureRegionList()
+
+      if (isEditModalStepId(stepId)) {
+        const ok = ensureOpOpen()
+        const needsBotesTab = stepId === 'ops-editop-botes-panel'
+        const modalOk = ensureEditModalOpen(needsBotesTab ? 'botes' : 'op')
+        return ok && modalOk
+      }
+
+      if (stepId === 'ops-bote-header') {
+        const ok = ensureOpOpen()
+        window.dispatchEvent(new CustomEvent('bitecma:tutorial:collapse-botes'))
+        if (tutorialBoteJump) {
+          setTutorialBoteJump(null)
+          return false
+        }
+        return ok
+      }
+
+      if (
+        stepId === 'ops-tab-dens' ||
+        stepId.startsWith('ops-dens-') ||
+        stepId === 'ops-dens-enter-nav'
+      ) {
+        const ok = ensureOpOpen()
+        const jumpOk = ensureJump('B1', 'dens')
+        return ok && jumpOk
+      }
+
+      if (stepId === 'ops-tab-lp') {
+        const ok = ensureOpOpen()
+        const jumpOk = ensureJump('B1', 'dens')
+        return ok && jumpOk
+      }
+
+      if (stepId === 'ops-lp-panel' || stepId.startsWith('ops-lp-')) {
+        const ok = ensureOpOpen()
+        const jumpOk = ensureJump('B1', 'lp')
+        return ok && jumpOk
+      }
+
+      if (stepId === 'ops-bote2-open' || stepId === 'ops-cuad-dens' || stepId.startsWith('ops-cuad-')) {
+        const ok = ensureOpOpen()
+        const jumpOk = ensureJump('B2', 'dens')
+        return ok && jumpOk
+      }
+
+      if (stepId === 'ops-close-all-botes') {
+        const ok = ensureOpOpen()
+        const jumpOk = ensureJump('B2', 'dens')
+        return ok && jumpOk
+      }
+
+      if (stepId.startsWith('ops-op-')) {
+        return ensureOpOpen()
+      }
+
+      return true
+    },
+    [
+      tutorialOps,
+      modalState?.open,
+      modalState?.title,
+      closeModal,
+      openBotesModal,
+      regionSel,
+      expanded,
+      sector,
+      mes,
+      texto,
+      tutorialBoteJump,
+      seedMeta,
+    ],
+  )
+
+  useEffect(() => {
+    const onStep = (e) => {
+      if (!active) return
+      const tour = String(e?.detail?.tour || '')
+      if (tour && tour !== 'ops') return
+      const stepId = String(e?.detail?.stepId || '').trim()
+      if (!stepId) return
+      setTutorialStepId(stepId)
+      const token = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+      setPendingStep({ token, stepId })
+    }
+    window.addEventListener('bitecma:tutorial:step', onStep)
+    return () => window.removeEventListener('bitecma:tutorial:step', onStep)
+  }, [active])
+
+  useEffect(() => {
+    clearTimeout(pendingStepTimerRef.current)
+    if (!active) return
+    if (!pendingStep || typeof pendingStep !== 'object') return
+    const stepId = String(pendingStep.stepId || '').trim()
+    const token = String(pendingStep.token || '').trim()
+    if (!stepId || !token) return
+
+    let tries = 0
+    const tick = () => {
+      if (!active) return
+      const cur = pendingStep && typeof pendingStep === 'object' ? pendingStep : null
+      if (!cur || String(cur.token || '') !== token) return
+      const ok = resolveStepNeeds(stepId)
+      if (ok) return
+      tries++
+      if (tries > 40) return
+      pendingStepTimerRef.current = setTimeout(tick, 80)
+    }
+
+    tick()
+    return () => clearTimeout(pendingStepTimerRef.current)
+  }, [active, pendingStep, resolveStepNeeds])
 
   useEffect(() => {
     const onReq = (e) => {
@@ -207,8 +719,6 @@ export default function OpsTutorialPage({ active }) {
       window.removeEventListener('bitecma:tutorial:snapshot:restore', onRestore)
     }
   }, [active, closeModal])
-
-  const regionMetaById = useMemo(() => new Map((Array.isArray(regiones) ? regiones : []).map((r) => [String(r?.id), r])), [regiones])
 
   const regionButtons = useMemo(() => {
     const ops = Array.isArray(tutorialOps) ? tutorialOps : []
@@ -429,10 +939,24 @@ export default function OpsTutorialPage({ active }) {
     openModal('Agregar Nuevo Bote', <Body />, 'normal')
   }
 
-  const openBotesModal = (opId, opFallback) => {
+  function openBotesModal(opId, opFallback, { initialStepId } = {}) {
+    const initStepId = String(initialStepId || '').trim()
     const BotesEditor = ({ opId, opFallback }) => {
       const opBase = (Array.isArray(tutorialOps) ? tutorialOps : []).find((o) => String(o?.id) === String(opId)) || null
       const base = opBase || opFallback || null
+      const [localStepId, setLocalStepId] = useState(() => initStepId || String(tutorialStepId || ''))
+      useEffect(() => {
+        const onStep = (e) => {
+          const tour = String(e?.detail?.tour || '')
+          if (tour && tour !== 'ops') return
+          const stepId = String(e?.detail?.stepId || '').trim()
+          if (!stepId) return
+          setLocalStepId(stepId)
+        }
+        window.addEventListener('bitecma:tutorial:step', onStep)
+        return () => window.removeEventListener('bitecma:tutorial:step', onStep)
+      }, [])
+      const tutorialLock = String(localStepId || '') === 'ops-botes-panel'
       const seed = Array.isArray(base?.botes) ? base.botes : []
       const opCaleta = String(base?.sector || base?.caleta || '').trim()
       const caletaKey = normKey(opCaleta)
@@ -589,7 +1113,19 @@ export default function OpsTutorialPage({ active }) {
       })()
 
       return (
-        <div data-tutorial-id="ops-botes-panel" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div data-tutorial-id="ops-botes-panel" style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {tutorialLock ? (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 5,
+                background: 'transparent',
+                pointerEvents: 'auto',
+                borderRadius: 12,
+              }}
+            />
+          ) : null}
           <div style={{ overflow: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
             <table className="tbl">
               <thead>
@@ -611,6 +1147,7 @@ export default function OpsTutorialPage({ active }) {
                         className="ii"
                         type="number"
                         value={r.zona}
+                        disabled={tutorialLock}
                         onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))}
                       />
                     </td>
@@ -620,6 +1157,7 @@ export default function OpsTutorialPage({ active }) {
                         placeholder="Nombre bote"
                         value={r.nombre}
                         data-tutorial-id={idx === 0 ? 'ops-bote-name-0' : idx === 1 ? 'ops-bote-name-1' : undefined}
+                        disabled={tutorialLock}
                         onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, nombre: e.target.value } : x)))}
                         onClick={() => openPanel(idx)}
                         onFocus={() => openPanel(idx)}
@@ -635,6 +1173,7 @@ export default function OpsTutorialPage({ active }) {
                         placeholder="Nombre buzo"
                         value={r.buzo}
                         data-tutorial-id={idx === 0 ? 'ops-bote-buzo-0' : idx === 1 ? 'ops-bote-buzo-1' : undefined}
+                        disabled={tutorialLock}
                         onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, buzo: e.target.value } : x)))}
                       />
                     </td>
@@ -643,7 +1182,7 @@ export default function OpsTutorialPage({ active }) {
                         className="is"
                         value={r.densTipo}
                         data-tutorial-id={idx === 0 ? 'ops-bote-unidad-0' : idx === 1 ? 'ops-bote-unidad-1' : undefined}
-                        disabled={idx === 0}
+                        disabled={tutorialLock || idx === 0}
                         onChange={(e) => {
                           const newDensTipo = e.target.value
                           if (idx === 0) return
@@ -687,14 +1226,15 @@ export default function OpsTutorialPage({ active }) {
                   className="ii"
                   placeholder="Buscar bote, RPA o matrícula..."
                   value={searchTerm}
+                  disabled={tutorialLock}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   style={{ flexGrow: 1, minWidth: 200 }}
                   autoFocus
                 />
-                <button className="btn b-out" data-tutorial-id="ops-bote-addnew" onClick={handleAddNewBoat}>
+                <button className="btn b-out" data-tutorial-id="ops-bote-addnew" disabled={tutorialLock} onClick={handleAddNewBoat}>
                   Agregar nuevo
                 </button>
-                <button className="btn b-out" onClick={closePanel}>
+                <button className="btn b-out" disabled={tutorialLock} onClick={closePanel}>
                   Cerrar
                 </button>
               </div>
@@ -751,10 +1291,10 @@ export default function OpsTutorialPage({ active }) {
               Agregar fila
             </button>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn b-out" onClick={closeModal}>
+              <button className="btn b-out" disabled={tutorialLock} onClick={closeModal}>
                 Cancelar
               </button>
-              <button className="btn b-teal" data-tutorial-id="ops-botes-save" onClick={onSaveBotes}>
+              <button className="btn b-teal" data-tutorial-id="ops-botes-save" disabled={tutorialLock} onClick={onSaveBotes}>
                 Guardar botes
               </button>
             </div>
@@ -767,12 +1307,14 @@ export default function OpsTutorialPage({ active }) {
   }
 
   useEffect(() => {
-    const onEnsureBotes = () => {
+    const onEnsureBotes = (e) => {
       if (!active) return
       const op = (Array.isArray(tutorialOps) ? tutorialOps : [])[0] || null
       const opId = String(op?.id || '').trim()
       if (!opId) return
-      openBotesModal(opId, op)
+      const stepId = String(e?.detail?.stepId || '').trim()
+      if (stepId) setTutorialStepId(stepId)
+      openBotesModal(opId, op, { initialStepId: stepId })
     }
     window.addEventListener('bitecma:tutorial:ensure-botes-modal', onEnsureBotes)
     return () => window.removeEventListener('bitecma:tutorial:ensure-botes-modal', onEnsureBotes)
@@ -984,12 +1526,305 @@ export default function OpsTutorialPage({ active }) {
     openModal('Nueva operación', <Body />, 'wide')
   }
 
-  const openEditOp = (op) => {
+  const BotesEditor = ({ opId, opFallback, onCancel, onSaved }) => {
+    const opBase = (tutorialOps || []).find((o) => String(o?.id) === String(opId)) || null
+    const base = opBase || opFallback || null
+    const seed = Array.isArray(base?.botes) ? base.botes : []
+    const opCaleta = String(base?.sector || base?.caleta || '').trim()
+    const caletaKey = normKey(opCaleta)
+
+    const [rows, setRows] = useState(() => {
+      if (seed.length) {
+        return seed.map((b, i) => ({
+          sourceId: String(b?.id || ''),
+          zona: Number(b?.zona) || i + 1,
+          nombre: String(b?.nombre || ''),
+          buzo: String(b?.buzo || ''),
+          densTipo: b?.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
+        }))
+      }
+      return Array.from({ length: 4 }, (_, i) => ({
+        sourceId: '',
+        zona: i + 1,
+        nombre: '',
+        buzo: '',
+        densTipo: 'transecto',
+      }))
+    })
+
+    const [showPanel, setShowPanel] = useState(false)
+    const [currentRowIdx, setCurrentRowIdx] = useState(null)
+    const [searchTerm, setSearchTerm] = useState('')
+
+    const hasDensidadUnitsForRow = (row) => {
+      const id = String(row?.sourceId || '').trim()
+      if (!id) return false
+      const b = (Array.isArray(base?.botes) ? base.botes : []).find((x) => String(x?.id || '') === id) || null
+      return !!(b && Array.isArray(b?.transectos) && b.transectos.length)
+    }
+
+    const addRow = () => {
+      setRows((prev) => [...prev, { sourceId: '', zona: (prev[prev.length - 1]?.zona || 0) + 1, nombre: '', buzo: '', densTipo: 'transecto' }])
+    }
+
+    const removeRow = (idx) => {
+      setRows((prev) => prev.filter((_, i) => i !== idx))
+      if (currentRowIdx === idx) {
+        setShowPanel(false)
+        setCurrentRowIdx(null)
+      }
+    }
+
+    const openPanel = (idx) => {
+      setCurrentRowIdx(idx)
+      setShowPanel(true)
+    }
+
+    const closePanel = () => {
+      setShowPanel(false)
+      setCurrentRowIdx(null)
+      setSearchTerm('')
+    }
+
+    const handleSelectBoat = (boatName) => {
+      if (currentRowIdx !== null) {
+        setRows((prev) => prev.map((x, i) => (i === currentRowIdx ? { ...x, nombre: boatName } : x)))
+      }
+      closePanel()
+    }
+
+    const handleAddNewBoat = () => {
+      openAddBoteModal(
+        (newBoatName) => {
+          if (newBoatName && currentRowIdx !== null) {
+            setRows((prev) => prev.map((x, i) => (i === currentRowIdx ? { ...x, nombre: newBoatName } : x)))
+          }
+          closePanel()
+        },
+        { regionId: base?.region, caleta: opCaleta },
+      )
+    }
+
+    const onSaveBotes = () => {
+      const clean = rows
+        .map((r) => ({
+          sourceId: String(r.sourceId || ''),
+          zona: parseInt(r.zona, 10) || 1,
+          nombre: String(r.nombre || '').trim(),
+          buzo: String(r.buzo || '').trim(),
+          densTipo: r.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
+        }))
+        .filter((r) => r.nombre)
+      if (!clean.length) {
+        toast('Ingresa al menos un bote', 'red')
+        return
+      }
+      safeUpdateOperacion(opId, (cur) => {
+        const prevBotes = Array.isArray(cur?.botes) ? cur.botes : []
+        const prevById = new Map(prevBotes.map((b) => [String(b?.id || ''), b]))
+        const nextBotes = clean.map((r, i) => {
+          const prev = prevById.get(r.sourceId)
+          const prevDensTipo = prev?.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto'
+          const keepDensidad = prev && prevDensTipo === r.densTipo
+          return {
+            id: `B${i + 1}`,
+            nombre: r.nombre,
+            buzo: r.buzo,
+            zona: r.zona,
+            densTipo: r.densTipo,
+            lpMuestras: prev?.lpMuestras && typeof prev.lpMuestras === 'object' ? prev.lpMuestras : {},
+            transectos: keepDensidad ? (Array.isArray(prev?.transectos) ? prev.transectos : []) : [],
+          }
+        })
+        return { ...cur, botes: nextBotes }
+      })
+      toast('Botes actualizados (tutorial)', 'green')
+      if (typeof onSaved === 'function') onSaved()
+    }
+
+    const masterBotesIndexed = useMemo(() => {
+      const masterBotes = Array.isArray(allBotesMaestro) ? allBotesMaestro : []
+      return masterBotes.map((b) => ({
+        boat: b,
+        caletaKey: normKey(b?.caleta),
+        nombreKey: normKey(b?.nombre),
+        nrpaKey: normKey(b?.nrpa),
+        nmatriculaKey: normKey(b?.nmatricula),
+      }))
+    }, [allBotesMaestro])
+
+    const filteredBotes = useMemo(() => {
+      const term = normKey(searchTerm)
+      return masterBotesIndexed
+        .filter((x) => x.caletaKey === caletaKey && (x.nombreKey.includes(term) || x.nrpaKey.includes(term) || x.nmatriculaKey.includes(term)))
+        .map((x) => x.boat)
+    }, [searchTerm, caletaKey, masterBotesIndexed])
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ overflow: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Zona muestreo</th>
+                <th>Bote</th>
+                <th>Buzo</th>
+                <th>Unidad de muestreo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, idx) => (
+                <tr key={`${r.sourceId || 'new'}-${idx}`}>
+                  <td>{idx + 1}</td>
+                  <td style={{ minWidth: 120 }}>
+                    <input className="ii" type="number" value={r.zona} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))} />
+                  </td>
+                  <td style={{ minWidth: 220 }}>
+                    <input
+                      className="ii"
+                      placeholder="Nombre bote"
+                      value={r.nombre}
+                      onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, nombre: e.target.value } : x)))}
+                      onClick={() => openPanel(idx)}
+                      onFocus={() => openPanel(idx)}
+                      style={{
+                        borderColor: currentRowIdx === idx ? 'var(--teal)' : undefined,
+                        boxShadow: currentRowIdx === idx ? '0 0 0 2px rgba(10,143,126,0.1)' : undefined,
+                      }}
+                    />
+                  </td>
+                  <td style={{ minWidth: 220 }}>
+                    <input className="ii" placeholder="Nombre buzo" value={r.buzo} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, buzo: e.target.value } : x)))} />
+                  </td>
+                  <td style={{ minWidth: 190 }}>
+                    <select
+                      className="is"
+                      value={r.densTipo}
+                      onChange={(e) => {
+                        const newDensTipo = e.target.value
+                        if (r.densTipo !== newDensTipo) {
+                          if (hasDensidadUnitsForRow(r)) {
+                            const ok = confirm('Al cambiar la unidad de muestreo, solo se perderán los datos de densidad (los datos de peso-longitud se mantendrán). ¿Continuar?')
+                            if (!ok) return
+                          }
+                        }
+                        setRows((p) => p.map((x, i) => (i === idx ? { ...x, densTipo: newDensTipo } : x)))
+                      }}
+                    >
+                      <option value="transecto">Transecto</option>
+                      <option value="cuadrante">Cuadrante</option>
+                    </select>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button className="btn b-out b-sm" onClick={() => removeRow(idx)}>
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {showPanel && (
+          <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 16, backgroundColor: 'var(--bg)', boxShadow: 'var(--shadow)', marginTop: 4 }}>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+              <input
+                className="ii"
+                placeholder="Buscar bote, RPA o matrícula..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{ flexGrow: 1, minWidth: 200 }}
+                autoFocus
+              />
+              <button className="btn b-out" onClick={handleAddNewBoat}>
+                Agregar nuevo
+              </button>
+              <button className="btn b-out" onClick={closePanel}>
+                Cerrar
+              </button>
+            </div>
+
+            <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
+              {filteredBotes.length === 0 ? (
+                <div style={{ padding: '16px', color: 'var(--text3)', textAlign: 'center' }}>
+                  No se encontraron botes para "{searchTerm}" en la caleta {opCaleta || '(ninguna)'}.
+                </div>
+              ) : (
+                filteredBotes.map((boat) => (
+                  <div
+                    key={boat.id}
+                    style={{
+                      padding: '12px 16px',
+                      cursor: 'pointer',
+                      borderBottom: '1px solid var(--border)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      transition: 'background-color 0.15s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg2)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    onClick={() => {
+                      if (tutorialLock) return
+                      handleSelectBoat(boat.nombre)
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 800, color: 'var(--navy)', fontSize: 14 }}>{boat.nombre}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+                        RPA {boat.nrpa} · Caleta {boat.caleta}
+                      </div>
+                    </div>
+                    <div style={{ backgroundColor: 'var(--bg2)', padding: '4px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600, color: 'var(--text2)' }}>
+                      {boat.region}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 8 }}>
+          <button className="btn b-out" onClick={addRow}>
+            Agregar fila
+          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn b-out"
+              onClick={() => {
+                if (typeof onCancel === 'function') onCancel()
+              }}
+            >
+              Cancelar
+            </button>
+            <button className="btn b-teal" onClick={onSaveBotes}>
+              Guardar botes
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  function openEditOp(op, { initialTab } = {}) {
     const opId = String(op?.id || '').trim()
     if (!opId) return
 
     const Body = () => {
-      const [tab, setTab] = useState('op')
+      const [tab, setTab] = useState(() => (initialTab === 'botes' ? 'botes' : 'op'))
+      useEffect(() => {
+        const onTab = (e) => {
+          const d = e?.detail || {}
+          if (String(d?.opId || '') !== opId) return
+          if (d?.tab === 'botes' || d?.tab === 'op') setTab(d.tab)
+        }
+        window.addEventListener('bitecma:tutorial:editop-tab', onTab)
+        return () => window.removeEventListener('bitecma:tutorial:editop-tab', onTab)
+      }, [])
       const [s, setS] = useState(() => ({
         region: Number(op?.region) || regiones[0]?.id || 1,
         sectorAmerbId: String(op?.sectorAmerbId || ''),
@@ -1058,6 +1893,7 @@ export default function OpsTutorialPage({ active }) {
             <div
               className={`btab${tab === 'op' ? ' on' : ''}`}
               data-tutorial-id="ops-editop-tab-op"
+              data-tutorial-advance="true"
               onClick={() => setTab('op')}
             >
               Operación
@@ -1065,6 +1901,7 @@ export default function OpsTutorialPage({ active }) {
             <div
               className={`btab${tab === 'botes' ? ' on' : ''}`}
               data-tutorial-id="ops-editop-tab-botes"
+              data-tutorial-advance="true"
               onClick={() => setTab('botes')}
             >
               Botes
@@ -1187,17 +2024,8 @@ export default function OpsTutorialPage({ active }) {
               </div>
             </>
           ) : (
-            <div data-tutorial-id="ops-editop-botes-panel" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div className="info-box blue">
-                <span>i</span>
-                <div>Editor de botes (tutorial). Para ver el detalle, usa el botón “Abrir” en la operación.</div>
-              </div>
-              <button className="btn b-teal" data-tutorial-id="ops-editop-open-botes-editor" onClick={() => openBotesModal(opId, op)}>
-                Abrir editor de botes
-              </button>
-              <button className="btn b-out" onClick={closeModal}>
-                Volver
-              </button>
+            <div data-tutorial-id="ops-editop-botes-panel">
+              <BotesEditor opId={opId} opFallback={{ ...op, sector: s.sector, caleta: s.sector }} onCancel={() => setTab('op')} />
             </div>
           )}
         </div>
@@ -1420,6 +2248,7 @@ export default function OpsTutorialPage({ active }) {
                             openModal={openModal}
                             closeModal={closeModal}
                             lpJump={null}
+                            tutorialJump={tutorialBoteJump}
                           />
                         ))}
                       </div>

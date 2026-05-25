@@ -80,11 +80,12 @@ function normKey(v) {
  * - Mantener la lógica de matching de `lpJump` sincronizada con el emisor (por ejemplo, EvadirPreview).
  * - Evitar cálculos pesados sin memoización.
  */
-export default function BoteCard({ op, bote, especies, updateOperacion, canWrite, toast, openModal, closeModal, lpJump }) {
+export default function BoteCard({ op, bote, especies, updateOperacion, canWrite, toast, openModal, closeModal, lpJump, tutorialJump }) {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState('dens')
   const rootRef = useRef(null)
   const lastTokenRef = useRef(null)
+  const lastTutTokenRef = useRef(null)
 
   useEffect(() => {
     const onCollapse = () => {
@@ -130,6 +131,35 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
       }
     }, 0)
   }, [lpJump?.token, lpJump?.opId, lpJump?.boteId, lpJump?.boteNombre, lpJump?.buzo, lpJump?.zona, op?.id, bote?.id, bote?.nombre, bote?.buzo, bote?.zona])
+
+  useEffect(() => {
+    const token = tutorialJump?.token ?? null
+    if (!token || lastTutTokenRef.current === token) return
+
+    const opId = String(tutorialJump?.opId ?? '')
+    if (!opId || String(op?.id ?? '') !== opId) return
+
+    const byId = tutorialJump?.boteId != null && String(tutorialJump.boteId) !== '' ? String(tutorialJump.boteId) : null
+    if (!byId || String(bote?.id ?? '') !== byId) return
+
+    lastTutTokenRef.current = token
+    setTimeout(() => {
+      setOpen(true)
+      const nextTab = String(tutorialJump?.tab || '')
+      if (nextTab === 'lp' || nextTab === 'dens') setTab(nextTab)
+      const target = rootRef.current
+      const scroller = target?.closest?.('.main')
+      if (target && scroller) {
+        const scRect = scroller.getBoundingClientRect()
+        const tRect = target.getBoundingClientRect()
+        const top = scroller.scrollTop + (tRect.top - scRect.top) - 10
+        if (typeof scroller.scrollTo === 'function') scroller.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+        else scroller.scrollTop = Math.max(0, top)
+      } else {
+        target?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+      }
+    }, 0)
+  }, [tutorialJump?.token, tutorialJump?.opId, tutorialJump?.boteId, tutorialJump?.tab, op?.id, bote?.id])
 
   const densSpecies = useMemo(() => {
     const arr = Array.isArray(especies) ? especies : []

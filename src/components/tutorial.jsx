@@ -143,7 +143,7 @@ export default function Tutorial() {
         title: 'Panel de botes',
         text: 'Aquí agregas los botes, buzo, zona y el tipo de unidad de muestreo (transecto/cuadrante) para la operación creada.',
         focusClosestSelector: '.mb-box',
-        lockSelector: '[data-tutorial-id="ops-botes-panel"]',
+        tipPlacement: 'above-center',
       },
       {
         id: 'ops-bote-name-0',
@@ -774,32 +774,13 @@ export default function Tutorial() {
       {
         id: 'ops-editop-botes-panel',
         selector: '[data-tutorial-id="ops-editop-botes-panel"]',
-        title: 'Panel editar botes',
-        text: 'Desde aquí puedes abrir el panel para editar los botes de la operación.',
-        focusClosestSelector: '.mb-box',
-      },
-      {
-        id: 'ops-editop-open-botes-editor',
-        selector: '[data-tutorial-id="ops-editop-open-botes-editor"]',
-        title: 'Abrir editor de botes',
-        text: 'Haz click para abrir el panel de edición de botes.',
-        requiresClick: true,
-        passThrough: true,
-        advanceDelayMs: 220,
-        lockSelector: '#root button, #root a, #root input, #root select, #root textarea, #root .btab, #root .tx-hd',
-        lockAllowSelector: '[data-tutorial-id="ops-editop-open-botes-editor"]',
-        lockAllowWithin: '.tut-ov, .mb-box',
-      },
-      {
-        id: 'ops-edit-botes-panel',
-        selector: '[data-tutorial-id="ops-botes-panel"]',
         title: 'Editor de botes',
-        text: 'Este panel permite editar los botes de la operación.',
+        text: 'Aquí puedes editar los botes de la operación (zona, buzo y unidad de muestreo).',
         focusClosestSelector: '.mb-box',
       },
       {
-        id: 'ops-farewell',
-        selector: '[data-tutorial-id="ops-botes-panel"]',
+        id: 'ops-editop-farewell',
+        selector: '[data-tutorial-id="ops-editop-botes-panel"]',
         title: 'Mensaje de despedida',
         text: 'Tutorial completado. Ya conoces el flujo de creación y edición de una operación, botes y registro de datos.',
       },
@@ -816,6 +797,8 @@ export default function Tutorial() {
   const lockRef = useRef({ els: [] })
   const gateRef = useRef({ t: 0 })
   const snapsRef = useRef({ byKey: {}, pending: {} })
+  const chaptersLockRef = useRef({ t: 0, prevId: '' })
+  const [chaptersLocked, setChaptersLocked] = useState(false)
 
   const tipRef = useRef(null)
   const focusedElRef = useRef(null)
@@ -859,7 +842,11 @@ export default function Tutorial() {
     const vw = window.innerWidth
     const vh = window.innerHeight
 
-    if (String(step?.tipPlacement || '') === 'right-center') {
+    if (String(step?.tipPlacement || '') === 'above-center') {
+      const left = clamp(r.left + r.width / 2 - tipRect.width / 2, margin, vw - tipRect.width - margin)
+      const top = clamp(r.top - gap - tipRect.height, margin, vh - tipRect.height - margin)
+      setTipPos({ top, left, show: true })
+    } else if (String(step?.tipPlacement || '') === 'right-center') {
       const left = clamp(vw * 0.62, margin, vw - tipRect.width - margin)
       const top = clamp(vh / 2 - tipRect.height / 2, margin, vh - tipRect.height - margin)
       setTipPos({ top, left, show: true })
@@ -932,6 +919,16 @@ export default function Tutorial() {
   const canRender = (tour === 'ops' && isOpsTutorial) || (tour !== 'ops' && isDashboard)
   const curStep = running && canRender ? steps[idx] : null
   curStepRef.current = curStep
+
+  useEffect(() => {
+    if (!(running && canRender)) return
+    const step = steps[idx] || null
+    window.dispatchEvent(
+      new CustomEvent('bitecma:tutorial:step', {
+        detail: { tour, stepId: String(step?.id || ''), idx },
+      }),
+    )
+  }, [running, canRender, tour, idx, steps])
   const getChapter = useCallback(
     (at) => {
       const i0 = Number(at)
@@ -947,11 +944,52 @@ export default function Tutorial() {
     [steps],
   )
 
+  const chapters = useMemo(() => {
+    const out = []
+    const seen = new Set()
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i]
+      const title = String(s?.chapterTitle || '').trim()
+      const id = String(s?.chapterId || '').trim()
+      if (!title) continue
+      const key = id || title
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push({ id: key, title, checkpointIdx: i })
+    }
+    return out
+  }, [steps])
+
   const chapter = running && canRender ? getChapter(idx) : null
   const stepLabel = chapter?.title || `${idx + 1} / ${steps.length}`
   const [gateOk, setGateOk] = useState(true)
   const hasGate = !!curStep?.waitForNonEmptySelector || !!curStep?.waitForValue || !!curStep?.gateTrigger
   const nextLocked = !!curStep?.requiresClick || !!curStep?.waitForTrigger || (hasGate && !gateOk)
+
+  useEffect(() => {
+    if (!(running && canRender) || tour !== 'ops') {
+      if (chaptersLockRef.current.t) clearTimeout(chaptersLockRef.current.t)
+      chaptersLockRef.current.t = 0
+      chaptersLockRef.current.prevId = ''
+      if (chaptersLocked) setChaptersLocked(false)
+      return
+    }
+    const id = String(chapter?.id || '')
+    if (!id) return
+    if (!chaptersLockRef.current.prevId) {
+      chaptersLockRef.current.prevId = id
+      if (chaptersLocked) setChaptersLocked(false)
+      return
+    }
+    if (id === chaptersLockRef.current.prevId) return
+    chaptersLockRef.current.prevId = id
+    if (chaptersLockRef.current.t) clearTimeout(chaptersLockRef.current.t)
+    setChaptersLocked(true)
+    chaptersLockRef.current.t = setTimeout(() => {
+      chaptersLockRef.current.t = 0
+      setChaptersLocked(false)
+    }, 5000)
+  }, [running, canRender, tour, chapter?.id, chaptersLocked])
 
   const resetSnapshots = useCallback(() => {
     const s = snapsRef.current
@@ -1074,6 +1112,28 @@ export default function Tutorial() {
     setIdx(target)
   }, [running, canRender, idx, tour, restoreSnapshot, steps])
 
+  const jumpToChapter = useCallback(
+    (ch) => {
+      if (!(running && canRender)) return
+      if (tour !== 'ops') return
+      if (chaptersLocked) return
+      if (!ch || typeof ch !== 'object') return
+      const target = Number(ch.checkpointIdx)
+      if (!Number.isFinite(target) || target < 0 || target >= steps.length) return
+      if (target === idx) return
+      window.dispatchEvent(new CustomEvent('bitecma:tutorial:closeall'))
+      window.dispatchEvent(new CustomEvent('bitecma:tutorial:collapse-botes'))
+      window.dispatchEvent(
+        new CustomEvent('bitecma:tutorial:seed', {
+          detail: { tour, chapterId: String(ch.id || ''), checkpointIdx: target, fromIdx: idx },
+        }),
+      )
+      restoreSnapshot(tour, target)
+      setIdx(target)
+    },
+    [running, canRender, tour, idx, restoreSnapshot, steps.length, chaptersLocked],
+  )
+
   useEffect(() => {
     const step = running && canRender ? steps[idx] : null
     const evt = String(step?.ensureEvent || '').trim()
@@ -1190,10 +1250,24 @@ export default function Tutorial() {
 
     const tryFocus = (startedAt) => {
       if (retry.token !== token) return
-      const el = step ? document.querySelector(step.selector) : null
+      let el = null
+      if (step) {
+        try {
+          el = document.querySelector(step.selector)
+        } catch {
+          el = null
+        }
+      }
       if (el) {
         const focusClosestSel = String(step?.focusClosestSelector || '')
-        const focusEl = focusClosestSel ? el.closest?.(focusClosestSel) || el : el
+        let focusEl = el
+        if (focusClosestSel) {
+          try {
+            focusEl = el.closest?.(focusClosestSel) || el
+          } catch {
+            focusEl = el
+          }
+        }
         applyFocus(focusEl)
         const scrollBlock = step?.scrollIntoView
         if (scrollBlock) {
@@ -1241,6 +1315,9 @@ export default function Tutorial() {
 
   useEffect(() => {
     const lockState = lockRef.current
+    clearTimeout(lockState.t)
+    lockState.t = 0
+    lockState.token = ''
     lockState.els.forEach((el) => el.removeAttribute('data-tutorial-lock'))
     lockState.els = []
 
@@ -1252,20 +1329,55 @@ export default function Tutorial() {
     const allowWithin = String(step?.lockAllowWithin || '')
     if (!sel) return
 
-    const allowExact = allowSel ? new Set(Array.from(document.querySelectorAll(allowSel)).filter((x) => x && x.nodeType === 1)) : null
-    const els = Array.from(document.querySelectorAll(sel))
-      .filter((x) => x && x.nodeType === 1)
-      .filter((el) => {
-        if (allowExact && allowExact.has(el)) return false
-        if (allowWithin && el.closest?.(allowWithin)) return false
-        return true
-      })
-    els.forEach((el) => el.setAttribute('data-tutorial-lock', 'true'))
-    lockState.els = els
+    const startedAt = Date.now()
+    const token = `${startedAt}-${Math.random().toString(16).slice(2)}`
+    lockState.token = token
+
+    const tryApply = () => {
+      if (lockState.token !== token) return
+
+      const safeQsa = (q) => {
+        try {
+          return Array.from(document.querySelectorAll(q))
+        } catch {
+          return []
+        }
+      }
+
+      const allowExact = allowSel ? new Set(safeQsa(allowSel).filter((x) => x && x.nodeType === 1)) : null
+      const els = safeQsa(sel)
+        .filter((x) => x && x.nodeType === 1)
+        .filter((el) => {
+          if (allowExact && allowExact.has(el)) return false
+          if (allowWithin) {
+            try {
+              if (el.closest?.(allowWithin)) return false
+            } catch {
+              //
+            }
+          }
+          return true
+        })
+
+      if (!els.length) {
+        if (Date.now() - startedAt >= 2500) return
+        clearTimeout(lockState.t)
+        lockState.t = setTimeout(tryApply, 60)
+        return
+      }
+
+      els.forEach((el) => el.setAttribute('data-tutorial-lock', 'true'))
+      lockState.els = els
+    }
+
+    tryApply()
 
     return () => {
-      els.forEach((el) => el.removeAttribute('data-tutorial-lock'))
-      if (lockState.els === els) lockState.els = []
+      if (lockState.token === token) lockState.token = ''
+      clearTimeout(lockState.t)
+      lockState.t = 0
+      lockState.els.forEach((el) => el.removeAttribute('data-tutorial-lock'))
+      lockState.els = []
     }
   }, [running, canRender, steps, idx])
 
@@ -1295,7 +1407,12 @@ export default function Tutorial() {
       let ok = true
 
       if (nonEmptySel) {
-        const el = document.querySelector(nonEmptySel)
+        let el = null
+        try {
+          el = document.querySelector(nonEmptySel)
+        } catch {
+          el = null
+        }
         if (!el) ok = false
         else {
           const v = typeof el.value === 'string' ? el.value : String(el.getAttribute?.('value') || '')
@@ -1304,7 +1421,12 @@ export default function Tutorial() {
       }
 
       if (ok && waitValSel) {
-        const el = document.querySelector(waitValSel)
+        let el = null
+        try {
+          el = document.querySelector(waitValSel)
+        } catch {
+          el = null
+        }
         if (!el) ok = false
         else {
           const v = typeof el.value === 'string' ? el.value : String(el.getAttribute?.('value') || '')
@@ -1433,25 +1555,57 @@ export default function Tutorial() {
     <div
       className={`tut-ov${open ? ' open' : ''}${showPrompt ? ' prompt' : ''}${running ? ' running' : ''}`}
     >
-      {running && canRender && tour === 'ops' && chapter?.title ? (
+      {running && canRender && tour === 'ops' && chapters.length ? (
         <div
           style={{
             position: 'fixed',
             top: 12,
             left: 12,
             zIndex: 99999,
-            padding: '6px 10px',
-            borderRadius: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            padding: 10,
+            borderRadius: 12,
             background: 'rgba(20,20,20,.72)',
             color: 'white',
             fontFamily: 'var(--ff-d)',
             fontSize: 12,
             fontWeight: 800,
             letterSpacing: 0.2,
-            pointerEvents: 'none',
+            pointerEvents: 'auto',
+            maxWidth: 260,
           }}
         >
-          {chapter.title}
+          {chapters.map((ch) => {
+            const isActive = ch.id === chapter?.id
+            const unlocked = !chaptersLocked
+            return (
+              <button
+                key={ch.id}
+                type="button"
+                disabled={!unlocked}
+                onClick={() => jumpToChapter(ch)}
+                style={{
+                  appearance: 'none',
+                  border: 'none',
+                  textAlign: 'left',
+                  padding: '7px 9px',
+                  borderRadius: 10,
+                  background: isActive ? 'rgba(10,143,126,.38)' : 'rgba(255,255,255,.08)',
+                  color: isActive ? 'white' : 'rgba(255,255,255,.86)',
+                  cursor: unlocked ? 'pointer' : 'not-allowed',
+                  opacity: unlocked ? 1 : 0.55,
+                  fontFamily: 'var(--ff-d)',
+                  fontSize: 12,
+                  fontWeight: isActive ? 900 : 800,
+                  letterSpacing: 0.2,
+                }}
+              >
+                {ch.title}
+              </button>
+            )
+          })}
         </div>
       ) : null}
       {running && canRender && curStep && spot ? (
