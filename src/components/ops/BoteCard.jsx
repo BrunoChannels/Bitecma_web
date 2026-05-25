@@ -230,7 +230,12 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
   })()
 
   return (
-    <div className="bote-card" ref={rootRef} data-tutorial-role="bote-card">
+    <div
+      className="bote-card"
+      ref={rootRef}
+      data-tutorial-role="bote-card"
+      data-tutorial-boteid={String(bote?.id ?? '')}
+    >
       <div
         className={`bote-hd${open ? ' open-hd' : ''}`}
         onClick={() => setOpen((v) => !v)}

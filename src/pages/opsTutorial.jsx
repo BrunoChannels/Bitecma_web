@@ -384,6 +384,8 @@ export default function OpsTutorialPage({ active }) {
 
       if (rank >= 8) {
         setTutorialBoteJump({ token: `${Date.now()}-${Math.random().toString(16).slice(2)}`, opId: seedMeta.opId, boteId: 'B2', tab: 'dens' })
+      } else if (rank >= 7) {
+        setTutorialBoteJump(null)
       } else if (rank >= 5) {
         setTutorialBoteJump({ token: `${Date.now()}-${Math.random().toString(16).slice(2)}`, opId: seedMeta.opId, boteId: 'B1', tab: 'lp' })
       } else {
@@ -612,7 +614,23 @@ export default function OpsTutorialPage({ active }) {
         return ok && jumpOk
       }
 
-      if (stepId === 'ops-bote2-open' || stepId === 'ops-cuad-dens' || stepId.startsWith('ops-cuad-')) {
+      if (stepId === 'ops-bote2-open') {
+        const ok = ensureOpOpen()
+        window.dispatchEvent(new CustomEvent('bitecma:tutorial:collapse-botes'))
+        if (tutorialBoteJump) {
+          setTutorialBoteJump(null)
+          return false
+        }
+        try {
+          const header = document.querySelector('[data-tutorial-role="bote-header"][data-tutorial-boteid="B2"]')
+          header?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+        } catch {
+          //
+        }
+        return ok
+      }
+
+      if (stepId === 'ops-cuad-dens' || stepId.startsWith('ops-cuad-')) {
         const ok = ensureOpOpen()
         const jumpOk = ensureJump('B2', 'dens')
         return ok && jumpOk

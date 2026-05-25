@@ -99,7 +99,7 @@ export default function OrgsPage({ active }) {
       <div className="ph">
         <div>
           <h2>Organizaciones</h2>
-          <p>Listado OPA por región (con búsqueda)</p>
+          <p>Listado OPA por región</p>
         </div>
         <div className="ph-a">
           {isAdmin ? (

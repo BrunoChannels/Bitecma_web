@@ -64,8 +64,8 @@ export default function EspeciesPage({ active }) {
     <div className={`page${active ? ' active' : ''}`} id="pg-especies">
       <div className="ph">
         <div>
-          <h2>Maestro de Especies</h2>
-          <p>36 especies bentónicas de Chile</p>
+          <h2>Especies</h2>
+          <p>Bentónicas de Chile</p>
         </div>
         <div className="ph-a">
           {isAdmin ? (

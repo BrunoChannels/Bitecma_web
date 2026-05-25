@@ -111,7 +111,7 @@ export default function Tutorial() {
         checkpoint: true,
         selector: '[data-tutorial-id="ops-newop"]',
         title: 'Nueva operación',
-        text: 'Haz click aquí para iniciar la creación de una operación (simulado localmente, sin API).',
+        text: 'Haz click aquí para iniciar la creación de una operación (simulado localmente).',
         requiresClick: true,
         passThrough: true,
         advanceDelayMs: 60,
@@ -634,15 +634,17 @@ export default function Tutorial() {
       },
       {
         id: 'ops-cuad-crear',
-        selector: '[data-tutorial-id="ops-dens-add-transecto"]',
-        title: 'Crear cuadrantes',
-        text: 'Haz click aquí para crear cuadrantes.',
+        selector:
+          '#pg-ops-tutorial [data-tutorial-role="bote-card"][data-tutorial-boteid="B2"] [data-tutorial-id="ops-dens-add-transecto"]',
+        title: 'Agregar Cuadrante',
+        text: 'Haz click aquí en Agregar Cuadrante para crear los cuadrantes.',
         requiresClick: true,
         passThrough: true,
         advanceDelayMs: 220,
         lockSelector:
           '#pg-ops-tutorial button, #pg-ops-tutorial a, #pg-ops-tutorial input, #pg-ops-tutorial select, #pg-ops-tutorial textarea, #pg-ops-tutorial .btab, #pg-ops-tutorial .tx-hd, #pg-ops-tutorial [data-tutorial-role="bote-header"]',
-        lockAllowSelector: '[data-tutorial-id="ops-dens-add-transecto"]',
+        lockAllowSelector:
+          '#pg-ops-tutorial [data-tutorial-role="bote-card"][data-tutorial-boteid="B2"] [data-tutorial-id="ops-dens-add-transecto"]',
         lockAllowWithin: '.tut-ov',
       },
       {

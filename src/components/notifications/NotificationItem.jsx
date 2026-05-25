@@ -43,9 +43,16 @@ export default function NotificationItem({ notification, onRemove }) {
         className="btn b-out b-xs"
         aria-label="Eliminar"
         onClick={() => onRemove?.(id)}
-        style={{ padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        style={{
+          padding: 6,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderColor: 'var(--red)',
+          color: 'var(--red)',
+        }}
       >
-        <SvgIcon name="trash" aria-hidden="true" style={{ fill: pal.fg }} />
+        <SvgIcon name="trash" aria-hidden="true" style={{ width: 16, height: 16, fill: 'currentColor' }} />
       </button>
     </div>
   )

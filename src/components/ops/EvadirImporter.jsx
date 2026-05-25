@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import EvadirPreview from '../evadir/EvadirPreview.jsx'
+import ManualColumnMapper from '../evadir/ManualColumnMapper.jsx'
 import SpeciesGrid from '../common/SpeciesGrid.jsx'
 import { addSample } from '../../services/lpMuestrasService.js'
 import { useApp } from '../../context/appContext.jsx'
@@ -611,6 +612,60 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         return m
       })()
 
+      const CUSTOM_SPECIES_MAPPING_KEY = 'bitecma_custom_mappings_v1'
+      const manualSpeciesIdByKey = new Map()
+      const manualMappedColumnNames = new Set()
+
+      const getUserMappingKey = () => {
+        const k =
+          user?.id ??
+          user?.userId ??
+          user?.usuarioId ??
+          user?.usuario_id ??
+          user?.correo ??
+          user?.email ??
+          user?.username ??
+          null
+        return String(k || 'anon').trim().toLowerCase() || 'anon'
+      }
+
+      const readCustomSpeciesMappings = () => {
+        try {
+          const raw = localStorage.getItem(CUSTOM_SPECIES_MAPPING_KEY)
+          if (!raw) return { version: 1, users: {} }
+          const parsed = JSON.parse(raw)
+          if (!parsed || typeof parsed !== 'object') return { version: 1, users: {} }
+          const users = parsed.users && typeof parsed.users === 'object' ? parsed.users : {}
+          return { version: 1, users }
+        } catch {
+          return { version: 1, users: {} }
+        }
+      }
+
+      const writeCustomSpeciesMappings = (store) => {
+        try {
+          localStorage.setItem(CUSTOM_SPECIES_MAPPING_KEY, JSON.stringify(store || { version: 1, users: {} }))
+        } catch {
+          return
+        }
+      }
+
+      const normalizeSpeciesFieldId = (fieldId) => {
+        const raw = String(fieldId || '').trim()
+        const m = raw.match(/^(NUM|DENS)\s*:\s*(\d+)$/i)
+        if (!m) return null
+        const kind = m[1].toUpperCase()
+        const spId = Number(m[2])
+        if (!Number.isFinite(spId)) return null
+        return { kind, spId }
+      }
+
+      const baseSpeciesKeyFromHeader = (rawHeader) => {
+        const baseRaw = String(rawHeader || '').replace(/\(.*?\)/g, '').trim()
+        const base = baseRaw.replace(/^(num|dens)\s+/i, '').trim()
+        return normHeader(base)
+      }
+
       /**
        * Intenta inferir la especie asociada a una hoja LP/L/D a partir de su nombre.
        *
@@ -689,6 +744,9 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         const base = baseRaw.replace(/^(num|dens)\s+/i, '').trim()
         const k = normHeader(base)
         if (!k) return null
+
+        const manualId = manualSpeciesIdByKey.get(k)
+        if (manualId != null) return manualId
 
         const aliasTo = sciAliases.get(k)
         if (aliasTo) {
@@ -1014,11 +1072,11 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       const iDatum = idxBy(['datum'])
 
       const numCols = []
-      const densCols = []
       for (let c = 0; c < headerRow.length; c++) {
         const rawH = String(headerRow[c] ?? '').trim()
         const k = normHeader(rawH)
         if (!k) continue
+        if (k.startsWith('dens')) continue
         const isMetaNumCol =
           (iSeg >= 0 && c === iSeg) ||
           (iZona >= 0 && c === iZona) ||
@@ -1033,10 +1091,201 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
 
         if (k.startsWith('num ')) {
           if (!isMetaNumCol) numCols.push({ c, name: rawH })
-        } else if (k.startsWith('dens ')) {
-          densCols.push({ c, name: rawH })
         }
       }
+
+      const importMetaSpeciesColumns = {}
+
+      const savedMappingStore = readCustomSpeciesMappings()
+      const userMappingKey = getUserMappingKey()
+      const savedUserMappings =
+        savedMappingStore?.users && typeof savedMappingStore.users === 'object'
+          ? savedMappingStore.users[userMappingKey]?.mappings
+          : null
+      const savedByHeaderKey = savedUserMappings && typeof savedUserMappings === 'object' ? savedUserMappings : {}
+
+      const applySavedMappingForHeader = (rawHeader) => {
+        const hdr = String(rawHeader || '').trim()
+        if (!hdr) return
+        const key = normHeader(hdr)
+        if (!key) return
+        const rawField = savedByHeaderKey[key]
+        const parsed = normalizeSpeciesFieldId(rawField)
+        if (!parsed) return
+        const baseKey = baseSpeciesKeyFromHeader(hdr)
+        if (!baseKey) return
+        manualSpeciesIdByKey.set(baseKey, parsed.spId)
+        manualMappedColumnNames.add(hdr)
+      }
+
+      numCols.forEach((col) => applySavedMappingForHeader(col?.name))
+
+      const buildSpeciesFields = (especiesArr) => {
+        const out = []
+        ;(Array.isArray(especiesArr) ? especiesArr : []).forEach((sp) => {
+          const id = Number(sp?.id)
+          if (!Number.isFinite(id)) return
+          const com = String(sp?.com || '').trim()
+          const sci = String(sp?.sci || '').trim()
+          const labelBase = com || sci || `Especie ${id}`
+          const extra = com && sci && com !== sci ? ` (${sci})` : ''
+          out.push({ id: `NUM:${id}`, label: `NUM ${labelBase}${extra}`, required: false })
+        })
+        return out
+      }
+
+      const hasAnyNumericValue = (rows, colIdx) => {
+        const maxScan = Math.min(Array.isArray(rows) ? rows.length : 0, 220)
+        for (let i = 0; i < maxScan; i++) {
+          const v = rows?.[i]?.[colIdx]
+          const n = parseNumSafe(v)
+          if (n != null && n > 0) return true
+        }
+        return false
+      }
+
+      const sampleDataForColumn = (rows, colIdx) => {
+        const maxScan = Math.min(Array.isArray(rows) ? rows.length : 0, 220)
+        const out = []
+        const seen = new Set()
+        for (let i = 0; i < maxScan; i++) {
+          const v = rows?.[i]?.[colIdx]
+          const s = String(v ?? '').trim()
+          if (!s) continue
+          if (seen.has(s)) continue
+          seen.add(s)
+          out.push(s)
+          if (out.length >= 5) break
+        }
+        return out
+      }
+
+      const resolvePendingEvadirSpeciesColumns = async () => {
+        const candidates = [...numCols]
+        const pending = []
+        candidates.forEach((col) => {
+          const colName = String(col?.name || '').trim()
+          if (!colName) return
+          const spId = resolveSpeciesId(colName)
+          if (spId != null) return
+          if (!hasAnyNumericValue(dataRows, col.c)) return
+          pending.push({ name: colName, sampleData: sampleDataForColumn(dataRows, col.c) })
+        })
+
+        if (!pending.length) return true
+
+        const camposSistema = buildSpeciesFields(especies)
+        const initialMappingByColumn = {}
+        pending.forEach((c) => {
+          const key = normHeader(c.name)
+          if (!key) return
+          const rawField = savedByHeaderKey[key]
+          if (!rawField) return
+          const parsed = normalizeSpeciesFieldId(rawField)
+          if (!parsed) return
+          initialMappingByColumn[c.name] = String(rawField)
+        })
+
+        const result = await new Promise((resolve) => {
+          const onConfirm = (payload) => {
+            closeModal()
+            resolve(payload)
+          }
+          openModal(
+            'Mapeo manual: columnas de especies',
+            <ManualColumnMapper
+              unmappedColumns={pending}
+              systemSpeciesFields={camposSistema}
+              initialMappingByColumn={initialMappingByColumn}
+              onConfirm={onConfirm}
+            />,
+            'wide',
+          )
+        })
+
+        if (!result || !result.mappingByColumn) return false
+
+        const mappingByColumn = result.mappingByColumn && typeof result.mappingByColumn === 'object' ? result.mappingByColumn : {}
+        Object.entries(mappingByColumn).forEach(([rawHeader, fieldId]) => {
+          const hdr = String(rawHeader || '').trim()
+          const v = String(fieldId || '').trim()
+          if (!hdr) return
+          if (!v || v === '__ignore__') return
+          const parsed = normalizeSpeciesFieldId(v)
+          if (!parsed) return
+          const baseKey = baseSpeciesKeyFromHeader(hdr)
+          if (!baseKey) return
+          manualSpeciesIdByKey.set(baseKey, parsed.spId)
+          manualMappedColumnNames.add(hdr)
+        })
+
+        try {
+          const logKey = 'bitecma_manual_species_mappings_log_v1'
+          const rawLog = localStorage.getItem(logKey)
+          const prev = rawLog ? JSON.parse(rawLog) : []
+          const arr = Array.isArray(prev) ? prev : []
+          const mappings = Object.entries(mappingByColumn)
+            .map(([excelColumnName, fieldId]) => ({ excelColumnName: String(excelColumnName || '').trim(), fieldId: String(fieldId || '').trim() }))
+            .filter((x) => x.excelColumnName && x.fieldId && x.fieldId !== '__ignore__' && normalizeSpeciesFieldId(x.fieldId))
+          if (mappings.length) {
+            const entry = {
+              ts: Date.now(),
+              user: userMappingKey,
+              fileName: String(file?.name || '').trim(),
+              mappings,
+            }
+            const next = [...arr, entry].slice(-500)
+            localStorage.setItem(logKey, JSON.stringify(next))
+          }
+        } catch {
+          null
+        }
+
+        if (result.guardarPreferencias) {
+          const merged = { ...savedByHeaderKey }
+          Object.entries(mappingByColumn).forEach(([rawHeader, fieldId]) => {
+            const hdr = String(rawHeader || '').trim()
+            const v = String(fieldId || '').trim()
+            if (!hdr) return
+            const key = normHeader(hdr)
+            if (!key) return
+            if (!v || v === '__ignore__') {
+              delete merged[key]
+              return
+            }
+            if (!normalizeSpeciesFieldId(v)) return
+            merged[key] = v
+          })
+          const nextStore = { ...(savedMappingStore || { version: 1, users: {} }) }
+          const users = nextStore.users && typeof nextStore.users === 'object' ? nextStore.users : {}
+          nextStore.users = users
+          nextStore.users[userMappingKey] = { ...(users[userMappingKey] || {}), mappings: merged }
+          writeCustomSpeciesMappings(nextStore)
+        }
+
+        return true
+      }
+
+      const pendingEvadirOk = await resolvePendingEvadirSpeciesColumns()
+      if (!pendingEvadirOk) return
+
+      const recordSpeciesColumnMeta = (kind, colName, spId) => {
+        const k = String(kind || '').toLowerCase()
+        if (k !== 'num') return
+        const id = Number(spId)
+        if (!Number.isFinite(id)) return
+        const raw = String(colName || '').trim()
+        if (!raw) return
+        const source = manualMappedColumnNames.has(raw) ? 'manual' : 'auto'
+        if (!importMetaSpeciesColumns[id]) importMetaSpeciesColumns[id] = {}
+        if (!importMetaSpeciesColumns[id][k]) importMetaSpeciesColumns[id][k] = { source, excelColumnName: raw }
+      }
+
+      numCols.forEach((col) => {
+        const spId = resolveSpeciesId(col?.name)
+        if (spId == null) return
+        recordSpeciesColumnMeta('num', col?.name, spId)
+      })
 
       /**
        * Normaliza el nombre del bote para matching tolerante entre hojas EVADIR y hojas LP/L/D.
@@ -1116,23 +1365,6 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
             }
             if (n == null) continue
             counts[spId] = Math.max(0, n)
-          }
-        }
-        if (densCols.length) {
-          for (const col of densCols) {
-            const spId = resolveSpeciesId(col.name)
-            const dens = parseNumSafe(row[col.c])
-            if (spId == null) {
-              if (dens != null && dens > 0) {
-                const keyUn = String(col.name || '').trim()
-                if (keyUn) unmatchedEvadirColsUsed.set(keyUn, (unmatchedEvadirColsUsed.get(keyUn) || 0) + 1)
-              }
-              continue
-            }
-            if (dens == null) continue
-            if (counts[spId] != null) continue
-            const cnt = area > 0 ? Math.round(dens * area) : 0
-            counts[spId] = Math.max(0, cnt)
           }
         }
 
@@ -1838,6 +2070,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         fechaInicio,
         fechaFin,
         botes: botesOut,
+        importMeta: { speciesColumns: importMetaSpeciesColumns },
       }
 
       const okUploaded = await new Promise((resolve) => {

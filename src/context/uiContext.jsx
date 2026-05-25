@@ -125,6 +125,7 @@ export function UiProvider({ children }) {
   const [toastState, setToastState] = useState({ show: false, msg: 'OK', type: '' })
   const toastT = useRef(null)
   const [toastHistory, setToastHistory] = useState(() => readToastHistory())
+  const errRef = useRef({ lastMsg: '', lastAt: 0 })
 
   useEffect(() => {
     writeToastHistory(toastHistory)
@@ -151,6 +152,31 @@ export function UiProvider({ children }) {
     clearTimeout(toastT.current)
     toastT.current = setTimeout(() => setToastState((s) => ({ ...s, show: false })), 2600)
   }, [])
+
+  useEffect(() => {
+    const onErr = (ev) => {
+      const msg = String(ev?.message || ev?.error?.message || 'Error inesperado')
+      const now = Date.now()
+      const s = errRef.current
+      if (msg && s.lastMsg === msg && now - s.lastAt < 1200) return
+      errRef.current = { lastMsg: msg, lastAt: now }
+      toast(`Error: ${msg}`, 'red')
+    }
+    const onRej = (ev) => {
+      const msg = String(ev?.reason?.message || ev?.reason || 'Error inesperado')
+      const now = Date.now()
+      const s = errRef.current
+      if (msg && s.lastMsg === msg && now - s.lastAt < 1200) return
+      errRef.current = { lastMsg: msg, lastAt: now }
+      toast(`Error: ${msg}`, 'red')
+    }
+    window.addEventListener('error', onErr)
+    window.addEventListener('unhandledrejection', onRej)
+    return () => {
+      window.removeEventListener('error', onErr)
+      window.removeEventListener('unhandledrejection', onRej)
+    }
+  }, [toast])
 
   const [modalState, setModalState] = useState({ open: false, title: '—', body: null, size: '' })
   const openModal = useCallback((title, body, size = '') => {

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import LoginScreen from './pages/login.jsx'
 
 const AdminPage = lazy(() => import('./pages/admin.jsx'))
@@ -19,6 +19,37 @@ import Tutorial from './components/tutorial.jsx'
 import { AppProvider, useApp } from './context/appContext.jsx'
 import { DbProvider } from './context/dbContext.jsx'
 import { UiProvider, useUi } from './context/uiContext.jsx'
+
+class PageErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, errorMessage: '' }
+  }
+
+  static getDerivedStateFromError(error) {
+    const msg = String(error?.message || 'Error inesperado')
+    return { hasError: true, errorMessage: msg }
+  }
+
+  componentDidCatch() {
+    return
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children
+    return (
+      <div style={{ padding: 16 }}>
+        <div style={{ fontWeight: 900, color: 'var(--navy)', marginBottom: 6 }}>Se produjo un error y esta pantalla no pudo cargarse.</div>
+        <div style={{ color: 'var(--text3)', fontSize: 12, marginBottom: 12 }}>{this.state.errorMessage}</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" className="btn b-teal" onClick={() => window.location.reload()}>
+            Recargar
+          </button>
+        </div>
+      </div>
+    )
+  }
+}
 
 function ToastHost() {
   const { toastState } = useUi()
@@ -176,9 +207,11 @@ function AppShell() {
           </div>
           <div className={`sb-backdrop${sidebarOpen ? ' open' : ''}`} />
           <div className={`main${page === 'dashboard' ? ' main-dashboard' : ''}`}>
-            <Suspense fallback={<div style={{ padding: 14, color: 'var(--text3)' }}>Cargando…</div>}>
-              <ActivePage active />
-            </Suspense>
+            <PageErrorBoundary key={page}>
+              <Suspense fallback={<div style={{ padding: 14, color: 'var(--text3)' }}>Cargando…</div>}>
+                <ActivePage active />
+              </Suspense>
+            </PageErrorBoundary>
           </div>
         </div>
       </div>

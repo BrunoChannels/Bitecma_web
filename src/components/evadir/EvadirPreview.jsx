@@ -816,6 +816,43 @@ export default function EvadirPreview({ db, op }) {
     return set
   }, [especies])
 
+  const speciesIdByNorm = useMemo(() => {
+    const arr = Array.isArray(especies) ? especies : []
+    const m = new Map()
+    arr.forEach((e) => {
+      const id = Number(e?.id)
+      if (!Number.isFinite(id)) return
+      const com = String(e?.com || '').trim()
+      const sci = String(e?.sci || '').trim()
+      if (com) m.set(normKey(com), id)
+      if (sci) m.set(normKey(sci), id)
+    })
+    return m
+  }, [especies])
+
+  const importMeta = op?.importMeta && typeof op.importMeta === 'object' ? op.importMeta : null
+  const importSpeciesColumns =
+    importMeta?.speciesColumns && typeof importMeta.speciesColumns === 'object' ? importMeta.speciesColumns : null
+
+  const getSpeciesColumnMeta = (kind, speciesName) => {
+    const k = String(kind || '').toLowerCase()
+    if (k !== 'num' && k !== 'dens') return null
+    const spName = String(speciesName || '').trim()
+    if (!spName) return null
+    const spId = speciesIdByNorm.get(normKey(spName)) ?? null
+    if (spId == null) return null
+    const meta =
+      importSpeciesColumns && typeof importSpeciesColumns === 'object'
+        ? importSpeciesColumns[spId] && typeof importSpeciesColumns[spId] === 'object'
+          ? importSpeciesColumns[spId][k] || null
+          : null
+        : null
+    if (!meta || typeof meta !== 'object') return null
+    const source = String(meta.source || '').trim().toLowerCase()
+    const excelColumnName = String(meta.excelColumnName || '').trim()
+    return { source: source === 'manual' ? 'manual' : 'auto', excelColumnName }
+  }
+
   const availableSpecies = useMemo(
     () => (isEvadirTab ? extractSpeciesFromEvadirHeader(header, knownSpeciesNorm) : []),
     [header, isEvadirTab, knownSpeciesNorm],
@@ -1288,11 +1325,77 @@ export default function EvadirPreview({ db, op }) {
                   <th>Num</th>
                   <th>Area</th>
                   {evadirIndexes.sp.map((sp) => (
-                    <th key={`num-${sp.name}`}>{`NUM ${sp.name}`}</th>
+                    <th
+                      key={`num-${sp.name}`}
+                      style={
+                        getSpeciesColumnMeta('num', sp.name)?.source === 'manual'
+                          ? {
+                              backgroundColor: 'var(--purple-lt)',
+                              backgroundImage:
+                                'repeating-linear-gradient(45deg, rgba(0,0,0,.07) 0, rgba(0,0,0,.07) 2px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 6px)',
+                              borderBottom: '1.5px solid rgba(124,58,237,.35)',
+                            }
+                          : undefined
+                      }
+                      title={(() => {
+                        const meta = getSpeciesColumnMeta('num', sp.name)
+                        if (!meta) return ''
+                        const origen = meta.source === 'manual' ? 'Manual' : 'Automático'
+                        return `Origen: ${origen}\nExcel: ${meta.excelColumnName || '—'}`
+                      })()}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <div>{`NUM ${sp.name}`}</div>
+                        {(() => {
+                          const meta = getSpeciesColumnMeta('num', sp.name)
+                          if (!meta) return null
+                          const origen = meta.source === 'manual' ? 'M' : 'A'
+                          const excel = meta.excelColumnName
+                          return (
+                            <div style={{ fontSize: 8, letterSpacing: 0.2, textTransform: 'none' }}>
+                              {origen} · {excel || '—'}
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    </th>
                   ))}
                   <th>Sustrato</th>
                   {evadirIndexes.sp.map((sp) => (
-                    <th key={`dens-${sp.name}`}>{`DENS ${sp.name}`}</th>
+                    <th
+                      key={`dens-${sp.name}`}
+                      style={
+                        getSpeciesColumnMeta('dens', sp.name)?.source === 'manual'
+                          ? {
+                              backgroundColor: 'var(--purple-lt)',
+                              backgroundImage:
+                                'repeating-linear-gradient(45deg, rgba(0,0,0,.07) 0, rgba(0,0,0,.07) 2px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 6px)',
+                              borderBottom: '1.5px solid rgba(124,58,237,.35)',
+                            }
+                          : undefined
+                      }
+                      title={(() => {
+                        const meta = getSpeciesColumnMeta('dens', sp.name)
+                        if (!meta) return ''
+                        const origen = meta.source === 'manual' ? 'Manual' : 'Automático'
+                        return `Origen: ${origen}\nExcel: ${meta.excelColumnName || '—'}`
+                      })()}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <div>{`DENS ${sp.name}`}</div>
+                        {(() => {
+                          const meta = getSpeciesColumnMeta('dens', sp.name)
+                          if (!meta) return null
+                          const origen = meta.source === 'manual' ? 'M' : 'A'
+                          const excel = meta.excelColumnName
+                          return (
+                            <div style={{ fontSize: 8, letterSpacing: 0.2, textTransform: 'none' }}>
+                              {origen} · {excel || '—'}
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    </th>
                   ))}
                   <th>X</th>
                   <th>Y</th>
