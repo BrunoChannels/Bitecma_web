@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import logoUrl from '../img/logo.png'
 import SvgIcon from './svgIcon.jsx'
+import NotificationHistoryPanel from './notifications/NotificationHistoryPanel.jsx'
 import { useApp } from '../context/appContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
 import { useDb } from '../context/dbContext.jsx'
@@ -388,7 +389,7 @@ function TutorialModalBody() {
  */
 export default function Topbar() {
   const { navigate, user, page, role } = useApp()
-  const { openModal, toggleSidebar } = useUi()
+  const { openModal, toggleSidebar, toastHistory } = useUi()
   const currentLabel =
     {
       dashboard: 'Dashboard',
@@ -483,6 +484,20 @@ export default function Topbar() {
           }}
         >
           ?
+        </button>
+        <button
+          className="tb-btn"
+          title="Notificaciones"
+          aria-label="Notificaciones"
+          onClick={() => openModal('Notificaciones', <NotificationHistoryPanel />, 'slim')}
+          style={{ position: 'relative' }}
+        >
+          <SvgIcon name="bell" aria-hidden="true" />
+          {Array.isArray(toastHistory) && toastHistory.length ? (
+            <div className="tb-badge" aria-hidden="true">
+              {toastHistory.length > 9 ? '9+' : toastHistory.length}
+            </div>
+          ) : null}
         </button>
         <button
           className="tb-btn"

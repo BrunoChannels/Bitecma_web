@@ -27,6 +27,14 @@ function ToastHost() {
       ? '#065f46'
       : toastState.type === 'red'
         ? '#7f1d1d'
+        : toastState.type === 'blue'
+          ? 'var(--blue)'
+          : toastState.type === 'amber'
+            ? 'var(--amber)'
+            : toastState.type === 'teal'
+              ? 'var(--teal)'
+              : toastState.type === 'purple'
+                ? 'var(--purple)'
         : 'var(--navy)'
   return (
     <div className={`toast${toastState.show ? ' show' : ''}`} style={{ background: bg }}>

@@ -3,6 +3,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 const UiContext = createContext(null)
 
 const THEME_KEY = 'bitecma_theme_v1'
+const TOAST_HISTORY_KEY = 'bitecma_toast_history_v1'
+const MAX_TOAST_HISTORY = 250
 
 /**
  * Lee el tema persistido (light/dark) desde localStorage.
@@ -54,6 +56,44 @@ function writeTheme(v) {
   }
 }
 
+function readToastHistory() {
+  try {
+    const raw = localStorage.getItem(TOAST_HISTORY_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((x) => x && typeof x === 'object')
+      .map((x) => ({
+        id: String(x.id || ''),
+        msg: String(x.msg || ''),
+        type: String(x.type || ''),
+        ts: Number(x.ts) || Date.now(),
+      }))
+      .filter((x) => x.id && x.msg)
+      .slice(-MAX_TOAST_HISTORY)
+  } catch {
+    return []
+  }
+}
+
+function writeToastHistory(arr) {
+  try {
+    localStorage.setItem(TOAST_HISTORY_KEY, JSON.stringify(Array.isArray(arr) ? arr : []))
+  } catch {
+    return
+  }
+}
+
+function newToastId() {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  } catch {
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
 /**
  * Provider del contexto de UI.
  *
@@ -84,9 +124,30 @@ function writeTheme(v) {
 export function UiProvider({ children }) {
   const [toastState, setToastState] = useState({ show: false, msg: 'OK', type: '' })
   const toastT = useRef(null)
+  const [toastHistory, setToastHistory] = useState(() => readToastHistory())
+
+  useEffect(() => {
+    writeToastHistory(toastHistory)
+  }, [toastHistory])
+
+  const removeToastHistory = useCallback((id) => {
+    const rid = String(id || '')
+    if (!rid) return
+    setToastHistory((arr) => (Array.isArray(arr) ? arr.filter((x) => String(x?.id || '') !== rid) : []))
+  }, [])
 
   const toast = useCallback((msg, type = '') => {
-    setToastState({ show: true, msg: String(msg || ''), type: String(type || '') })
+    const m = String(msg || '')
+    const t = String(type || '')
+    const entry = { id: newToastId(), msg: m, type: t, ts: Date.now() }
+    if (m) {
+      setToastHistory((arr) => {
+        const prev = Array.isArray(arr) ? arr : []
+        const next = [...prev, entry]
+        return next.length > MAX_TOAST_HISTORY ? next.slice(-MAX_TOAST_HISTORY) : next
+      })
+    }
+    setToastState({ show: true, msg: m, type: t })
     clearTimeout(toastT.current)
     toastT.current = setTimeout(() => setToastState((s) => ({ ...s, show: false })), 2600)
   }, [])
@@ -132,6 +193,8 @@ export function UiProvider({ children }) {
     () => ({
       toastState,
       toast,
+      toastHistory,
+      removeToastHistory,
       modalState,
       openModal,
       closeModal,
@@ -143,7 +206,21 @@ export function UiProvider({ children }) {
       closeSidebar,
       toggleSidebar,
     }),
-    [toastState, toast, modalState, openModal, closeModal, theme, toggleTheme, sidebarOpen, openSidebar, closeSidebar, toggleSidebar],
+    [
+      toastState,
+      toast,
+      toastHistory,
+      removeToastHistory,
+      modalState,
+      openModal,
+      closeModal,
+      theme,
+      toggleTheme,
+      sidebarOpen,
+      openSidebar,
+      closeSidebar,
+      toggleSidebar,
+    ],
   )
 
   return <UiContext.Provider value={value}>{children}</UiContext.Provider>
