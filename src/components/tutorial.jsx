@@ -920,7 +920,9 @@ export default function Tutorial() {
   const steps = tour === 'ops' ? opsSteps : dashboardSteps
   const canRender = (tour === 'ops' && isOpsTutorial) || (tour !== 'ops' && isDashboard)
   const curStep = running && canRender ? steps[idx] : null
-  curStepRef.current = curStep
+  useEffect(() => {
+    curStepRef.current = curStep
+  }, [curStep])
 
   useEffect(() => {
     if (!(running && canRender)) return
@@ -969,28 +971,50 @@ export default function Tutorial() {
   const nextLocked = !!curStep?.requiresClick || !!curStep?.waitForTrigger || (hasGate && !gateOk)
 
   useEffect(() => {
+    let scheduled = 0
+    const scheduleState = (fn) => {
+      if (scheduled) clearTimeout(scheduled)
+      scheduled = setTimeout(() => {
+        scheduled = 0
+        fn()
+      }, 0)
+    }
+
     if (!(running && canRender) || tour !== 'ops') {
       if (chaptersLockRef.current.t) clearTimeout(chaptersLockRef.current.t)
       chaptersLockRef.current.t = 0
       chaptersLockRef.current.prevId = ''
-      if (chaptersLocked) setChaptersLocked(false)
-      return
+      if (chaptersLocked) scheduleState(() => setChaptersLocked(false))
+      return () => {
+        if (scheduled) clearTimeout(scheduled)
+      }
     }
     const id = String(chapter?.id || '')
-    if (!id) return
+    if (!id)
+      return () => {
+        if (scheduled) clearTimeout(scheduled)
+      }
     if (!chaptersLockRef.current.prevId) {
       chaptersLockRef.current.prevId = id
-      if (chaptersLocked) setChaptersLocked(false)
-      return
+      if (chaptersLocked) scheduleState(() => setChaptersLocked(false))
+      return () => {
+        if (scheduled) clearTimeout(scheduled)
+      }
     }
-    if (id === chaptersLockRef.current.prevId) return
+    if (id === chaptersLockRef.current.prevId)
+      return () => {
+        if (scheduled) clearTimeout(scheduled)
+      }
     chaptersLockRef.current.prevId = id
     if (chaptersLockRef.current.t) clearTimeout(chaptersLockRef.current.t)
-    setChaptersLocked(true)
+    scheduleState(() => setChaptersLocked(true))
     chaptersLockRef.current.t = setTimeout(() => {
       chaptersLockRef.current.t = 0
       setChaptersLocked(false)
     }, 5000)
+    return () => {
+      if (scheduled) clearTimeout(scheduled)
+    }
   }, [running, canRender, tour, chapter?.id, chaptersLocked])
 
   const resetSnapshots = useCallback(() => {

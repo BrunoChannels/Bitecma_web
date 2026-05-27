@@ -2707,8 +2707,7 @@ export default function OpsPage({ active }) {
           <p>
             Cada operación agrupa botes con sus datos de{' '}
             <strong>
-              Peso-Longitud, Diametro del Disco de fijación y Transectos o Cuadrantes de
-              densidad
+              transectos, cuadrantes, peso - longitud y diametro del disco de fijación.
             </strong>
           </p>
         </div>

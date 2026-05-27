@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { CALETAS_BY_REGION_STATIC } from '../data/sectores.js'
 
 const DbContext = createContext(null)
 
@@ -21,7 +20,7 @@ const TOKEN_KEY = 'bitecma_token'
  *
  * Notas de mantenimiento:
  * - Mantener las claves estables: la UI y servicios asumen estos nombres.
- * - `caletasByRegionStatic` proviene de un catálogo estático para modo offline/auxiliar.
+ * - `caletasByRegionStatic` se mantiene por compatibilidad con UI antigua (fallback vacío).
  */
 function initialDb() {
   return {
@@ -31,7 +30,7 @@ function initialDb() {
     caletas: [],
     caletasByRegionId: {},
     caletasByRegionRom: {},
-    caletasByRegionStatic: CALETAS_BY_REGION_STATIC,
+    caletasByRegionStatic: {},
     sectoresAmerb: [],
     opa: [],
     botesMaestro: [],
@@ -58,7 +57,6 @@ function initialDb() {
  *
  * Dependencias externas:
  * - `fetch` y `localStorage` (para token bearer).
- * - `CALETAS_BY_REGION_STATIC` (catálogo local).
  *
  * Efectos secundarios:
  * - Puede hacer requests HTTP para cargar y persistir datos.

@@ -446,7 +446,7 @@ input[type=number].lp-num-inp{-moz-appearance:textfield;appearance:textfield;}
 
 .ops-region-grid{display:flex;flex-direction:column;gap:12px;align-items:stretch;}
 .ops-region-grid .card{width:100%;}
-.ops-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:12px;align-items:start;}
+.ops-grid{display:grid;grid-template-columns:1fr;gap:12px;align-items:start;}
 .ops-grid .op-card{margin-bottom:0;}
 .ops-grid .mb{margin-bottom:0;}
 .ops-grid .op-card.op-open{grid-column:1 / -1;}

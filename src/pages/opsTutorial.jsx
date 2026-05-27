@@ -1786,7 +1786,6 @@ export default function OpsTutorialPage({ active }) {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg2)')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                     onClick={() => {
-                      if (tutorialLock) return
                       handleSelectBoat(boat.nombre)
                     }}
                   >

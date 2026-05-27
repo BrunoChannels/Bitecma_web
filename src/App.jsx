@@ -79,11 +79,11 @@ function ModalHost() {
   const [showX, setShowX] = useState(true)
 
   useEffect(() => {
-    if (!modalState.open) {
-      setShowX(true)
-      return
-    }
     const t = setTimeout(() => {
+      if (!modalState.open) {
+        setShowX(true)
+        return
+      }
       const root = document.querySelector('.mb-body')
       if (!root) return setShowX(true)
       const explicit = root.querySelector('[data-modal-close="true"]')

@@ -4,7 +4,22 @@ import MappedColumnPreview from './MappedColumnPreview.jsx'
 
 const IGNORE_VALUE = '__ignore__'
 
-export default function ManualColumnMapper({ unmappedColumns, systemSpeciesFields, onMap, onUnmap, onConfirm, initialMappingByColumn }) {
+export default function ManualColumnMapper({
+  unmappedColumns,
+  systemSpeciesFields,
+  onMap,
+  onUnmap,
+  onConfirm,
+  initialMappingByColumn,
+  allowIgnore = true,
+  allowDuplicateFields = false,
+  showGuardarPreferencias = true,
+  headerTitle = 'Mapeo manual de columnas de especies',
+  headerText = '1) Revisa las columnas no reconocidas. 2) Asigna cada columna al campo correcto (o marca Ignorar). 3) Valida la vista previa y confirma.',
+  leftTitle = 'Columnas no reconocidas',
+  rightTitle = 'Mapeos aplicados',
+  confirmLabel = 'Confirmar mapeo',
+}) {
   const { toast } = useUi()
 
   const columnasSinMapear = Array.isArray(unmappedColumns) ? unmappedColumns : []
@@ -65,7 +80,7 @@ export default function ManualColumnMapper({ unmappedColumns, systemSpeciesField
     const next = String(fieldId || '').trim()
     if (!col) return
 
-    if (next && next !== IGNORE_VALUE && fieldCount.get(next) >= 1 && String(mapeoPorColumna[col] || '') !== next) {
+    if (!allowDuplicateFields && next && next !== IGNORE_VALUE && fieldCount.get(next) >= 1 && String(mapeoPorColumna[col] || '') !== next) {
       toast('Este campo ya ha sido asignado a otra columna. Elige uno distinto.', 'red')
       return
     }
@@ -102,14 +117,16 @@ export default function ManualColumnMapper({ unmappedColumns, systemSpeciesField
       })
 
     if (faltanAsignaciones.length) {
-      toast('Debes asignar o ignorar todas las columnas listadas antes de continuar.', 'red')
+      toast('Debes asignar todas las filas listadas antes de continuar.', 'red')
       return false
     }
 
-    const duplicados = Array.from(fieldCount.entries()).filter(([, n]) => n > 1)
-    if (duplicados.length) {
-      toast('Hay campos asignados más de una vez. Corrige los duplicados para continuar.', 'red')
-      return false
+    if (!allowDuplicateFields) {
+      const duplicados = Array.from(fieldCount.entries()).filter(([, n]) => n > 1)
+      if (duplicados.length) {
+        toast('Hay campos asignados más de una vez. Corrige los duplicados para continuar.', 'red')
+        return false
+      }
     }
 
     if (requeridos.length) {
@@ -130,27 +147,24 @@ export default function ManualColumnMapper({ unmappedColumns, systemSpeciesField
       <div className="info-box teal" style={{ marginBottom: 0 }}>
         <span>i</span>
         <div>
-          <div style={{ fontWeight: 800, marginBottom: 4 }}>Mapeo manual de columnas de especies</div>
-          <div style={{ fontSize: 12 }}>
-            1) Revisa las columnas no reconocidas. 2) Asigna cada columna al campo correcto (o marca Ignorar). 3) Valida la vista
-            previa y confirma.
-          </div>
+          <div style={{ fontWeight: 800, marginBottom: 4 }}>{headerTitle}</div>
+          <div style={{ fontSize: 12 }}>{headerText}</div>
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 520px', minWidth: 280, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontWeight: 900, color: 'var(--navy)' }}>Columnas no reconocidas</div>
+          <div style={{ fontWeight: 900, color: 'var(--navy)' }}>{leftTitle}</div>
 
           {columnasSinMapear.length ? (
-            columnasSinMapear.map((c) => {
+            columnasSinMapear.map((c, idx) => {
               const nombre = String(c?.name || '').trim()
               const muestra = Array.isArray(c?.sampleData) ? c.sampleData : []
               const seleccionado = String(mapeoPorColumna[nombre] || '').trim()
 
               return (
                 <div
-                  key={nombre || Math.random().toString(16)}
+                  key={`${nombre || 'columna'}-${idx}`}
                   style={{
                     padding: 12,
                     border: '1px solid var(--border)',
@@ -177,7 +191,7 @@ export default function ManualColumnMapper({ unmappedColumns, systemSpeciesField
                       style={{ minWidth: 260 }}
                     >
                       <option value="">Seleccionar…</option>
-                      <option value={IGNORE_VALUE}>Ignorar</option>
+                      {allowIgnore ? <option value={IGNORE_VALUE}>Ignorar</option> : null}
                       {camposSistema.map((f) => {
                         const id = String(f?.id || '').trim()
                         const label = String(f?.label || '').trim()
@@ -200,11 +214,13 @@ export default function ManualColumnMapper({ unmappedColumns, systemSpeciesField
 
         <div style={{ flex: '1 1 520px', minWidth: 280, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-            <div style={{ fontWeight: 900, color: 'var(--navy)' }}>Mapeos aplicados</div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text3)', fontSize: 12 }}>
-              <input type="checkbox" checked={guardarPreferencias} onChange={(e) => setGuardarPreferencias(e.target.checked)} />
-              Guardar este mapeo para futuras importaciones
-            </label>
+            <div style={{ fontWeight: 900, color: 'var(--navy)' }}>{rightTitle}</div>
+            {showGuardarPreferencias ? (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text3)', fontSize: 12 }}>
+                <input type="checkbox" checked={guardarPreferencias} onChange={(e) => setGuardarPreferencias(e.target.checked)} />
+                Guardar este mapeo para futuras importaciones
+              </label>
+            ) : null}
           </div>
 
           {mapeosActivos.length ? (
@@ -234,12 +250,10 @@ export default function ManualColumnMapper({ unmappedColumns, systemSpeciesField
           className="btn b-teal"
           onClick={() => {
             if (!validarAntesDeConfirmar()) return
-            const ok = window.confirm('¿Confirmar mapeos y continuar con la importación?')
-            if (!ok) return
-            onConfirm?.({ mappingByColumn: { ...mapeoPorColumna }, guardarPreferencias })
+            onConfirm?.({ mappingByColumn: { ...mapeoPorColumna }, guardarPreferencias: showGuardarPreferencias ? guardarPreferencias : false })
           }}
         >
-          Confirmar mapeo
+          {confirmLabel}
         </button>
       </div>
     </div>

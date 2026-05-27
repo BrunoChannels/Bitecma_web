@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import EvadirPreview from '../evadir/EvadirPreview.jsx'
 import ManualColumnMapper from '../evadir/ManualColumnMapper.jsx'
-import SpeciesGrid from '../common/SpeciesGrid.jsx'
 import { addSample } from '../../services/lpMuestrasService.js'
 import { useApp } from '../../context/appContext.jsx'
+import { ErrorImportacionEvadir, mensajeAmigableImportacion, validarArchivoExcelBasico } from '../../services/evadirImportValidation.js'
 
 /**
  * Normaliza texto para matching flexible (minúsculas, sin acentos, solo alfanuméricos/espacios).
@@ -68,6 +68,10 @@ function normText(v) {
  */
 function normHeader(v) {
   return normText(v).replace(/\s+/g, ' ').trim()
+}
+
+function esperarSiguienteTick() {
+  return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
 /**
@@ -358,6 +362,7 @@ function todayISO() {
 export default function EvadirImporter({ db, canWrite, toast, openModal, closeModal, operaciones, nextOpId, safeUpsertOperacion }) {
   const xlsxPromiseRef = useRef(null)
   const evadirInputRef = useRef(null)
+  const cancelImportRef = useRef(false)
   const [isImportingEvadir, setIsImportingEvadir] = useState(false)
   const { user } = useApp()
 
@@ -404,16 +409,67 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
     }
     if (isImportingEvadir) return
     setIsImportingEvadir(true)
+    cancelImportRef.current = false
+    let pasoActual = 'iniciando'
     try {
+      const checkCancel = () => {
+        if (cancelImportRef.current) throw new ErrorImportacionEvadir('CANCELADO', 'Importación cancelada por el usuario.')
+      }
+
+      const openProcesando = async (mensaje) => {
+        pasoActual = String(mensaje || '').trim() || pasoActual
+        openModal(
+          'Procesando importación EVADIR',
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="info-box teal" style={{ marginBottom: 0 }}>
+              <span>i</span>
+              <div style={{ minWidth: 0 }}>{pasoActual}</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn b-out"
+                onClick={() => {
+                  cancelImportRef.current = true
+                  toast('Cancelando importación…', 'blue')
+                }}
+              >
+                Cancelar importación
+              </button>
+            </div>
+          </div>,
+          'wide',
+        )
+        await esperarSiguienteTick()
+        checkCancel()
+      }
+
+      const yieldCada = async (idx, cada) => {
+        const n = Number(cada) || 0
+        if (n > 0 && idx % n === 0) await esperarSiguienteTick()
+        checkCancel()
+      }
+
+      await openProcesando('Leyendo archivo y validando estructura…')
+      validarArchivoExcelBasico(file, { maxBytes: 15 * 1024 * 1024 })
       if (!xlsxPromiseRef.current) xlsxPromiseRef.current = import('xlsx-js-style').then((m) => m?.default || m)
       const XLSX = await xlsxPromiseRef.current
+      checkCancel()
       const buf = await file.arrayBuffer()
-      const wb = XLSX.read(buf, { type: 'array' })
+      let wb = null
+      try {
+        wb = XLSX.read(buf, { type: 'array' })
+      } catch (err) {
+        throw new ErrorImportacionEvadir(
+          'XLSX_LECTURA_FALLIDA',
+          'No se pudo leer el Excel. El archivo podría estar corrupto o no ser un .xlsx/.xls válido.',
+          { original: String(err?.message || err) },
+        )
+      }
       const sheetNames = Array.isArray(wb?.SheetNames) ? wb.SheetNames : []
       const evadirSheetName = sheetNames.find((n) => normHeader(n).includes('evadir'))
       if (!evadirSheetName) {
-        toast('No se encontró la hoja EVADIR', 'red')
-        return
+        throw new ErrorImportacionEvadir('HOJA_EVADIR_NO_ENCONTRADA', 'No se encontró la hoja EVADIR dentro del archivo.', { sheetNames })
       }
 
       const especies = Array.isArray(db?.especies) ? db.especies : []
@@ -931,6 +987,9 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       const aoaE = XLSX.utils.sheet_to_json(wb.Sheets[evadirSheetName], { header: 1, raw: true, defval: '' })
       const hdrRowIdx = guessHeaderRow(aoaE)
       const headerRow = Array.isArray(aoaE?.[hdrRowIdx]) ? aoaE[hdrRowIdx] : []
+      if (!headerRow.length) {
+        throw new ErrorImportacionEvadir('PLANTILLA_INVALIDA', 'No se pudo detectar la fila de encabezados en la hoja EVADIR. Revisa el formato de la planilla.')
+      }
       const keys = headerRow.map(normHeader)
       const dataRows = (Array.isArray(aoaE) ? aoaE : [])
         .slice(hdrRowIdx + 1)
@@ -1071,6 +1130,18 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       })()
       const iDatum = idxBy(['datum'])
 
+      const columnasObligatoriasFaltantes = []
+      if (iBote < 0) columnasObligatoriasFaltantes.push('BOTE')
+      if (iZona < 0) columnasObligatoriasFaltantes.push('ZONA MUESTREO')
+      if (iNum < 0) columnasObligatoriasFaltantes.push('NUM TRANSECTO / NUM CUADRANTE')
+      if (columnasObligatoriasFaltantes.length) {
+        throw new ErrorImportacionEvadir(
+          'PLANTILLA_INVALIDA',
+          `La plantilla EVADIR no tiene columnas obligatorias: ${columnasObligatoriasFaltantes.join(', ')}.`,
+          { columnasObligatoriasFaltantes },
+        )
+      }
+
       const numCols = []
       for (let c = 0; c < headerRow.length; c++) {
         const rawH = String(headerRow[c] ?? '').trim()
@@ -1188,7 +1259,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
 
         const result = await new Promise((resolve) => {
           const onConfirm = (payload) => {
-            closeModal()
+            if (!payload) closeModal()
             resolve(payload)
           }
           openModal(
@@ -1268,6 +1339,10 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
 
       const pendingEvadirOk = await resolvePendingEvadirSpeciesColumns()
       if (!pendingEvadirOk) return
+      await esperarSiguienteTick()
+      checkCancel()
+
+      await openProcesando('Analizando filas EVADIR y preparando borrador de operación…')
 
       const recordSpeciesColumnMeta = (kind, colName, spId) => {
         const k = String(kind || '').toLowerCase()
@@ -1318,7 +1393,9 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       const unmatchedEvadirColsUsed = new Map()
       const allDates = []
 
-      for (const row of dataRows) {
+      for (let rowIdx = 0; rowIdx < dataRows.length; rowIdx++) {
+        await yieldCada(rowIdx, 900)
+        const row = dataRows[rowIdx]
         const rawBote = iBote >= 0 ? row[iBote] : ''
         const bote = String(rawBote ?? '').trim()
         const zona = parseIntSafe(iZona >= 0 ? row[iZona] : null) ?? 1
@@ -1421,8 +1498,10 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       }
 
       if (!boatMap.size) {
-        toast('La hoja EVADIR no contiene filas válidas', 'red')
-        return
+        throw new ErrorImportacionEvadir(
+          'SIN_FILAS_VALIDAS',
+          'La hoja EVADIR no contiene filas válidas. Revisa que existan datos bajo los encabezados y que BOTE/ZONA/NUM estén completos.',
+        )
       }
 
       const mergedBoats = (() => {
@@ -1789,23 +1868,34 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
 
       const unresolvedGroups = []
       const unresolvedByKey = new Map()
-      const ensureGroup = (sheetName, parsedKind) => {
-        const key = `${sheetName}::${parsedKind}`
-        if (unresolvedByKey.has(key)) return unresolvedByKey.get(key)
-        const g = { key, sheetName, kind: parsedKind, rows: [], items: [], resolvedSpeciesId: null }
-        unresolvedByKey.set(key, g)
+      const ensureGroup = (especieRaw) => {
+        const especieKey = normHeader(especieRaw) || '__sin_especie__'
+        if (unresolvedByKey.has(especieKey)) return unresolvedByKey.get(especieKey)
+        const g = {
+          key: especieKey,
+          especieRaw: String(especieRaw || '').trim(),
+          sampleData: [],
+          sampleSet: new Set(),
+          items: [],
+          resolvedSpeciesId: null,
+        }
+        unresolvedByKey.set(especieKey, g)
         unresolvedGroups.push(g)
         return g
       }
 
-      for (const sn of sheetNames) {
+      for (let sheetIdx = 0; sheetIdx < sheetNames.length; sheetIdx++) {
+        await yieldCada(sheetIdx, 12)
+        const sn = sheetNames[sheetIdx]
         if (sn === evadirSheetName) continue
         const ws = wb.Sheets?.[sn]
         if (!ws) continue
         const parsed = parseLpSheet(ws)
         if (!parsed) continue
         const spHintId = guessSpeciesFromSheetName(sn)
-        for (const r of parsed.rows) {
+        for (let rIdx = 0; rIdx < parsed.rows.length; rIdx++) {
+          await yieldCada(rIdx, 700)
+          const r = parsed.rows[rIdx]
           const zona = parsed.iz >= 0 ? r[parsed.iz] : null
           const zonaNum = parseIntSafe(zona) ?? 0
 
@@ -1828,23 +1918,27 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
           const espRaw = parsed.ie >= 0 ? String(r[parsed.ie] ?? '').trim() : ''
           const spIdAuto = resolveSpeciesId(espRaw) ?? spHintId
           if (spIdAuto == null) {
-            const g = ensureGroup(sn, parsed.kind)
-            if (g.rows.length < 120) {
-              g.rows.push({
-                zona: zonaNum || '',
-                bote: boatNameForLookup || '',
-                especie: espRaw || '',
-                longitud: parsed.il >= 0 ? String(r[parsed.il] ?? '').trim() : '',
-                peso: parsed.ip >= 0 ? String(r[parsed.ip] ?? '').trim() : '',
-                diametro: parsed.id >= 0 ? String(r[parsed.id] ?? '').trim() : '',
-              })
+            const g = ensureGroup(espRaw || sn)
+            const l0 = parsed.il >= 0 ? String(r[parsed.il] ?? '').trim() : ''
+            const p0 = parsed.ip >= 0 ? String(r[parsed.ip] ?? '').trim() : ''
+            const d0 = parsed.id >= 0 ? String(r[parsed.id] ?? '').trim() : ''
+            const sample =
+              parsed.kind === 'LP'
+                ? `${sn} (LP): ${l0 || '—'} · ${p0 || '—'}`
+                : parsed.kind === 'D'
+                  ? `${sn} (D): ${d0 || '—'}`
+                  : `${sn} (L): ${l0 || '—'}`
+            if (sample && !g.sampleSet.has(sample)) {
+              g.sampleSet.add(sample)
+              g.sampleData.push(sample)
+              if (g.sampleData.length > 5) g.sampleData = g.sampleData.slice(0, 5)
             }
             g.items.push({
               b,
               kind: parsed.kind,
-              l: parsed.il >= 0 ? String(r[parsed.il] ?? '').trim() : '',
-              p: parsed.ip >= 0 ? String(r[parsed.ip] ?? '').trim() : '',
-              d: parsed.id >= 0 ? String(r[parsed.id] ?? '').trim() : '',
+              l: l0,
+              p: p0,
+              d: d0,
             })
             continue
           }
@@ -1890,7 +1984,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
        *
        * Dependencias externas:
        * - `openModal/closeModal` y `toast`.
-       * - `SpeciesGrid` para seleccionar especie.
+       * - UI interna con combobox para seleccionar especie.
        *
        * Efectos secundarios:
        * - Abre/cierra modales.
@@ -1906,132 +2000,70 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
        */
       const resolvePendingSpecies = async () => {
         if (!unresolvedGroups.length) return true
-        return await new Promise((resolve) => {
-          /**
-           * Wizard UI para seleccionar la especie faltante por grupo de hoja/kind.
-           *
-           * @returns {import('react').JSX.Element} UI del wizard (selector + tabla de ejemplos).
-           *
-           * Lógica:
-           * 1) Mantiene el índice del grupo actual.
-           * 2) Permite seleccionar especie con `SpeciesGrid` y guarda la decisión en el grupo.
-           * 3) Permite navegar anterior/siguiente y finalizar en el último grupo.
-           * 4) En cancelación o cierre inesperado, resuelve `false`.
-           *
-           * Dependencias externas:
-           * - `SpeciesGrid`, `toast`, `closeModal`.
-           *
-           * Efectos secundarios:
-           * - Mutación controlada: asigna `g.resolvedSpeciesId` en los grupos.
-           *
-           * Manejo de errores:
-           * - Obliga selección antes de avanzar (toast rojo).
-           *
-           * @example
-           * openModal('Resolver...', <BodyResolve />, 'full')
-           *
-           * Notas de mantenimiento:
-           * - Evitar referencias a estructuras externas no estables; usar índices/keys.
-           */
-          const BodyResolve = () => {
-            const doneRef = useRef(false)
-            useEffect(() => {
-              return () => {
-                if (doneRef.current) return
-                resolve(false)
-              }
-            }, [])
 
-            const [idx, setIdx] = useState(0)
-            const g = unresolvedGroups[idx]
-            const sid = Number(g?.resolvedSpeciesId || 0)
-            const selectedIds = sid ? [sid] : []
-            const onPick = (ids) => {
-              const id = Number(Array.isArray(ids) ? ids[0] : null)
-              g.resolvedSpeciesId = Number.isFinite(id) ? id : null
-            }
-            return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                  <div style={{ fontWeight: 800 }}>
-                    Resolver especie manualmente ({idx + 1}/{unresolvedGroups.length}) - {g.sheetName}
-                  </div>
-                  <div style={{ color: 'var(--text3)' }}>{g.items.length} filas pendientes</div>
-                </div>
-                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
-                  <div style={{ fontWeight: 700, marginBottom: 8 }}>Selecciona especie para esta tabla</div>
-                  <SpeciesGrid especies={especies} selectedIds={selectedIds} onChange={onPick} multi={false} columns={3} maxHeight={260} />
-                </div>
-                <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'auto', maxHeight: 320 }}>
-                  <table className="tbl">
-                    <thead>
-                      <tr>
-                        <th>Zona</th>
-                        <th>Bote</th>
-                        <th>Especie</th>
-                        <th>Longitud</th>
-                        <th>Peso</th>
-                        <th>Diámetro</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {g.rows.map((r, i) => (
-                        <tr key={`${g.key}-${i}`}>
-                          <td>{r.zona}</td>
-                          <td>{r.bote}</td>
-                          <td>{r.especie}</td>
-                          <td>{r.longitud}</td>
-                          <td>{r.peso}</td>
-                          <td>{r.diametro}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
-                  <button
-                    className="btn b-out"
-                    onClick={() => {
-                      doneRef.current = true
-                      closeModal()
-                      resolve(false)
-                    }}
-                  >
-                    Cancelar importación
-                  </button>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn b-out" disabled={idx === 0} onClick={() => setIdx((p) => Math.max(0, p - 1))}>
-                      Anterior
-                    </button>
-                    <button
-                      className="btn b-teal"
-                      onClick={() => {
-                        if (!g.resolvedSpeciesId) {
-                          toast('Selecciona una especie para continuar', 'red')
-                          return
-                        }
-                        if (idx < unresolvedGroups.length - 1) {
-                          setIdx((p) => p + 1)
-                          return
-                        }
-                        doneRef.current = true
-                        closeModal()
-                        resolve(true)
-                      }}
-                    >
-                      {idx < unresolvedGroups.length - 1 ? 'Siguiente' : 'Aplicar y continuar'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
+        const pending = unresolvedGroups.map((g) => ({
+          name: String(g?.especieRaw || '').trim() || '—',
+          sampleData: Array.isArray(g?.sampleData) ? g.sampleData : [],
+        }))
+        const camposSistema = buildSpeciesFields(especies)
+
+        const result = await new Promise((resolve) => {
+          const onConfirm = (payload) => {
+            if (!payload) closeModal()
+            resolve(payload)
           }
-          openModal('Resolver especies no identificadas', <BodyResolve />, 'full')
+          openModal(
+            'Resolver especies no identificadas',
+            <ManualColumnMapper
+              unmappedColumns={pending}
+              systemSpeciesFields={camposSistema}
+              initialMappingByColumn={{}}
+              onConfirm={onConfirm}
+              allowIgnore={false}
+              allowDuplicateFields={true}
+              showGuardarPreferencias={false}
+              headerTitle="Resolver especies no identificadas"
+              headerText="1) Revisa las especies no reconocidas. 2) Asigna cada una a una especie del sistema. 3) Continúa a la previsualización."
+              leftTitle="Especies no reconocidas"
+              rightTitle="Asignaciones"
+              confirmLabel="Aceptar y continuar"
+            />,
+            'wide',
+          )
         })
+
+        if (!result || !result.mappingByColumn) return false
+
+        const mappingByColumn = result.mappingByColumn && typeof result.mappingByColumn === 'object' ? result.mappingByColumn : {}
+        const groupByKey = new Map(unresolvedGroups.map((g) => [String(g?.key || '').trim(), g]))
+
+        Object.entries(mappingByColumn).forEach(([rawName, fieldId]) => {
+          const nombre = String(rawName || '').trim()
+          if (!nombre) return
+          const parsed = normalizeSpeciesFieldId(String(fieldId || '').trim())
+          if (!parsed) return
+          const key = normHeader(nombre) || '__sin_especie__'
+          const g = groupByKey.get(key)
+          if (!g) return
+          g.resolvedSpeciesId = parsed.spId
+        })
+
+        const faltan = unresolvedGroups.filter((g) => !Number.isFinite(Number(g?.resolvedSpeciesId)))
+        if (faltan.length) {
+          toast('Faltan especies por asignar. Revisa el mapeo e inténtalo nuevamente.', 'red')
+          return false
+        }
+
+        return true
       }
 
       const pendingOk = await resolvePendingSpecies()
       if (!pendingOk) return
+
+      await esperarSiguienteTick()
+      checkCancel()
+
+      await openProcesando('Aplicando especies resueltas y preparando previsualización…')
 
       for (const g of unresolvedGroups) {
         const spId = Number(g.resolvedSpeciesId)
@@ -2237,7 +2269,32 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       })
       if (!okUploaded) return
     } catch (err) {
-      toast(String(err?.message || 'No se pudo importar el Excel'), 'red')
+      if (err instanceof ErrorImportacionEvadir && String(err?.codigo || '') === 'CANCELADO') {
+        closeModal()
+        toast('Importación cancelada', 'blue')
+        return
+      }
+
+      const msg = err instanceof ErrorImportacionEvadir ? mensajeAmigableImportacion(err) : String(err?.message || 'No se pudo importar el Excel')
+      openModal(
+        'No se pudo importar EVADIR',
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="info-box amber" style={{ marginBottom: 0 }}>
+            <span>i</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div>{msg}</div>
+              <div style={{ color: 'var(--text3)' }}>Paso: {pasoActual}</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button type="button" className="btn b-out" onClick={closeModal}>
+              Cerrar
+            </button>
+          </div>
+        </div>,
+        'wide',
+      )
+      toast(msg, 'red')
     } finally {
       setIsImportingEvadir(false)
     }
