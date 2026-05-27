@@ -130,3 +130,31 @@ export function filterOperaciones(operaciones, { sector = '', mes = '', texto = 
     return opMatchesText(op, q)
   })
 }
+
+export function normalizarZonaMuestreo(zonaMuestreo) {
+  const zonaTexto = String(zonaMuestreo ?? '').trim()
+  return zonaTexto === '' ? '' : zonaTexto
+}
+
+export function compararZonaMuestreo(zonaA, zonaB) {
+  const zonaATexto = normalizarZonaMuestreo(zonaA)
+  const zonaBTexto = normalizarZonaMuestreo(zonaB)
+
+  if (!zonaATexto && !zonaBTexto) return 0
+  if (!zonaATexto) return 1
+  if (!zonaBTexto) return -1
+
+  const esNumeroA = /^\d+$/.test(zonaATexto)
+  const esNumeroB = /^\d+$/.test(zonaBTexto)
+
+  if (esNumeroA && esNumeroB) {
+    const numeroA = parseInt(zonaATexto, 10)
+    const numeroB = parseInt(zonaBTexto, 10)
+    if (numeroA !== numeroB) return numeroA - numeroB
+    return zonaATexto.localeCompare(zonaBTexto, 'es')
+  }
+
+  if (esNumeroA !== esNumeroB) return esNumeroA ? -1 : 1
+
+  return zonaATexto.localeCompare(zonaBTexto, 'es', { sensitivity: 'base' })
+}

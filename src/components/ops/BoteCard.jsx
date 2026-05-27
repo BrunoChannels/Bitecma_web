@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import DensidadTab from './DensidadTab.jsx'
 import LpTab from './LpTab.jsx'
+import { normalizarZonaMuestreo } from '../../services/operacionesService.js'
 
 /**
  * Normaliza un texto para comparaciones flexibles (sin acentos y espacios homogéneos).
@@ -105,12 +106,26 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
 
     const byId = lpJump?.boteId != null && String(lpJump.boteId) !== '' ? String(lpJump.boteId) : null
     const matchId = byId ? String(bote?.id ?? '') === byId : false
+    const zonaBote = normalizarZonaMuestreo(bote?.zona)
+    const zonaJump = lpJump?.zona == null ? '' : normalizarZonaMuestreo(lpJump?.zona)
+    const matchZona =
+      lpJump?.zona == null
+        ? true
+        : !zonaJump
+          ? true
+          : (() => {
+              if (!zonaBote) return false
+              const esNumeroBote = /^\d+$/.test(zonaBote)
+              const esNumeroJump = /^\d+$/.test(zonaJump)
+              if (esNumeroBote && esNumeroJump) return parseInt(zonaBote, 10) === parseInt(zonaJump, 10)
+              return zonaBote.localeCompare(zonaJump, 'es', { sensitivity: 'base' }) === 0
+            })()
     const matchName =
       !byId &&
       normKey(bote?.nombre) &&
       normKey(bote?.nombre) === normKey(lpJump?.boteNombre) &&
       (!lpJump?.buzo || normKey(bote?.buzo) === normKey(lpJump?.buzo)) &&
-      (lpJump?.zona == null || Number(bote?.zona) === Number(lpJump?.zona))
+      matchZona
 
     if (!matchId && !matchName) return
 

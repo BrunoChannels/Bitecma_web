@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { buildEvadirPreviewSheets } from '../../services/evadirPreviewService.js'
 import { useUi } from '../../context/uiContext.jsx'
 import { useApp } from '../../context/appContext.jsx'
+import { normalizarZonaMuestreo } from '../../services/operacionesService.js'
 
 const PLOT_PAD = { l: 54, r: 10, t: 24, b: 44 }
 
@@ -39,6 +40,18 @@ function normKey(v) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+function zonasMuestreoCoinciden(zonaBoteRaw, zonaPuntoRaw) {
+  const zonaBote = normalizarZonaMuestreo(zonaBoteRaw)
+  const zonaPunto = normalizarZonaMuestreo(zonaPuntoRaw)
+  if (!zonaPunto) return true
+  if (!zonaBote) return false
+
+  const esNumeroBote = /^\d+$/.test(zonaBote)
+  const esNumeroPunto = /^\d+$/.test(zonaPunto)
+  if (esNumeroBote && esNumeroPunto) return parseInt(zonaBote, 10) === parseInt(zonaPunto, 10)
+  return zonaBote.localeCompare(zonaPunto, 'es', { sensitivity: 'base' }) === 0
 }
 
 /**
@@ -863,6 +876,7 @@ export default function EvadirPreview({ db, op }) {
     const get = (k) => (headerMap.has(k) ? headerMap.get(k) : -1)
     const idx = {
       bote: get('BOTE'),
+      zona: get('ZONA MUESTREO') >= 0 ? get('ZONA MUESTREO') : get('ZONA'),
       buzo: get('BUZO'),
       tipoUnidad: get('TIPO UNIDAD'),
       num: get('NUM'),
@@ -1083,7 +1097,7 @@ export default function EvadirPreview({ db, op }) {
                     if (!b) return false
                     if (normKey(b?.nombre) !== normKey(pt?.boteNombre)) return false
                     if (pt?.buzo && normKey(b?.buzo) !== normKey(pt?.buzo)) return false
-                    if (pt?.zona != null && Number(b?.zona) !== Number(pt?.zona)) return false
+                    if (pt?.zona != null && !zonasMuestreoCoinciden(b?.zona, pt?.zona)) return false
                     return true
                   })
                   const boteId = boteFound?.id ?? null
@@ -1149,7 +1163,7 @@ export default function EvadirPreview({ db, op }) {
                     if (!b) return false
                     if (normKey(b?.nombre) !== normKey(pt?.boteNombre)) return false
                     if (pt?.buzo && normKey(b?.buzo) !== normKey(pt?.buzo)) return false
-                    if (pt?.zona != null && Number(b?.zona) !== Number(pt?.zona)) return false
+                    if (pt?.zona != null && !zonasMuestreoCoinciden(b?.zona, pt?.zona)) return false
                     return true
                   })
                   const boteId = boteFound?.id ?? null
@@ -1320,6 +1334,7 @@ export default function EvadirPreview({ db, op }) {
                 <tr>
                   <th style={{ textAlign: 'left' }}>id</th>
                   <th>Bote</th>
+                  <th>Zona</th>
                   <th>Buzo</th>
                   {unidadMode === 'mixed' && unidadFilter === 'todos' ? <th>Tipo unidad</th> : null}
                   <th>Num</th>
@@ -1406,6 +1421,7 @@ export default function EvadirPreview({ db, op }) {
                 <tr>
                   <th style={{ textAlign: 'left' }}>id</th>
                   <th>Bote</th>
+                  <th>Zona</th>
                   <th>Buzo</th>
                   <th>Especie</th>
                   <th>
@@ -1453,6 +1469,7 @@ export default function EvadirPreview({ db, op }) {
                 <tr>
                   <th style={{ textAlign: 'left' }}>id</th>
                   <th>Bote</th>
+                  <th>Zona</th>
                   <th>Buzo</th>
                   <th>Especie</th>
                   <th>
@@ -1486,6 +1503,7 @@ export default function EvadirPreview({ db, op }) {
                       <tr key={i}>
                         <td style={{ color: 'var(--text1)', fontWeight: 700, textAlign: 'left' }}>{i + 1}</td>
                         <td>{fmt(r?.[idx.bote])}</td>
+                        <td>{fmt(r?.[idx.zona])}</td>
                         <td>{fmt(r?.[idx.buzo])}</td>
                         {unidadMode === 'mixed' && unidadFilter === 'todos' ? <td>{fmt(r?.[idx.tipoUnidad])}</td> : null}
                         <td>{fmt(r?.[idx.num])}</td>
@@ -1507,7 +1525,7 @@ export default function EvadirPreview({ db, op }) {
                 ) : (
                   <tr>
                     <td
-                      colSpan={6 + (unidadMode === 'mixed' && unidadFilter === 'todos' ? 1 : 0) + evadirIndexes.sp.length * 2 + 5}
+                      colSpan={7 + (unidadMode === 'mixed' && unidadFilter === 'todos' ? 1 : 0) + evadirIndexes.sp.length * 2 + 5}
                       style={{ textAlign: 'center', color: 'var(--text3)', padding: 14 }}
                     >
                       Sin datos
@@ -1518,6 +1536,7 @@ export default function EvadirPreview({ db, op }) {
                 muestrasRows.length ? (
                   muestrasRows.map((r, i) => {
                     const idxBote = headerMap.get('BOTE') ?? -1
+                    const idxZona = headerMap.get('ZONA') ?? -1
                     const idxBuzo = headerMap.get('BUZO') ?? -1
                     const idxEsp = headerMap.get('ESPECIE') ?? -1
                     const idxL = headerMap.get('LONGITUD MM') ?? -1
@@ -1527,6 +1546,7 @@ export default function EvadirPreview({ db, op }) {
                       <tr key={i}>
                         <td style={{ color: 'var(--text1)', fontWeight: 700, textAlign: 'left' }}>{i + 1}</td>
                         <td>{idxBote >= 0 ? fmt(r?.[idxBote]) : '—'}</td>
+                        <td>{idxZona >= 0 ? fmt(r?.[idxZona]) : '—'}</td>
                         <td>{idxBuzo >= 0 ? fmt(r?.[idxBuzo]) : '—'}</td>
                         <td>{idxEsp >= 0 ? fmt(r?.[idxEsp]) : '—'}</td>
                         {isDTab ? (
@@ -1540,7 +1560,7 @@ export default function EvadirPreview({ db, op }) {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={isLpTab ? 6 : 5} style={{ textAlign: 'center', color: 'var(--text3)', padding: 14 }}>
+                    <td colSpan={isLpTab ? 7 : 6} style={{ textAlign: 'center', color: 'var(--text3)', padding: 14 }}>
                       Sin datos
                     </td>
                   </tr>

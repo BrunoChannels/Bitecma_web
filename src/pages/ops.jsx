@@ -8,6 +8,7 @@ import BoteCard from '../components/ops/BoteCard.jsx'
 import EvadirPreview from '../components/evadir/EvadirPreview.jsx'
 import SearchableSelect from '../components/common/SearchableSelect.jsx'
 import EvadirImporter from '../components/ops/EvadirImporter.jsx'
+import { compararZonaMuestreo, normalizarZonaMuestreo } from '../services/operacionesService.js'
 
 
 /**
@@ -1100,7 +1101,7 @@ export default function OpsPage({ active }) {
       if (seed.length) {
         return seed.map((b, i) => ({
           sourceId: String(b?.id || ''),
-          zona: Number(b?.zona) || i + 1,
+          zona: normalizarZonaMuestreo(b?.zona) || String(i + 1),
           nombre: String(b?.nombre || ''),
           buzo: String(b?.buzo || ''),
           densTipo: b?.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
@@ -1108,7 +1109,7 @@ export default function OpsPage({ active }) {
       }
       return Array.from({ length: 4 }, (_, i) => ({
         sourceId: '',
-        zona: i + 1,
+        zona: String(i + 1),
         nombre: '',
         buzo: '',
         densTipo: 'transecto',
@@ -1151,7 +1152,12 @@ export default function OpsPage({ active }) {
      * - Si se permite reordenar filas, revisar el cálculo de zona incremental.
      */
     const addRow = () => {
-      setRows((prev) => [...prev, { sourceId: '', zona: (prev[prev.length - 1]?.zona || 0) + 1, nombre: '', buzo: '', densTipo: 'transecto' }])
+      setRows((prev) => {
+        const ultimaZonaTexto = normalizarZonaMuestreo(prev?.[prev.length - 1]?.zona)
+        const siguienteZona =
+          ultimaZonaTexto && /^\d+$/.test(ultimaZonaTexto) ? String(parseInt(ultimaZonaTexto, 10) + 1) : String(prev.length + 1)
+        return [...prev, { sourceId: '', zona: siguienteZona, nombre: '', buzo: '', densTipo: 'transecto' }]
+      })
     }
 
     /**
@@ -1349,7 +1355,7 @@ export default function OpsPage({ active }) {
       const clean = rows
         .map((r) => ({
           sourceId: String(r.sourceId || ''),
-          zona: parseInt(r.zona, 10) || 1,
+          zona: normalizarZonaMuestreo(r.zona) || '1',
           nombre: String(r.nombre || '').trim(),
           buzo: String(r.buzo || '').trim(),
           densTipo: r.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
@@ -1424,7 +1430,7 @@ export default function OpsPage({ active }) {
                 <tr key={`${r.sourceId || 'new'}-${idx}`}>
                   <td>{idx + 1}</td>
                   <td style={{ minWidth: 120 }}>
-                    <input className="ii" type="number" value={r.zona} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))} />
+                    <input className="ii" type="text" placeholder="1..10 o texto" value={r.zona} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))} />
                   </td>
                   <td style={{ minWidth: 220 }}>
                     <input
@@ -1614,7 +1620,7 @@ export default function OpsPage({ active }) {
         if (seed.length) {
           return seed.map((b, i) => ({
             sourceId: String(b?.id || ''),
-            zona: Number(b?.zona) || i + 1,
+            zona: normalizarZonaMuestreo(b?.zona) || String(i + 1),
             nombre: String(b?.nombre || ''),
             buzo: String(b?.buzo || ''),
             densTipo: b?.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
@@ -1622,7 +1628,7 @@ export default function OpsPage({ active }) {
         }
         return Array.from({ length: 4 }, (_, i) => ({
           sourceId: '',
-          zona: i + 1,
+          zona: String(i + 1),
           nombre: '',
           buzo: '',
           densTipo: 'transecto',
@@ -1664,7 +1670,12 @@ export default function OpsPage({ active }) {
        * - Mantener consistente con la versión `BotesEditor`.
        */
       const addRow = () => {
-        setRows((prev) => [...prev, { sourceId: '', zona: (prev[prev.length - 1]?.zona || 0) + 1, nombre: '', buzo: '', densTipo: 'transecto' }])
+        setRows((prev) => {
+          const ultimaZonaTexto = normalizarZonaMuestreo(prev?.[prev.length - 1]?.zona)
+          const siguienteZona =
+            ultimaZonaTexto && /^\d+$/.test(ultimaZonaTexto) ? String(parseInt(ultimaZonaTexto, 10) + 1) : String(prev.length + 1)
+          return [...prev, { sourceId: '', zona: siguienteZona, nombre: '', buzo: '', densTipo: 'transecto' }]
+        })
       }
 
       /**
@@ -1840,7 +1851,7 @@ export default function OpsPage({ active }) {
         const clean = rows
           .map((r) => ({
             sourceId: String(r.sourceId || ''),
-            zona: parseInt(r.zona, 10) || 1,
+            zona: normalizarZonaMuestreo(r.zona) || '1',
             nombre: String(r.nombre || '').trim(),
             buzo: String(r.buzo || '').trim(),
             densTipo: r.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
@@ -1915,7 +1926,7 @@ export default function OpsPage({ active }) {
                   <tr key={`${r.sourceId || 'new'}-${idx}`}>
                     <td>{idx + 1}</td>
                     <td style={{ minWidth: 120 }}>
-                      <input className="ii" type="number" value={r.zona} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))} />
+                      <input className="ii" type="text" placeholder="1..10 o texto" value={r.zona} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))} />
                     </td>
                     <td style={{ minWidth: 220 }}>
                       <input
@@ -2936,9 +2947,8 @@ export default function OpsPage({ active }) {
                     (op.botes || [])
                       .slice()
                       .sort((a, b) => {
-                        const za = Number(a?.zona) || 0
-                        const zb = Number(b?.zona) || 0
-                        if (za !== zb) return za - zb
+                        const zonaCmp = compararZonaMuestreo(a?.zona, b?.zona)
+                        if (zonaCmp) return zonaCmp
                         return String(a?.nombre || '').localeCompare(String(b?.nombre || ''))
                       })
                       .map((b) => (

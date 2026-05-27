@@ -2,6 +2,13 @@
 
 class Operacion
 {
+    private static function normalizeZonaMuestreo($zona, $fallback = null)
+    {
+        $z = trim((string)($zona ?? ''));
+        if ($z === '' && $fallback !== null) $z = trim((string)$fallback);
+        return $z === '' ? null : $z;
+    }
+
     private static function mapOperacionRow($r)
     {
         $caleta = $r['caleta'] ?? ($r['sector'] ?? null);
@@ -124,7 +131,10 @@ class Operacion
             "SELECT id, operacion_id, zona_muestreo, bote_maestro_id, nombre_bote, buzo, dens_tipo
              FROM operacion_botes
              WHERE operacion_id IN ($ph)
-             ORDER BY operacion_id ASC, zona_muestreo ASC"
+             ORDER BY operacion_id ASC,
+                      (zona_muestreo REGEXP '^[0-9]+$') DESC,
+                      CASE WHEN zona_muestreo REGEXP '^[0-9]+$' THEN CAST(zona_muestreo AS UNSIGNED) END ASC,
+                      zona_muestreo ASC"
         );
         $stmtB->execute($opIds);
         $boatsRows = $stmtB->fetchAll();
@@ -134,9 +144,10 @@ class Operacion
         foreach ($boatsRows as $b) {
             $bid = (int)$b['id'];
             $opId = (string)$b['operacion_id'];
+            $zona = self::normalizeZonaMuestreo($b['zona_muestreo'] ?? null);
             $boat = [
                 'id' => 'OB-' . $bid,
-                'zona' => (int)$b['zona_muestreo'],
+                'zona' => $zona,
                 'nombre' => $b['nombre_bote'],
                 'buzo' => $b['buzo'],
                 'densTipo' => $b['dens_tipo'],
@@ -265,7 +276,9 @@ class Operacion
             "SELECT id, zona_muestreo, bote_maestro_id, nombre_bote, buzo, dens_tipo
              FROM operacion_botes
              WHERE operacion_id = :id
-             ORDER BY zona_muestreo ASC"
+             ORDER BY (zona_muestreo REGEXP '^[0-9]+$') DESC,
+                      CASE WHEN zona_muestreo REGEXP '^[0-9]+$' THEN CAST(zona_muestreo AS UNSIGNED) END ASC,
+                      zona_muestreo ASC"
         );
         $stmtB->execute([':id' => (string)$id]);
         $boatsRows = $stmtB->fetchAll();
@@ -274,9 +287,10 @@ class Operacion
         $boatIndexById = [];
         foreach ($boatsRows as $b) {
             $bid = (int)$b['id'];
+            $zona = self::normalizeZonaMuestreo($b['zona_muestreo'] ?? null);
             $op['botes'][] = [
                 'id' => 'OB-' . $bid,
-                'zona' => (int)$b['zona_muestreo'],
+                'zona' => $zona,
                 'nombre' => $b['nombre_bote'],
                 'buzo' => $b['buzo'],
                 'densTipo' => $b['dens_tipo'],
@@ -498,7 +512,7 @@ class Operacion
 
         foreach ($botes as $i => $b) {
             $b = is_array($b) ? $b : [];
-            $zona = isset($b['zona']) ? (int)$b['zona'] : ($i + 1);
+            $zona = self::normalizeZonaMuestreo($b['zona'] ?? null, (string)($i + 1));
             $nombreBote = trim((string)($b['nombre'] ?? $b['nombre_bote'] ?? ''));
             if ($nombreBote === '') continue;
             $buzo = trim((string)($b['buzo'] ?? ''));

@@ -4,6 +4,7 @@ import ManualColumnMapper from '../evadir/ManualColumnMapper.jsx'
 import { addSample } from '../../services/lpMuestrasService.js'
 import { useApp } from '../../context/appContext.jsx'
 import { ErrorImportacionEvadir, mensajeAmigableImportacion, validarArchivoExcelBasico } from '../../services/evadirImportValidation.js'
+import { compararZonaMuestreo, normalizarZonaMuestreo } from '../../services/operacionesService.js'
 
 /**
  * Normaliza texto para matching flexible (minúsculas, sin acentos, solo alfanuméricos/espacios).
@@ -365,6 +366,11 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
   const cancelImportRef = useRef(false)
   const [isImportingEvadir, setIsImportingEvadir] = useState(false)
   const { user } = useApp()
+  const dbActualRef = useRef(db)
+
+  useEffect(() => {
+    dbActualRef.current = db
+  }, [db])
 
   /**
    * Importa y procesa un archivo Excel EVADIR.
@@ -1398,7 +1404,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         const row = dataRows[rowIdx]
         const rawBote = iBote >= 0 ? row[iBote] : ''
         const bote = String(rawBote ?? '').trim()
-        const zona = parseIntSafe(iZona >= 0 ? row[iZona] : null) ?? 1
+        const zona = normalizarZonaMuestreo(iZona >= 0 ? row[iZona] : null) || '1'
         if (!bote) continue
 
         const buzo = String(iBuzo >= 0 ? row[iBuzo] ?? '' : '').trim()
@@ -1458,7 +1464,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
           boatMap.set(key, { zona, nombre: bote, buzo: buzo || '', transectosByKey: new Map(), lpMuestras: {} })
         }
         const b = boatMap.get(key)
-        if ((Number(b.zona) || 0) <= 0 && (Number(zona) || 0) > 0) b.zona = zona
+        if (!normalizarZonaMuestreo(b.zona) && normalizarZonaMuestreo(zona)) b.zona = zona
         if (!b.buzo && buzo) b.buzo = buzo
         if (String(b.nombre || '').trim().length < bote.length) b.nombre = bote
 
@@ -1655,7 +1661,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
             continue
           }
           const cur = out.get(nameKey)
-          if ((Number(cur.zona) || 0) <= 0 && (Number(b.zona) || 0) > 0) cur.zona = b.zona
+          if (!normalizarZonaMuestreo(cur.zona) && normalizarZonaMuestreo(b.zona)) cur.zona = b.zona
           if (String(cur.nombre || '').trim().length < String(b.nombre || '').trim().length) cur.nombre = b.nombre
           if (!cur.buzo && b.buzo) cur.buzo = b.buzo
           for (const [uKey, u] of b.transectosByKey.entries()) {
@@ -1691,7 +1697,11 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       const opId = nextOpId(Array.isArray(operaciones) ? operaciones : [], year)
 
       const botesOut = Array.from(mergedBoats)
-        .sort((a, b) => (a.zona || 0) - (b.zona || 0) || String(a.nombre || '').localeCompare(String(b.nombre || '')))
+        .sort((a, b) => {
+          const zonaCmp = compararZonaMuestreo(a?.zona, b?.zona)
+          if (zonaCmp) return zonaCmp
+          return String(a?.nombre || '').localeCompare(String(b?.nombre || ''))
+        })
         .map((b, i) => {
           const transectos = Array.from(b.transectosByKey.values()).sort((x, y) => (x.num || 0) - (y.num || 0))
           const hasTx = transectos.some((t) => t?.tipo !== 'cuadrante')
@@ -1765,7 +1775,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
 
       const boatCandidates = botesOut.map((b) => ({
         b,
-        zona: Number(b?.zona) || 0,
+        zona: normalizarZonaMuestreo(b?.zona),
         raw: String(b?.nombre || '').trim(),
         norm: normBoat(b?.nombre),
       }))
@@ -1845,10 +1855,10 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       const resolveBoatFromLp = (boteRaw, zonaRaw) => {
         const name = String(boteRaw || '').trim()
         if (!name) return null
-        const zona = parseIntSafe(zonaRaw) ?? 0
+        const zona = normalizarZonaMuestreo(zonaRaw)
         const n = normBoat(name)
         if (!n) return null
-        if (zona > 0) {
+        if (zona) {
           const exactZ = boatByZonaNorm.get(`${zona}::${n}`)
           if (exactZ) return exactZ
         }
@@ -2239,7 +2249,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
 
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <EvadirPreview db={db} op={opDraft} />
+              <EvadirPreview db={dbActualRef.current || db} op={opDraft} />
               {errMsg ? (
                 <div className="info-box amber" style={{ marginBottom: 0 }}>
                   <span>i</span>

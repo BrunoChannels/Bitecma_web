@@ -6,6 +6,7 @@ import SearchableSelect from '../components/common/SearchableSelect.jsx'
 import SvgIcon from '../components/svgIcon.jsx'
 import { crearUnidades, setUnidadCount } from '../services/densidadService.js'
 import { addSample, ensureKind } from '../services/lpMuestrasService.js'
+import { normalizarZonaMuestreo } from '../services/operacionesService.js'
 
 function todayISO() {
   const d = new Date()
@@ -316,7 +317,7 @@ export default function OpsTutorialPage({ active }) {
             id: 'B1',
             nombre: ensureBotes ? seedMeta.bote1 : String(cur?.nombre || ''),
             buzo: String(cur?.buzo || 'Buzo 1'),
-            zona: Number(cur?.zona) || 1,
+            zona: normalizarZonaMuestreo(cur?.zona) || '1',
             densTipo: 'transecto',
             lpMuestras,
             transectos,
@@ -348,7 +349,7 @@ export default function OpsTutorialPage({ active }) {
             id: 'B2',
             nombre: ensureBotes ? seedMeta.bote2 : String(cur?.nombre || ''),
             buzo: String(cur?.buzo || 'Buzo 2'),
-            zona: Number(cur?.zona) || 2,
+            zona: normalizarZonaMuestreo(cur?.zona) || '2',
             densTipo: 'cuadrante',
             lpMuestras: cur?.lpMuestras && typeof cur.lpMuestras === 'object' ? cur.lpMuestras : {},
             transectos,
@@ -983,7 +984,7 @@ export default function OpsTutorialPage({ active }) {
         if (seed.length) {
           return seed.slice(0, 2).map((b, i) => ({
             sourceId: String(b?.id || ''),
-            zona: Number(b?.zona) || i + 1,
+            zona: normalizarZonaMuestreo(b?.zona) || String(i + 1),
             nombre: String(b?.nombre || ''),
             buzo: String(b?.buzo || ''),
             densTipo: i === 0 ? 'transecto' : b?.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
@@ -991,7 +992,7 @@ export default function OpsTutorialPage({ active }) {
         }
         return Array.from({ length: 2 }, (_, i) => ({
           sourceId: '',
-          zona: i + 1,
+          zona: String(i + 1),
           nombre: '',
           buzo: '',
           densTipo: i === 1 ? 'cuadrante' : 'transecto',
@@ -1063,7 +1064,7 @@ export default function OpsTutorialPage({ active }) {
         const clean = rows
           .map((r) => ({
             sourceId: String(r.sourceId || ''),
-            zona: parseInt(r.zona, 10) || 1,
+            zona: normalizarZonaMuestreo(r.zona) || '1',
             nombre: String(r.nombre || '').trim(),
             buzo: String(r.buzo || '').trim(),
             densTipo: r.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
@@ -1163,7 +1164,8 @@ export default function OpsTutorialPage({ active }) {
                     <td style={{ minWidth: 120 }}>
                       <input
                         className="ii"
-                        type="number"
+                        type="text"
+                        placeholder="1..10 o texto"
                         value={r.zona}
                         disabled={tutorialLock}
                         onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))}
@@ -1555,7 +1557,7 @@ export default function OpsTutorialPage({ active }) {
       if (seed.length) {
         return seed.map((b, i) => ({
           sourceId: String(b?.id || ''),
-          zona: Number(b?.zona) || i + 1,
+            zona: normalizarZonaMuestreo(b?.zona) || String(i + 1),
           nombre: String(b?.nombre || ''),
           buzo: String(b?.buzo || ''),
           densTipo: b?.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
@@ -1563,7 +1565,7 @@ export default function OpsTutorialPage({ active }) {
       }
       return Array.from({ length: 4 }, (_, i) => ({
         sourceId: '',
-        zona: i + 1,
+          zona: String(i + 1),
         nombre: '',
         buzo: '',
         densTipo: 'transecto',
@@ -1582,7 +1584,12 @@ export default function OpsTutorialPage({ active }) {
     }
 
     const addRow = () => {
-      setRows((prev) => [...prev, { sourceId: '', zona: (prev[prev.length - 1]?.zona || 0) + 1, nombre: '', buzo: '', densTipo: 'transecto' }])
+      setRows((prev) => {
+        const ultimaZonaTexto = normalizarZonaMuestreo(prev?.[prev.length - 1]?.zona)
+        const siguienteZona =
+          ultimaZonaTexto && /^\d+$/.test(ultimaZonaTexto) ? String(parseInt(ultimaZonaTexto, 10) + 1) : String(prev.length + 1)
+        return [...prev, { sourceId: '', zona: siguienteZona, nombre: '', buzo: '', densTipo: 'transecto' }]
+      })
     }
 
     const removeRow = (idx) => {
@@ -1627,7 +1634,7 @@ export default function OpsTutorialPage({ active }) {
       const clean = rows
         .map((r) => ({
           sourceId: String(r.sourceId || ''),
-          zona: parseInt(r.zona, 10) || 1,
+          zona: normalizarZonaMuestreo(r.zona) || '1',
           nombre: String(r.nombre || '').trim(),
           buzo: String(r.buzo || '').trim(),
           densTipo: r.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
@@ -1697,7 +1704,7 @@ export default function OpsTutorialPage({ active }) {
                 <tr key={`${r.sourceId || 'new'}-${idx}`}>
                   <td>{idx + 1}</td>
                   <td style={{ minWidth: 120 }}>
-                    <input className="ii" type="number" value={r.zona} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))} />
+                      <input className="ii" type="text" placeholder="1..10 o texto" value={r.zona} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))} />
                   </td>
                   <td style={{ minWidth: 220 }}>
                     <input
