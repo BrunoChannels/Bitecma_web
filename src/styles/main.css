@@ -94,6 +94,9 @@ opacity:.95;filter:blur(.2px);animation:bubble-rise2 12s linear infinite;transfo
 .tb-btn:hover{background:var(--teal-lt);border-color:var(--teal);color:var(--teal);}
 .tb-btn svg{width:16px;height:16px;display:block;fill:currentColor;}
 .tb-badge{position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;background:var(--red);font-size:8px;color:#fff;display:flex;align-items:center;justify-content:center;border:2px solid var(--white);}
+.notif-panel{width:100%;height:520px;max-height:520px;overflow-y:auto;overflow-x:hidden;padding-right:2px;}
+.notif-panel-inner{display:flex;flex-direction:column;gap:10px;}
+.notif-panel-empty{height:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:12px;}
 .user-chip{display:flex;align-items:center;gap:7px;padding:3px 11px 3px 3px;border-radius:20px;border:1.5px solid var(--border);cursor:pointer;background:var(--white);}
 .user-av{width:27px;height:27px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--navy));display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;}
 .user-name{font-size:12px;font-weight:600;color:var(--navy);}

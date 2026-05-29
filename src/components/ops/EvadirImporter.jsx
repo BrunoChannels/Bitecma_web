@@ -71,6 +71,53 @@ function normHeader(v) {
   return normText(v).replace(/\s+/g, ' ').trim()
 }
 
+export function normalizarNombreBoteParaMatch(nombreBote) {
+  const tokens = normHeader(nombreBote).split(' ').filter(Boolean)
+  while (tokens.length && ['el', 'la', 'los', 'las', 'bote'].includes(tokens[0])) tokens.shift()
+  return tokens.join(' ')
+}
+
+export function normalizarZonaParaClave(zonaRaw) {
+  const zonaNorm = normalizarZonaMuestreo(zonaRaw)
+  const zonaNum = parseIntSafe(zonaNorm)
+  if (zonaNum != null && zonaNum > 0) return { zona: String(zonaNum), zonaValida: true, zonaNorm }
+  return { zona: '1', zonaValida: false, zonaNorm }
+}
+
+export function analizarBotesMultiZonaDesdePares(paresBoteZona) {
+  const zonasPorBote = new Map()
+  const filasZonaInvalida = []
+  const botesSinNombre = []
+
+  ;(Array.isArray(paresBoteZona) ? paresBoteZona : []).forEach((par, idx) => {
+    const nombreBoteRaw = String(par?.nombreBote ?? '').trim()
+    const zonaRaw = par?.zonaRaw ?? null
+    if (!nombreBoteRaw) {
+      botesSinNombre.push({ fila: idx, zonaRaw })
+      return
+    }
+
+    const nombreBoteNorm = normalizarNombreBoteParaMatch(nombreBoteRaw) || normHeader(nombreBoteRaw) || nombreBoteRaw
+    const { zona, zonaValida, zonaNorm } = normalizarZonaParaClave(zonaRaw)
+
+    if (!zonaValida) filasZonaInvalida.push({ fila: idx, nombreBote: nombreBoteRaw, zonaRaw, zonaNorm, zonaUsada: zona })
+
+    if (!zonaValida) return
+    if (!zonasPorBote.has(nombreBoteNorm)) zonasPorBote.set(nombreBoteNorm, new Set())
+    zonasPorBote.get(nombreBoteNorm).add(zona)
+  })
+
+  const botesConMultiplesZonas = []
+  for (const [nombreBoteNorm, setZonas] of zonasPorBote.entries()) {
+    const zonas = Array.from(setZonas).sort((a, b) => (parseIntSafe(a) || 0) - (parseIntSafe(b) || 0))
+    if (zonas.length > 1) botesConMultiplesZonas.push({ nombreBoteNorm, zonas })
+  }
+
+  botesConMultiplesZonas.sort((a, b) => a.nombreBoteNorm.localeCompare(b.nombreBoteNorm))
+
+  return { botesConMultiplesZonas, filasZonaInvalida, botesSinNombre }
+}
+
 function esperarSiguienteTick() {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
@@ -759,7 +806,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       const guessSpeciesFromSheetName = (sheetName) => {
         const s = normHeader(sheetName)
         if (!s) return null
-        const stop = new Set(['evadir', 'long', 'longo', 'largo', 'peso', 'lp', 'l', 'd', 'diam', 'diametro', 'disco'])
+        const stop = new Set(['evadir', 'long', 'longo', 'largo', 'peso', 'lp', 'l', 'd','L','LP','D', 'diam', 'diametro','DIAMETRO', 'disco'])
         let best = null
         for (const [alias, id] of comAliasToId.entries()) {
           if (!alias || stop.has(alias)) continue
@@ -1368,30 +1415,25 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         recordSpeciesColumnMeta('num', col?.name, spId)
       })
 
-      /**
-       * Normaliza el nombre del bote para matching tolerante entre hojas EVADIR y hojas LP/L/D.
-       *
-       * @param {unknown} name - Nombre crudo del bote.
-       * @returns {string} Nombre normalizado (sin artículos comunes y sin prefijo "bote").
-       *
-       * Lógica:
-       * 1) Normaliza texto con `normHeader` y lo tokeniza.
-       * 2) Elimina tokens iniciales tipo artículos ("el/la/los/las") y la palabra "bote".
-       * 3) Une tokens restantes.
-       *
-       * Dependencias externas:
-       * - `normHeader` (helper de normalización del importador).
-       *
-       * Efectos secundarios:
-       * - Ninguno.
-       *
-       * Notas de mantenimiento:
-       * - Si aparecen prefijos nuevos en planillas reales, agregarlos al set de tokens removidos.
-       */
-      const normBoat = (name) => {
-        const toks = normHeader(name).split(' ').filter(Boolean)
-        while (toks.length && ['el', 'la', 'los', 'las', 'bote'].includes(toks[0])) toks.shift()
-        return toks.join(' ')
+      const paresBoteZona = dataRows.map((row) => ({
+        nombreBote: String(iBote >= 0 ? row?.[iBote] ?? '' : '').trim(),
+        zonaRaw: iZona >= 0 ? row?.[iZona] ?? null : null,
+      }))
+      const { botesConMultiplesZonas, filasZonaInvalida } = analizarBotesMultiZonaDesdePares(paresBoteZona)
+      if (filasZonaInvalida.length) {
+        const total = filasZonaInvalida.length
+        const ejemplo = filasZonaInvalida
+          .slice(0, 4)
+          .map((x) => `${String(x?.nombreBote || '—').slice(0, 24)} → zona "${String(x?.zonaRaw ?? '').slice(0, 18) || '—'}"`)
+          .join(', ')
+        toast(`EVADIR: ${total} fila(s) con zona inválida/vacía (se usó zona 1). Ej: ${ejemplo}`, 'blue')
+      }
+      if (botesConMultiplesZonas.length) {
+        const ejemplos = botesConMultiplesZonas
+          .slice(0, 5)
+          .map((x) => `${x.nombreBoteNorm} (${x.zonas.join(', ')})`)
+          .join(' · ')
+        toast(`EVADIR: se detectaron botes con múltiples zonas. Se separarán automáticamente. Ej: ${ejemplos}`, 'blue')
       }
 
       const metaRows = []
@@ -1404,7 +1446,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         const row = dataRows[rowIdx]
         const rawBote = iBote >= 0 ? row[iBote] : ''
         const bote = String(rawBote ?? '').trim()
-        const zona = normalizarZonaMuestreo(iZona >= 0 ? row[iZona] : null) || '1'
+        const { zona } = normalizarZonaParaClave(iZona >= 0 ? row[iZona] : null)
         if (!bote) continue
 
         const buzo = String(iBuzo >= 0 ? row[iBuzo] ?? '' : '').trim()
@@ -1458,13 +1500,12 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
           especieId = pos ? Number(pos[0]) : entries.length ? Number(entries[0][0]) : null
         }
 
-        const boteKey = normBoat(bote) || normHeader(bote) || bote
-        const key = boteKey
+        const boteKeyBase = normalizarNombreBoteParaMatch(bote) || normHeader(bote) || bote
+        const key = `${zona}::${boteKeyBase}`
         if (!boatMap.has(key)) {
           boatMap.set(key, { zona, nombre: bote, buzo: buzo || '', transectosByKey: new Map(), lpMuestras: {} })
         }
         const b = boatMap.get(key)
-        if (!normalizarZonaMuestreo(b.zona) && normalizarZonaMuestreo(zona)) b.zona = zona
         if (!b.buzo && buzo) b.buzo = buzo
         if (String(b.nombre || '').trim().length < bote.length) b.nombre = bote
 
@@ -1648,10 +1689,12 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
 
         const out = new Map()
         for (const b of boatMap.values()) {
-          const nameKey = normBoat(b?.nombre) || normHeader(b?.nombre) || String(b?.nombre || '').trim()
+          const nameKey = normalizarNombreBoteParaMatch(b?.nombre) || normHeader(b?.nombre) || String(b?.nombre || '').trim()
           if (!nameKey) continue
-          if (!out.has(nameKey)) {
-            out.set(nameKey, {
+          const { zona: zonaKey } = normalizarZonaParaClave(b?.zona)
+          const mergeKey = `${zonaKey}::${nameKey}`
+          if (!out.has(mergeKey)) {
+            out.set(mergeKey, {
               zona: b.zona,
               nombre: b.nombre,
               buzo: b.buzo,
@@ -1660,8 +1703,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
             })
             continue
           }
-          const cur = out.get(nameKey)
-          if (!normalizarZonaMuestreo(cur.zona) && normalizarZonaMuestreo(b.zona)) cur.zona = b.zona
+          const cur = out.get(mergeKey)
           if (String(cur.nombre || '').trim().length < String(b.nombre || '').trim().length) cur.nombre = b.nombre
           if (!cur.buzo && b.buzo) cur.buzo = b.buzo
           for (const [uKey, u] of b.transectosByKey.entries()) {
@@ -1777,7 +1819,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         b,
         zona: normalizarZonaMuestreo(b?.zona),
         raw: String(b?.nombre || '').trim(),
-        norm: normBoat(b?.nombre),
+        norm: normalizarNombreBoteParaMatch(b?.nombre),
       }))
 
       /**
@@ -1856,7 +1898,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         const name = String(boteRaw || '').trim()
         if (!name) return null
         const zona = normalizarZonaMuestreo(zonaRaw)
-        const n = normBoat(name)
+        const n = normalizarNombreBoteParaMatch(name)
         if (!n) return null
         if (zona) {
           const exactZ = boatByZonaNorm.get(`${zona}::${n}`)
@@ -2112,7 +2154,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         fechaInicio,
         fechaFin,
         botes: botesOut,
-        importMeta: { speciesColumns: importMetaSpeciesColumns },
+        importMeta: { speciesColumns: importMetaSpeciesColumns, botesConMultiplesZonas, filasZonaInvalida },
       }
 
       const okUploaded = await new Promise((resolve) => {

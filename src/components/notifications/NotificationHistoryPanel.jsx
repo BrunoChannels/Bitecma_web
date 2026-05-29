@@ -10,15 +10,17 @@ export default function NotificationHistoryPanel() {
     return [...arr].reverse()
   }, [toastHistory])
 
-  if (!items.length) {
-    return <div style={{ color: 'var(--text3)', padding: 6 }}>Sin notificaciones registradas.</div>
-  }
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {items.map((n) => (
-        <NotificationItem key={String(n?.id || '')} notification={n} onRemove={removeToastHistory} />
-      ))}
+    <div className="notif-panel">
+      {items.length ? (
+        <div className="notif-panel-inner">
+          {items.map((n) => (
+            <NotificationItem key={String(n?.id || '')} notification={n} onRemove={removeToastHistory} />
+          ))}
+        </div>
+      ) : (
+        <div className="notif-panel-empty">Sin notificaciones registradas.</div>
+      )}
     </div>
   )
 }

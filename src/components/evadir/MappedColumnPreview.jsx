@@ -32,9 +32,9 @@ export default function MappedColumnPreview({ excelColumnName, systemFieldName, 
           title="Eliminar mapeo"
           aria-label="Eliminar mapeo"
           onClick={() => onRemoveMapping?.(nombreColumnaExcel)}
-          style={{ padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--red)', borderColor: 'var(--red)' }}
         >
-          <SvgIcon name="trash" aria-hidden="true" style={{ fill: 'var(--red)' }} />
+          <SvgIcon name="trash" aria-hidden="true" style={{ width: 16, height: 16, fill: 'currentColor' }} />
         </button>
       </div>
 
