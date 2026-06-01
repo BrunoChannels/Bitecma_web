@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useEspecies } from '../hooks/useEspecies.js'
 import { useDb } from '../context/dbContext.jsx'
 import { useUi } from '../context/uiContext.jsx'
@@ -36,6 +36,7 @@ export default function EspeciesPage({ active }) {
   const { createEspecie, updateEspecie, deleteEspecie, apiEnabled } = useDb()
   const { toast } = useUi()
   const { isAdmin } = useApp()
+  const refTope = useRef(null)
 
   const suggestedNextId = useMemo(() => {
     const max = (Array.isArray(especies) ? especies : [])
@@ -62,6 +63,7 @@ export default function EspeciesPage({ active }) {
 
   return (
     <div className={`page${active ? ' active' : ''}`} id="pg-especies">
+      <div ref={refTope} />
       <div className="ph">
         <div>
           <h2>Especies</h2>
@@ -276,6 +278,7 @@ export default function EspeciesPage({ active }) {
                             toast('API no configurada (VITE_API_URL)', 'red')
                             return
                           }
+                          refTope.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                           setMode('edit')
                           setEditId(e?.id ?? null)
                           setShowAdd(true)

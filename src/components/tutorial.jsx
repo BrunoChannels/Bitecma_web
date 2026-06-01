@@ -202,18 +202,6 @@ export default function Tutorial() {
         waitForValue: { selector: '[data-tutorial-id="ops-bote-unidad-1"]', equals: 'cuadrante' },
       },
       {
-        id: 'ops-bote-delete',
-        selector: '[data-tutorial-id="ops-bote-delete-0"]',
-        title: 'Eliminar fila',
-        text: 'Este botón elimina una fila del panel de botes.',
-      },
-      {
-        id: 'ops-bote-addrow',
-        selector: '[data-tutorial-id="ops-bote-addrow"]',
-        title: 'Agregar fila',
-        text: 'Este botón agrega una nueva fila de bote.',
-      },
-      {
         id: 'ops-botes-save',
         selector: '[data-tutorial-id="ops-botes-save"]',
         title: 'Guardar botes',

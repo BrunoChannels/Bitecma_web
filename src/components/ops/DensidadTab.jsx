@@ -709,7 +709,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn b-out" style={{ flex: 1 }} disabled onClick={closeModal}>
+            <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
               Cancelar
             </button>
             <button
