@@ -9,6 +9,23 @@ class Operacion
         return $z === '' ? null : $z;
     }
 
+    private static function normalizeSubmarealFromBote($b)
+    {
+        $b = is_array($b) ? $b : [];
+        if (array_key_exists('submareal', $b)) {
+            $v = $b['submareal'];
+            if ($v === true || $v === 1 || $v === '1') return 1;
+            if ($v === false || $v === 0 || $v === '0') return 0;
+            return $v ? 1 : 0;
+        }
+        if (array_key_exists('tipoMuestreo', $b)) {
+            $t = strtolower(trim((string)$b['tipoMuestreo']));
+            if ($t === 'intermareal') return 0;
+            if ($t === 'submareal') return 1;
+        }
+        return 1;
+    }
+
     private static function mapOperacionRow($r)
     {
         $caleta = $r['caleta'] ?? ($r['sector'] ?? null);
@@ -128,7 +145,7 @@ class Operacion
 
         $ph = implode(',', array_fill(0, count($opIds), '?'));
         $stmtB = $db->prepare(
-            "SELECT id, operacion_id, zona_muestreo, bote_maestro_id, nombre_bote, buzo, dens_tipo
+            "SELECT id, operacion_id, zona_muestreo, bote_maestro_id, nombre_bote, buzo, dens_tipo, submareal
              FROM operacion_botes
              WHERE operacion_id IN ($ph)
              ORDER BY operacion_id ASC,
@@ -151,6 +168,7 @@ class Operacion
                 'nombre' => $b['nombre_bote'],
                 'buzo' => $b['buzo'],
                 'densTipo' => $b['dens_tipo'],
+                'submareal' => $b['submareal'] !== null ? (int)$b['submareal'] : 1,
                 'boteMaestroId' => $b['bote_maestro_id'] !== null ? (int)$b['bote_maestro_id'] : null,
                 'lpMuestras' => [],
                 'transectos' => [],
@@ -273,7 +291,7 @@ class Operacion
         $op = self::mapOperacionRow($r);
 
         $stmtB = $db->prepare(
-            "SELECT id, zona_muestreo, bote_maestro_id, nombre_bote, buzo, dens_tipo
+            "SELECT id, zona_muestreo, bote_maestro_id, nombre_bote, buzo, dens_tipo, submareal
              FROM operacion_botes
              WHERE operacion_id = :id
              ORDER BY (zona_muestreo REGEXP '^[0-9]+$') DESC,
@@ -294,6 +312,7 @@ class Operacion
                 'nombre' => $b['nombre_bote'],
                 'buzo' => $b['buzo'],
                 'densTipo' => $b['dens_tipo'],
+                'submareal' => $b['submareal'] !== null ? (int)$b['submareal'] : 1,
                 'boteMaestroId' => $b['bote_maestro_id'] !== null ? (int)$b['bote_maestro_id'] : null,
                 'lpMuestras' => [],
                 'transectos' => [],
@@ -494,8 +513,8 @@ class Operacion
         $botes = isset($data['botes']) && is_array($data['botes']) ? $data['botes'] : [];
 
         $stmtB = $db->prepare(
-            "INSERT INTO operacion_botes (operacion_id, zona_muestreo, bote_maestro_id, nombre_bote, buzo, dens_tipo)
-             VALUES (:operacion_id, :zona, :bote_maestro_id, :nombre_bote, :buzo, :dens_tipo)"
+            "INSERT INTO operacion_botes (operacion_id, zona_muestreo, bote_maestro_id, nombre_bote, buzo, dens_tipo, submareal)
+             VALUES (:operacion_id, :zona, :bote_maestro_id, :nombre_bote, :buzo, :dens_tipo, :submareal)"
         );
         $stmtU = $db->prepare(
             "INSERT INTO densidad_unidades (operacion_bote_id, num, tipo, area_m2, fecha, sustrato, cubierta, especie_id, coord_x, coord_y, coord_long, coord_lat, datum)
@@ -513,11 +532,13 @@ class Operacion
         foreach ($botes as $i => $b) {
             $b = is_array($b) ? $b : [];
             $zona = self::normalizeZonaMuestreo($b['zona'] ?? null, (string)($i + 1));
+            $submareal = self::normalizeSubmarealFromBote($b);
             $nombreBote = trim((string)($b['nombre'] ?? $b['nombre_bote'] ?? ''));
-            if ($nombreBote === '') continue;
+            if ($submareal === 0) $nombreBote = 'Intermareal';
+            if ($submareal === 1 && $nombreBote === '') continue;
             $buzo = trim((string)($b['buzo'] ?? ''));
             $densTipo = isset($b['densTipo']) && $b['densTipo'] === 'cuadrante' ? 'cuadrante' : 'transecto';
-            $boteMaestroId = isset($b['boteMaestroId']) && $b['boteMaestroId'] !== '' ? (int)$b['boteMaestroId'] : null;
+            $boteMaestroId = $submareal === 1 && isset($b['boteMaestroId']) && $b['boteMaestroId'] !== '' ? (int)$b['boteMaestroId'] : null;
 
             $stmtB->execute([
                 ':operacion_id' => (string)$opId,
@@ -526,6 +547,7 @@ class Operacion
                 ':nombre_bote' => $nombreBote,
                 ':buzo' => $buzo,
                 ':dens_tipo' => $densTipo,
+                ':submareal' => $submareal,
             ]);
             $opBoteId = (int)$db->lastInsertId();
 

@@ -283,6 +283,28 @@ export function DbProvider({ children }) {
     return opaLoadRef.current.promise
   }, [apiEnabled, apiFetch])
 
+  const normalizarSubmareal = useCallback((v) => {
+    if (v == null) return true
+    if (v === true) return true
+    if (v === false) return false
+    if (v === 1 || v === '1') return true
+    if (v === 0 || v === '0') return false
+    return Boolean(v)
+  }, [])
+
+  const normalizarOperacion = useCallback(
+    (op) => {
+      const raw = op && typeof op === 'object' ? op : {}
+      const botes = Array.isArray(raw?.botes) ? raw.botes : []
+      const botesNormalizados = botes.map((b) => ({
+        ...(b && typeof b === 'object' ? b : {}),
+        submareal: normalizarSubmareal(b?.submareal),
+      }))
+      return { ...raw, botes: botesNormalizados }
+    },
+    [normalizarSubmareal],
+  )
+
   const ensureOperacionesLoaded = useCallback(async () => {
     if (operacionesLoadRef.current.done) return
     if (operacionesLoadRef.current.promise) return operacionesLoadRef.current.promise
@@ -294,7 +316,7 @@ export function DbProvider({ children }) {
     operacionesLoadRef.current.promise = apiFetch('/operaciones')
       .then((json) => {
         const arr = json?.data
-        setDb((prev) => ({ ...prev, operaciones: Array.isArray(arr) ? arr : [] }))
+        setDb((prev) => ({ ...prev, operaciones: Array.isArray(arr) ? arr.map(normalizarOperacion) : [] }))
         operacionesLoadRef.current.done = true
       })
       .finally(() => {
@@ -302,7 +324,7 @@ export function DbProvider({ children }) {
       })
 
     return operacionesLoadRef.current.promise
-  }, [apiEnabled, apiFetch])
+  }, [apiEnabled, apiFetch, normalizarOperacion])
 
   const ensurePerfilesLoaded = useCallback(async () => {
     if (perfilesLoadRef.current.done) return
@@ -374,7 +396,7 @@ export function DbProvider({ children }) {
       const method = isCreate ? 'POST' : 'PUT'
       const path = isCreate ? '/operaciones' : `/operaciones/${opId}`
       const json = await apiFetch(path, { method, body: JSON.stringify(op || {}) })
-      const saved = json?.data
+      const saved = json?.data ? normalizarOperacion(json.data) : null
       if (saved) {
         setDb((prev) => {
           const ops = Array.isArray(prev.operaciones) ? prev.operaciones : []
@@ -385,7 +407,7 @@ export function DbProvider({ children }) {
       }
       return saved
     },
-    [apiEnabled, apiFetch],
+    [apiEnabled, apiFetch, normalizarOperacion],
   )
 
   const deleteOperacionApi = useCallback(

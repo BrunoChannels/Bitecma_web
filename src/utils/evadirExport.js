@@ -305,6 +305,12 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
     const colArea = densHeader.indexOf('AREA')
     const colCountsStart = densHeader.indexOf(`NUM ${String(allSp[0]?.com || '').toUpperCase()}`)
 
+    const getBoteCell = (b) => {
+      const submareal = b?.submareal == null ? true : b?.submareal === true || b?.submareal === 1 || b?.submareal === '1'
+      if (!submareal) return 'Intermareal'
+      return String(b?.nombre || '').trim()
+    }
+
     ;(op.botes || []).forEach((b) => {
       ;(b.transectos || []).forEach((t) => {
         if (!t) return
@@ -325,7 +331,7 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
           año,
           op.numSeg ?? '',
           b.zona,
-          b.nombre,
+          getBoteCell(b),
           b.buzo,
           tipoUnidad,
           t.num,
@@ -426,7 +432,7 @@ export async function exportEvadirXlsx({ db, opId, toast }) {
             año: String(op.fechaInicio || '').slice(0, 4),
             seg: op.numSeg ?? '',
             zona: b.zona,
-            bote: b.nombre,
+            bote: getBoteCell(b),
             buzo: b.buzo,
             especie: sp?.sci || sp?.com || '',
             l: m?.l ?? m?.d ?? '',

@@ -293,6 +293,8 @@ input[type=number].lp-num-inp{-moz-appearance:textfield;appearance:textfield;}
 .bote-hd.open-hd .bote-meta{color:rgba(255,255,255,.6);}
 .bote-icon{width:42px;height:42px;border-radius:0;background:transparent;background-image:url('../img/bote.png');background-repeat:no-repeat;background-position:center;background-size:contain;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;flex-shrink:0;}
 .bote-icon.open-ic{background:transparent;background-image:url('../img/bote.png');background-repeat:no-repeat;background-position:center;background-size:contain;}
+.bote-icon.pie{background-image:url('../img/pie.png');}
+.bote-icon.pie.open-ic{background-image:url('../img/pie.png');}
 .bote-name{font-weight:700;font-size:13px;}
 .bote-meta{font-size:11px;color:var(--text3);font-family:var(--ff-m);}
 .bote-body{padding:14px;display:none;}

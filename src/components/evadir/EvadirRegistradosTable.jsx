@@ -255,7 +255,7 @@ export default function EvadirRegistradosTable() {
                       </span>
                     ) : null}{' '}
                     {r.totalCq ? (
-                      <span className="pill p-pur" style={{ fontSize: 10 }}>
+                      <span className="pill p-amb" style={{ fontSize: 10 }}>
                         C {r.totalCq}
                       </span>
                     ) : null}

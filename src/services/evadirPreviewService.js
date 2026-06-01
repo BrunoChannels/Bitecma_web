@@ -312,6 +312,12 @@ export function buildEvadirPreviewSheets({ db, op }) {
     }
   }
 
+  const getBoteCell = (b) => {
+    const submareal = b?.submareal == null ? true : b?.submareal === true || b?.submareal === 1 || b?.submareal === '1'
+    if (!submareal) return 'Intermareal'
+    return String(b?.nombre || '').trim()
+  }
+
   ;(op.botes || []).forEach((b) => {
     Object.entries(b.lpMuestras || {}).forEach(([spIdRaw, entry]) => {
       const spId = parseInt(spIdRaw)
@@ -338,7 +344,7 @@ export function buildEvadirPreviewSheets({ db, op }) {
           año: String(op.fechaInicio || '').slice(0, 4),
           seg: op.numSeg ?? '',
           zona: b.zona,
-          bote: b.nombre,
+          bote: getBoteCell(b),
           buzo: b.buzo,
           especie: sp?.com || sp?.sci || '',
           l: m?.l ?? m?.d ?? '',

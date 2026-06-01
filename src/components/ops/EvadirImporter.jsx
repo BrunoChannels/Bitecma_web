@@ -1397,6 +1397,67 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
 
       await openProcesando('Analizando filas EVADIR y preparando borrador de operación…')
 
+      const clavesBoteAmbiguas = new Set(['n a', 'na', 'intermareal', 'intermarea'])
+      const clavesBoteIntermarealDirectas = new Set(['en tierra'])
+      const submarealPorClaveBoteAmbigua = new Map()
+
+      const esNombreBoteAmbiguo = (nombre) => {
+        const k = normText(nombre)
+        return k && clavesBoteAmbiguas.has(k)
+      }
+
+      const esNombreBoteIntermarealDirecto = (nombre) => {
+        const k = normText(nombre)
+        return k && clavesBoteIntermarealDirectas.has(k)
+      }
+
+      const preguntarTipoMuestreoParaNombreBoteAmbiguo = async (nombreBoteRaw) => {
+        const clave = normText(nombreBoteRaw)
+        if (!clave || !clavesBoteAmbiguas.has(clave)) return null
+        if (submarealPorClaveBoteAmbigua.has(clave)) return submarealPorClaveBoteAmbigua.get(clave)
+
+        const result = await new Promise((resolve) => {
+          const onPick = (tipo) => {
+            closeModal()
+            resolve(tipo)
+          }
+          openModal(
+            'Tipo de muestreo detectado',
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className="info-box amber" style={{ marginBottom: 0 }}>
+                <span>i</span>
+                <div style={{ minWidth: 0 }}>
+                  Se detectó un valor de bote ambiguo: <strong>{String(nombreBoteRaw || '—')}</strong>.
+                  <div style={{ marginTop: 6, color: 'var(--text2)' }}>
+                    Esto puede significar que el bote no tiene nombre (Submareal) o que no hay bote porque fue Intermareal (a pie).
+                  </div>
+                  <div style={{ marginTop: 6, color: 'var(--text2)' }}>
+                    ¿De qué tipo es?
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                <button type="button" className="btn b-out" onClick={() => onPick(true)}>
+                  Submareal
+                </button>
+                <button type="button" className="btn b-teal" onClick={() => onPick(false)}>
+                  Intermareal
+                </button>
+                <button type="button" className="btn b-out" onClick={() => onPick(null)}>
+                  Cancelar importación
+                </button>
+              </div>
+            </div>,
+            'slim',
+          )
+        })
+
+        if (result == null) throw new ErrorImportacionEvadir('CANCELADO', 'Importación cancelada por el usuario.')
+        submarealPorClaveBoteAmbigua.set(clave, result)
+        await openProcesando(pasoActual)
+        return result
+      }
+
       const recordSpeciesColumnMeta = (kind, colName, spId) => {
         const k = String(kind || '').toLowerCase()
         if (k !== 'num') return
@@ -1453,6 +1514,13 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         const num = parseIntSafe(iNum >= 0 ? row[iNum] : null)
         if (num == null) continue
 
+        const submareal = esNombreBoteIntermarealDirecto(bote)
+          ? false
+          : esNombreBoteAmbiguo(bote)
+            ? await preguntarTipoMuestreoParaNombreBoteAmbiguo(bote)
+            : true
+        const nombreBoteFinal = !submareal ? '' : esNombreBoteAmbiguo(bote) ? 'N/A' : bote
+
         const tipoFromHdr = iNumCuad >= 0 ? 'cuadrante' : 'transecto'
         const tipoFromRow = (() => {
           if (iTipoUnidad < 0) return null
@@ -1500,14 +1568,25 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
           especieId = pos ? Number(pos[0]) : entries.length ? Number(entries[0][0]) : null
         }
 
-        const boteKeyBase = normalizarNombreBoteParaMatch(bote) || normHeader(bote) || bote
+        const boteKeyBase = !submareal
+          ? `intermareal::${normHeader(buzo) || '__sin_buzo__'}`
+          : normalizarNombreBoteParaMatch(nombreBoteFinal) || normHeader(nombreBoteFinal) || nombreBoteFinal
         const key = `${zona}::${boteKeyBase}`
         if (!boatMap.has(key)) {
-          boatMap.set(key, { zona, nombre: bote, buzo: buzo || '', transectosByKey: new Map(), lpMuestras: {} })
+          boatMap.set(key, {
+            zona,
+            submareal,
+            nombre: nombreBoteFinal,
+            buzo: buzo || '',
+            transectosByKey: new Map(),
+            lpMuestras: {},
+          })
         }
         const b = boatMap.get(key)
         if (!b.buzo && buzo) b.buzo = buzo
-        if (String(b.nombre || '').trim().length < bote.length) b.nombre = bote
+        if (submareal) {
+          if (String(b.nombre || '').trim().length < String(nombreBoteFinal || '').trim().length) b.nombre = nombreBoteFinal
+        }
 
         const uKey = `${tipo}:${num}`
         if (!b.transectosByKey.has(uKey)) {
@@ -1689,14 +1768,15 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
 
         const out = new Map()
         for (const b of boatMap.values()) {
+          const submareal = b?.submareal == null ? true : !!b.submareal
           const nameKey = normalizarNombreBoteParaMatch(b?.nombre) || normHeader(b?.nombre) || String(b?.nombre || '').trim()
-          if (!nameKey) continue
-          const { zona: zonaKey } = normalizarZonaParaClave(b?.zona)
-          const mergeKey = `${zonaKey}::${nameKey}`
+          const buzoKey = normHeader(b?.buzo) || '__sin_buzo__'
+          const mergeKey = `${normalizarZonaParaClave(b?.zona).zona}::${submareal ? 'submareal' : 'intermareal'}::${submareal ? nameKey : buzoKey}`
           if (!out.has(mergeKey)) {
             out.set(mergeKey, {
               zona: b.zona,
-              nombre: b.nombre,
+              submareal,
+              nombre: submareal ? b.nombre : '',
               buzo: b.buzo,
               transectosByKey: new Map(b.transectosByKey),
               lpMuestras: b.lpMuestras || {},
@@ -1704,7 +1784,9 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
             continue
           }
           const cur = out.get(mergeKey)
-          if (String(cur.nombre || '').trim().length < String(b.nombre || '').trim().length) cur.nombre = b.nombre
+          if (submareal) {
+            if (String(cur.nombre || '').trim().length < String(b.nombre || '').trim().length) cur.nombre = b.nombre
+          }
           if (!cur.buzo && b.buzo) cur.buzo = b.buzo
           for (const [uKey, u] of b.transectosByKey.entries()) {
             if (!cur.transectosByKey.has(uKey)) cur.transectosByKey.set(uKey, u)
@@ -1749,7 +1831,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
           const hasTx = transectos.some((t) => t?.tipo !== 'cuadrante')
           const hasCuad = transectos.some((t) => t?.tipo === 'cuadrante')
           const densTipo = hasCuad && !hasTx ? 'cuadrante' : 'transecto'
-          return { id: `B${i + 1}`, zona: b.zona, nombre: b.nombre, buzo: b.buzo, densTipo, lpMuestras: b.lpMuestras || {}, transectos }
+          return { id: `B${i + 1}`, zona: b.zona, submareal: b?.submareal == null ? true : !!b.submareal, nombre: b.nombre, buzo: b.buzo, densTipo, lpMuestras: b.lpMuestras || {}, transectos }
         })
 
       /**
@@ -1865,6 +1947,69 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         return m
       })()
 
+      const intermarealByZonaBuzo = (() => {
+        const m = new Map()
+        botesOut.forEach((b) => {
+          const submareal = b?.submareal == null ? true : b?.submareal === true || b?.submareal === 1 || b?.submareal === '1'
+          if (submareal) return
+          const zona = normalizarZonaMuestreo(b?.zona) || '1'
+          const buzoKey = normHeader(b?.buzo) || '__sin_buzo__'
+          m.set(`${zona}::${buzoKey}`, b)
+        })
+        return m
+      })()
+
+      const ensureSubmarealBoteNa = (zonaRaw) => {
+        const zona = normalizarZonaMuestreo(zonaRaw) || '1'
+        const targetNorm = normalizarNombreBoteParaMatch('N/A')
+        const existing =
+          botesOut.find(
+            (b) =>
+              (b?.submareal == null ? true : b?.submareal === true || b?.submareal === 1 || b?.submareal === '1') &&
+              normalizarZonaMuestreo(b?.zona) === zona &&
+              normalizarNombreBoteParaMatch(b?.nombre) === targetNorm,
+          ) || null
+        if (existing) return existing
+        const nuevo = {
+          id: `B${botesOut.length + 1}`,
+          zona,
+          submareal: true,
+          nombre: 'N/A',
+          buzo: '',
+          densTipo: 'transecto',
+          lpMuestras: {},
+          transectos: [],
+        }
+        botesOut.push(nuevo)
+        const candidate = { b: nuevo, zona: normalizarZonaMuestreo(nuevo?.zona), raw: String(nuevo?.nombre || '').trim(), norm: normalizarNombreBoteParaMatch(nuevo?.nombre) }
+        boatCandidates.push(candidate)
+        if (candidate.norm) {
+          boatByZonaNorm.set(`${candidate.zona}::${candidate.norm}`, nuevo)
+          if (!boatByNorm.has(candidate.norm)) boatByNorm.set(candidate.norm, nuevo)
+        }
+        return nuevo
+      }
+
+      const ensureIntermarealBote = (zonaRaw, buzoNombre) => {
+        const zona = normalizarZonaMuestreo(zonaRaw) || '1'
+        const buzoKey = normHeader(buzoNombre) || '__sin_buzo__'
+        const key = `${zona}::${buzoKey}`
+        if (intermarealByZonaBuzo.has(key)) return intermarealByZonaBuzo.get(key)
+        const nuevo = {
+          id: `B${botesOut.length + 1}`,
+          zona,
+          submareal: false,
+          nombre: '',
+          buzo: String(buzoNombre || '').trim(),
+          densTipo: 'transecto',
+          lpMuestras: {},
+          transectos: [],
+        }
+        botesOut.push(nuevo)
+        intermarealByZonaBuzo.set(key, nuevo)
+        return nuevo
+      }
+
       /**
        * Resuelve el bote correspondiente a una fila de muestreos LP/L/D.
        *
@@ -1957,7 +2102,17 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
 
           const boatNameForLookup = boteCell || buzoCell
 
-          let b = boatNameForLookup ? resolveBoatFromLp(boatNameForLookup, zonaNum) : null
+          let b = null
+          if (boatNameForLookup) {
+            if (esNombreBoteIntermarealDirecto(boatNameForLookup)) {
+              b = ensureIntermarealBote(zonaNum, buzoCell)
+            } else if (esNombreBoteAmbiguo(boatNameForLookup)) {
+              const submareal = await preguntarTipoMuestreoParaNombreBoteAmbiguo(boatNameForLookup)
+              b = submareal ? ensureSubmarealBoteNa(zonaNum) : ensureIntermarealBote(zonaNum, buzoCell)
+            } else {
+              b = resolveBoatFromLp(boatNameForLookup, zonaNum)
+            }
+          }
           if (!b) {
             if (zonaNum > 0) {
               const pool = boatCandidates.filter((x) => x.zona === zonaNum)

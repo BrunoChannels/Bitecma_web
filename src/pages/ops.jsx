@@ -1102,7 +1102,11 @@ export default function OpsPage({ active }) {
         return seed.map((b, i) => ({
           sourceId: String(b?.id || ''),
           zona: normalizarZonaMuestreo(b?.zona) || String(i + 1),
-          nombre: String(b?.nombre || ''),
+          submareal: b?.submareal == null ? true : b?.submareal === true || b?.submareal === 1 || b?.submareal === '1',
+          nombre:
+            (b?.submareal == null ? true : b?.submareal === true || b?.submareal === 1 || b?.submareal === '1')
+              ? String(b?.nombre || '')
+              : 'Intermareal',
           buzo: String(b?.buzo || ''),
           densTipo: b?.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
         }))
@@ -1110,6 +1114,7 @@ export default function OpsPage({ active }) {
       return Array.from({ length: 4 }, (_, i) => ({
         sourceId: '',
         zona: String(i + 1),
+        submareal: true,
         nombre: '',
         buzo: '',
         densTipo: 'transecto',
@@ -1156,7 +1161,7 @@ export default function OpsPage({ active }) {
         const ultimaZonaTexto = normalizarZonaMuestreo(prev?.[prev.length - 1]?.zona)
         const siguienteZona =
           ultimaZonaTexto && /^\d+$/.test(ultimaZonaTexto) ? String(parseInt(ultimaZonaTexto, 10) + 1) : String(prev.length + 1)
-        return [...prev, { sourceId: '', zona: siguienteZona, nombre: '', buzo: '', densTipo: 'transecto' }]
+        return [...prev, { sourceId: '', zona: siguienteZona, submareal: true, nombre: '', buzo: '', densTipo: 'transecto' }]
       })
     }
 
@@ -1353,16 +1358,35 @@ export default function OpsPage({ active }) {
      */
     const onSaveBotes = () => {
       const clean = rows
-        .map((r) => ({
-          sourceId: String(r.sourceId || ''),
-          zona: normalizarZonaMuestreo(r.zona) || '1',
-          nombre: String(r.nombre || '').trim(),
-          buzo: String(r.buzo || '').trim(),
-          densTipo: r.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
-        }))
-        .filter((r) => r.nombre)
+        .map((r) => {
+          const submareal = r?.submareal == null ? true : !!r.submareal
+          const nombre = submareal ? String(r.nombre || '').trim() : 'Intermareal'
+          const buzo = String(r.buzo || '').trim()
+          const tieneDatos = !submareal || nombre !== '' || buzo !== ''
+          return tieneDatos
+            ? {
+                sourceId: String(r.sourceId || ''),
+                zona: normalizarZonaMuestreo(r.zona),
+                submareal,
+                nombre,
+                buzo,
+                densTipo: r.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
+              }
+            : null
+        })
+        .filter(Boolean)
       if (!clean.length) {
         toast('Ingresa al menos un bote', 'red')
+        return
+      }
+      const firstSinZona = clean.findIndex((r) => !String(r?.zona || '').trim())
+      if (firstSinZona >= 0) {
+        toast(`Fila ${firstSinZona + 1}: ingresa la zona de muestreo`, 'red')
+        return
+      }
+      const firstSinNombre = clean.findIndex((r) => !String(r?.nombre || '').trim())
+      if (firstSinNombre >= 0) {
+        toast(`Fila ${firstSinNombre + 1}: ingresa el nombre del bote`, 'red')
         return
       }
       safeUpdateOperacion(opId, (cur) => {
@@ -1374,7 +1398,8 @@ export default function OpsPage({ active }) {
           const keepDensidad = prev && prevDensTipo === r.densTipo
           return {
             id: `B${i + 1}`,
-            nombre: r.nombre,
+            submareal: r.submareal,
+            nombre: r.submareal ? r.nombre : 'Intermareal',
             buzo: r.buzo,
             zona: r.zona,
             densTipo: r.densTipo,
@@ -1419,6 +1444,7 @@ export default function OpsPage({ active }) {
               <tr>
                 <th>#</th>
                 <th>Zona muestreo</th>
+                <th>Tipo</th>
                 <th>Bote</th>
                 <th>Buzo</th>
                 <th>Unidad de muestreo</th>
@@ -1432,14 +1458,40 @@ export default function OpsPage({ active }) {
                   <td style={{ minWidth: 120 }}>
                     <input className="ii" type="text" placeholder="1..10 o texto" value={r.zona} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))} />
                   </td>
+                  <td style={{ minWidth: 170 }}>
+                    <select
+                      className="is"
+                      value={(r?.submareal == null ? true : !!r.submareal) ? 'submareal' : 'intermareal'}
+                      onChange={(e) => {
+                        const nextSubmareal = e.target.value === 'intermareal' ? false : true
+                        setRows((p) =>
+                          p.map((x, i) => {
+                            if (i !== idx) return x
+                            return { ...x, submareal: nextSubmareal, nombre: nextSubmareal ? '' : 'Intermareal' }
+                          }),
+                        )
+                        if (!nextSubmareal) closePanel()
+                      }}
+                    >
+                      <option value="submareal">Submareal</option>
+                      <option value="intermareal">Intermareal</option>
+                    </select>
+                  </td>
                   <td style={{ minWidth: 220 }}>
                     <input
                       className="ii"
                       placeholder="Nombre bote"
                       value={r.nombre}
                       onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, nombre: e.target.value } : x)))}
-                      onClick={() => openPanel(idx)}
-                      onFocus={() => openPanel(idx)}
+                      disabled={!(r?.submareal == null ? true : !!r.submareal)}
+                      onClick={() => {
+                        if (!(r?.submareal == null ? true : !!r.submareal)) return
+                        openPanel(idx)
+                      }}
+                      onFocus={() => {
+                        if (!(r?.submareal == null ? true : !!r.submareal)) return
+                        openPanel(idx)
+                      }}
                       style={{
                         borderColor: currentRowIdx === idx ? 'var(--teal)' : undefined,
                         boxShadow: currentRowIdx === idx ? '0 0 0 2px rgba(10,143,126,0.1)' : undefined,
@@ -1621,7 +1673,11 @@ export default function OpsPage({ active }) {
           return seed.map((b, i) => ({
             sourceId: String(b?.id || ''),
             zona: normalizarZonaMuestreo(b?.zona) || String(i + 1),
-            nombre: String(b?.nombre || ''),
+            submareal: b?.submareal == null ? true : b?.submareal === true || b?.submareal === 1 || b?.submareal === '1',
+            nombre:
+              (b?.submareal == null ? true : b?.submareal === true || b?.submareal === 1 || b?.submareal === '1')
+                ? String(b?.nombre || '')
+                : 'Intermareal',
             buzo: String(b?.buzo || ''),
             densTipo: b?.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
           }))
@@ -1629,6 +1685,7 @@ export default function OpsPage({ active }) {
         return Array.from({ length: 4 }, (_, i) => ({
           sourceId: '',
           zona: String(i + 1),
+          submareal: true,
           nombre: '',
           buzo: '',
           densTipo: 'transecto',
@@ -1674,7 +1731,7 @@ export default function OpsPage({ active }) {
           const ultimaZonaTexto = normalizarZonaMuestreo(prev?.[prev.length - 1]?.zona)
           const siguienteZona =
             ultimaZonaTexto && /^\d+$/.test(ultimaZonaTexto) ? String(parseInt(ultimaZonaTexto, 10) + 1) : String(prev.length + 1)
-          return [...prev, { sourceId: '', zona: siguienteZona, nombre: '', buzo: '', densTipo: 'transecto' }]
+          return [...prev, { sourceId: '', zona: siguienteZona, submareal: true, nombre: '', buzo: '', densTipo: 'transecto' }]
         })
       }
 
@@ -1849,16 +1906,35 @@ export default function OpsPage({ active }) {
        */
       const onSaveBotes = () => {
         const clean = rows
-          .map((r) => ({
-            sourceId: String(r.sourceId || ''),
-            zona: normalizarZonaMuestreo(r.zona) || '1',
-            nombre: String(r.nombre || '').trim(),
-            buzo: String(r.buzo || '').trim(),
-            densTipo: r.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
-          }))
-          .filter((r) => r.nombre)
+          .map((r) => {
+            const submareal = r?.submareal == null ? true : !!r.submareal
+            const nombre = submareal ? String(r.nombre || '').trim() : 'Intermareal'
+            const buzo = String(r.buzo || '').trim()
+            const tieneDatos = !submareal || nombre !== '' || buzo !== ''
+            return tieneDatos
+              ? {
+                  sourceId: String(r.sourceId || ''),
+                  zona: normalizarZonaMuestreo(r.zona),
+                  submareal,
+                  nombre,
+                  buzo,
+                  densTipo: r.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
+                }
+              : null
+          })
+          .filter(Boolean)
         if (!clean.length) {
           toast('Ingresa al menos un bote', 'red')
+          return
+        }
+        const firstSinZona = clean.findIndex((r) => !String(r?.zona || '').trim())
+        if (firstSinZona >= 0) {
+          toast(`Fila ${firstSinZona + 1}: ingresa la zona de muestreo`, 'red')
+          return
+        }
+        const firstSinNombre = clean.findIndex((r) => !String(r?.nombre || '').trim())
+        if (firstSinNombre >= 0) {
+          toast(`Fila ${firstSinNombre + 1}: ingresa el nombre del bote`, 'red')
           return
         }
         safeUpdateOperacion(opId, (cur) => {
@@ -1870,7 +1946,8 @@ export default function OpsPage({ active }) {
             const keepDensidad = prev && prevDensTipo === r.densTipo
             return {
               id: `B${i + 1}`,
-              nombre: r.nombre,
+              submareal: r.submareal,
+              nombre: r.submareal ? r.nombre : 'Intermareal',
               buzo: r.buzo,
               zona: r.zona,
               densTipo: r.densTipo,
@@ -1915,6 +1992,7 @@ export default function OpsPage({ active }) {
                 <tr>
                   <th>#</th>
                   <th>Zona muestreo</th>
+                  <th>Tipo</th>
                   <th>Bote</th>
                   <th>Buzo</th>
                   <th>Unidad de muestreo</th>
@@ -1928,14 +2006,40 @@ export default function OpsPage({ active }) {
                     <td style={{ minWidth: 120 }}>
                       <input className="ii" type="text" placeholder="1..10 o texto" value={r.zona} onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, zona: e.target.value } : x)))} />
                     </td>
+                    <td style={{ minWidth: 170 }}>
+                      <select
+                        className="is"
+                      value={(r?.submareal == null ? true : !!r.submareal) ? 'submareal' : 'intermareal'}
+                        onChange={(e) => {
+                        const nextSubmareal = e.target.value === 'intermareal' ? false : true
+                          setRows((p) =>
+                            p.map((x, i) => {
+                              if (i !== idx) return x
+                            return { ...x, submareal: nextSubmareal, nombre: nextSubmareal ? '' : 'Intermareal' }
+                            }),
+                          )
+                        if (!nextSubmareal) closePanel()
+                        }}
+                      >
+                        <option value="submareal">Submareal</option>
+                        <option value="intermareal">Intermareal</option>
+                      </select>
+                    </td>
                     <td style={{ minWidth: 220 }}>
                       <input
                         className="ii"
                         placeholder="Nombre bote"
                         value={r.nombre}
                         onChange={(e) => setRows((p) => p.map((x, i) => (i === idx ? { ...x, nombre: e.target.value } : x)))}
-                        onClick={() => openPanel(idx)}
-                        onFocus={() => openPanel(idx)}
+                      disabled={!(r?.submareal == null ? true : !!r.submareal)}
+                        onClick={() => {
+                        if (!(r?.submareal == null ? true : !!r.submareal)) return
+                          openPanel(idx)
+                        }}
+                        onFocus={() => {
+                        if (!(r?.submareal == null ? true : !!r.submareal)) return
+                          openPanel(idx)
+                        }}
                         style={{
                           borderColor: currentRowIdx === idx ? 'var(--teal)' : undefined,
                           boxShadow: currentRowIdx === idx ? '0 0 0 2px rgba(10,143,126,0.1)' : undefined
@@ -2411,7 +2515,12 @@ export default function OpsPage({ active }) {
           ) : null}
             </>
           ) : (
-            <BotesEditor opId={op.id} opFallback={{ ...op, sector: s.sector, caleta: s.sector }} onCancel={() => setTab('op')} />
+            <BotesEditor
+              opId={op.id}
+              opFallback={{ ...op, sector: s.sector, caleta: s.sector }}
+              onCancel={() => setTab('op')}
+              onSaved={() => closeModal()}
+            />
           )}
         </div>
       )
@@ -2857,6 +2966,20 @@ export default function OpsPage({ active }) {
                 const caletaLabel = String(op?.sector || op?.caleta || '').trim() || '—'
                 const sectorAmerbLabel = String(op?.sectorAmerb || '').trim() || caletaLabel || '—'
                 const especiesComunes = getOperacionEspeciesComunes(op, especiesById)
+                const { totalTransectos, totalCuadrantes } = (() => {
+                  const botes = Array.isArray(op?.botes) ? op.botes : []
+                  let totalTransectos = 0
+                  let totalCuadrantes = 0
+                  botes.forEach((b) => {
+                    const unidades = Array.isArray(b?.transectos) ? b.transectos : []
+                    unidades.forEach((u) => {
+                      const tipo = String(u?.tipo || 'transecto')
+                      if (tipo === 'cuadrante') totalCuadrantes += 1
+                      else totalTransectos += 1
+                    })
+                  })
+                  return { totalTransectos, totalCuadrantes }
+                })()
                 return (
                   <div
                     className={`op-card card${open ? ' op-open' : ''}`}
@@ -2874,8 +2997,8 @@ export default function OpsPage({ active }) {
                     {year || '—'}, {segLabel}, {sectorAmerbLabel}
                   </div>
                   <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <span className="pill p-teal">Región {regionLabel}</span>
-                    <span className="pill p-blu">{caletaLabel}</span>
+                    {totalTransectos > 0 ? <span className="pill p-blu">{totalTransectos} Transectos</span> : null}
+                    {totalCuadrantes > 0 ? <span className="pill p-amb">{totalCuadrantes} Cuadrantes</span> : null}
                     <span className="pill p-grn">{fmtDMY(op.fechaInicio)}</span>
                     {especiesComunes.slice(0, 6).map((name, idx) => (
                       <span key={`${name}-${idx}`} className="pill p-pur">

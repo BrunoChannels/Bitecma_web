@@ -87,6 +87,7 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
   const rootRef = useRef(null)
   const lastTokenRef = useRef(null)
   const lastTutTokenRef = useRef(null)
+  const esIntermareal = bote?.submareal == null ? false : bote?.submareal === false || bote?.submareal === 0 || bote?.submareal === '0'
 
   useEffect(() => {
     const onCollapse = () => {
@@ -259,13 +260,13 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
         data-tutorial-boteid={String(bote?.id ?? '')}
       >
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
-          <div className={`bote-icon${open ? ' open-ic' : ''}`} />
+          <div className={`bote-icon${esIntermareal ? ' pie' : ''}${open ? ' open-ic' : ''}`} />
           <div style={{ minWidth: 0 }}>
             <div className="bote-name">
-              {bote?.nombre || '—'} · Zona {bote?.zona ?? '—'}
+              {(esIntermareal ? (bote?.buzo || '—') : (bote?.nombre || '—'))} · Zona {bote?.zona ?? '—'}
             </div>
             <div className="bote-meta">
-              {bote?.buzo || '—'} · {bote?.densTipo === 'cuadrante' ? 'Cuadrantes' : 'Transectos'}
+              {(esIntermareal ? 'Intermareal' : (bote?.buzo || '—'))} · {bote?.densTipo === 'cuadrante' ? 'Cuadrantes' : 'Transectos'}
             </div>
             {densSpecies.length ? (
               <div className="bote-meta" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>

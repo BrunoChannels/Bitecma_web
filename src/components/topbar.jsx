@@ -135,7 +135,23 @@ function ConfigModalBody() {
     const fr = new FileReader()
     fr.onload = () => {
       try {
-        const incoming = parseOperacionesPayload(String(fr.result || ''))
+        const normalizarSubmareal = (v) => {
+          if (v == null) return true
+          if (v === true) return true
+          if (v === false) return false
+          if (v === 1 || v === '1') return true
+          if (v === 0 || v === '0') return false
+          return Boolean(v)
+        }
+        const incoming = parseOperacionesPayload(String(fr.result || '')).map((op) => {
+          const raw = op && typeof op === 'object' ? op : {}
+          const botes = Array.isArray(raw?.botes) ? raw.botes : []
+          const botesNormalizados = botes.map((b) => ({
+            ...(b && typeof b === 'object' ? b : {}),
+            submareal: normalizarSubmareal(b?.submareal),
+          }))
+          return { ...raw, botes: botesNormalizados }
+        })
         setDb((prev) => {
           const cur = prev?.operaciones || []
           const nextOps = mode === 'replace' ? incoming : mergeOperacionesById(cur, incoming)
