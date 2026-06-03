@@ -405,7 +405,7 @@ function TutorialModalBody() {
  */
 export default function Topbar() {
   const { navigate, user, page, role } = useApp()
-  const { openModal, toggleSidebar, toastHistory } = useUi()
+  const { openModal, toggleSidebar, toastHistory, vaciarHistorialToast, toast } = useUi()
   const currentLabel =
     {
       dashboard: 'Dashboard',
@@ -505,7 +505,24 @@ export default function Topbar() {
           className="tb-btn"
           title="Notificaciones"
           aria-label="Notificaciones"
-          onClick={() => openModal('Notificaciones', <NotificationHistoryPanel />, 'slim')}
+          onClick={() =>
+            openModal(
+              'Notificaciones',
+              <NotificationHistoryPanel />,
+              'slim',
+              <button
+                type="button"
+                className="btn b-out b-sm"
+                disabled={!Array.isArray(toastHistory) || !toastHistory.length}
+                onClick={() => {
+                  vaciarHistorialToast?.()
+                  toast?.('Notificaciones vaciadas', 'blue')
+                }}
+              >
+                Vaciar notificaciones
+              </button>,
+            )
+          }
           style={{ position: 'relative' }}
         >
           <SvgIcon name="bell" aria-hidden="true" />

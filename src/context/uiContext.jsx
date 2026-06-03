@@ -137,6 +137,10 @@ export function UiProvider({ children }) {
     setToastHistory((arr) => (Array.isArray(arr) ? arr.filter((x) => String(x?.id || '') !== rid) : []))
   }, [])
 
+  const vaciarHistorialToast = useCallback(() => {
+    setToastHistory([])
+  }, [])
+
   const toast = useCallback((msg, type = '') => {
     const m = String(msg || '')
     const t = String(type || '')
@@ -178,12 +182,12 @@ export function UiProvider({ children }) {
     }
   }, [toast])
 
-  const [modalState, setModalState] = useState({ open: false, title: '—', body: null, size: '' })
-  const openModal = useCallback((title, body, size = '') => {
-    setModalState({ open: true, title: String(title || '—'), body, size: String(size || '') })
+  const [modalState, setModalState] = useState({ open: false, title: '—', body: null, size: '', encabezadoDerecha: null })
+  const openModal = useCallback((title, body, size = '', encabezadoDerecha = null) => {
+    setModalState({ open: true, title: String(title || '—'), body, size: String(size || ''), encabezadoDerecha })
   }, [])
   const closeModal = useCallback(() => {
-    setModalState((s) => ({ ...s, open: false }))
+    setModalState((s) => ({ ...s, open: false, encabezadoDerecha: null }))
   }, [])
 
   const [theme, setTheme] = useState(() => readTheme())
@@ -221,6 +225,7 @@ export function UiProvider({ children }) {
       toast,
       toastHistory,
       removeToastHistory,
+      vaciarHistorialToast,
       modalState,
       openModal,
       closeModal,
@@ -237,6 +242,7 @@ export function UiProvider({ children }) {
       toast,
       toastHistory,
       removeToastHistory,
+      vaciarHistorialToast,
       modalState,
       openModal,
       closeModal,

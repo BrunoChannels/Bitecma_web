@@ -588,6 +588,14 @@ function findHeaderIndex(header, predicate) {
   return -1
 }
 
+function fmtResumenNumero(n) {
+  const v = Number(n)
+  if (!Number.isFinite(v)) return '—'
+  if (Number.isInteger(v)) return String(v)
+  const r = Math.round(v * 100) / 100
+  return Number.isInteger(r) ? String(r) : String(r)
+}
+
 /**
  * Extrae nombres de especies desde columnas tipo `NUM <especie>` del encabezado EVADIR.
  *
@@ -987,16 +995,20 @@ export default function EvadirPreview({ db, op }) {
     const idxBu = headerMap.get('BUZO') ?? -1
     const idxZ = headerMap.get('ZONA') ?? -1
     const idxEsp = headerMap.get('ESPECIE') ?? -1
-    if (idxL < 0 || idxP < 0) return { maxL: null, maxP: null, points: [] }
+    if (idxL < 0 || idxP < 0) return { maxL: null, minL: null, maxP: null, minP: null, points: [] }
     let maxL = null
+    let minL = null
     let maxP = null
+    let minP = null
     const points = []
-    for (let i = 0; i < rows.length; i++) {
-      const r = rows[i]
+    for (let i = 0; i < muestrasRows.length; i++) {
+      const r = muestrasRows[i]
       const l = toNumber(r?.[idxL])
       const p = toNumber(r?.[idxP])
       if (l !== null) maxL = maxL === null ? l : Math.max(maxL, l)
+      if (l !== null) minL = minL === null ? l : Math.min(minL, l)
       if (p !== null) maxP = maxP === null ? p : Math.max(maxP, p)
+      if (p !== null) minP = minP === null ? p : Math.min(minP, p)
       if (l === null || p === null) continue
       const boteNombre = idxB >= 0 ? String(r?.[idxB] ?? '').trim() : ''
       const buzo = idxBu >= 0 ? String(r?.[idxBu] ?? '').trim() : ''
@@ -1005,36 +1017,40 @@ export default function EvadirPreview({ db, op }) {
       const especieId = spKeyToId.get(normKey(espName)) ?? defaultEspecieId ?? null
       points.push({ x: l, y: p, boteNombre, buzo, zona, especieId })
     }
-    return { maxL, maxP, points }
-  }, [isLpTab, headerMap, rows, especies, tab])
+    return { maxL, minL, maxP, minP, points }
+  }, [isLpTab, headerMap, muestrasRows, especies, tab])
 
   const lPreview = useMemo(() => {
     if (!isLTab) return null
     const idxL = headerMap.get('LONGITUD MM') ?? -1
-    if (idxL < 0) return { maxL: null }
+    if (idxL < 0) return { maxL: null, minL: null }
     let maxL = null
-    for (let i = 0; i < rows.length; i++) {
-      const r = rows[i]
+    let minL = null
+    for (let i = 0; i < muestrasRows.length; i++) {
+      const r = muestrasRows[i]
       const l = toNumber(r?.[idxL])
       if (l === null) continue
       maxL = maxL === null ? l : Math.max(maxL, l)
+      minL = minL === null ? l : Math.min(minL, l)
     }
-    return { maxL }
-  }, [isLTab, headerMap, rows])
+    return { maxL, minL }
+  }, [isLTab, headerMap, muestrasRows])
 
   const dPreview = useMemo(() => {
     if (!isDTab) return null
     const idxD = headerMap.get('DIAM DISCO CM') ?? -1
-    if (idxD < 0) return { maxD: null }
+    if (idxD < 0) return { maxD: null, minD: null }
     let maxD = null
-    for (let i = 0; i < rows.length; i++) {
-      const r = rows[i]
+    let minD = null
+    for (let i = 0; i < muestrasRows.length; i++) {
+      const r = muestrasRows[i]
       const d = toNumber(r?.[idxD])
       if (d === null) continue
       maxD = maxD === null ? d : Math.max(maxD, d)
+      minD = minD === null ? d : Math.min(minD, d)
     }
-    return { maxD }
-  }, [isDTab, headerMap, rows])
+    return { maxD, minD }
+  }, [isDTab, headerMap, muestrasRows])
 
   const showRowControls = rows.length > rowLimit
 
@@ -1426,7 +1442,7 @@ export default function EvadirPreview({ db, op }) {
                   <th>Especie</th>
                   <th>
                     Longitud mm
-                    {isLpTab && lpPreview?.maxL !== null ? (
+                    {isLpTab && (lpPreview?.maxL !== null || lpPreview?.minL !== null) ? (
                       <span
                         style={{
                           color: 'var(--text3)',
@@ -1435,8 +1451,8 @@ export default function EvadirPreview({ db, op }) {
                           paddingLeft: 8,
                           borderLeft: '1px solid var(--border)',
                         }}
-                      >{`max: ${Math.round(lpPreview.maxL)}`}</span>
-                    ) : isLTab && lPreview?.maxL !== null ? (
+                      >{`MAX: ${fmtResumenNumero(lpPreview?.maxL)} · MIN: ${fmtResumenNumero(lpPreview?.minL)}`}</span>
+                    ) : isLTab && (lPreview?.maxL !== null || lPreview?.minL !== null) ? (
                       <span
                         style={{
                           color: 'var(--text3)',
@@ -1445,13 +1461,13 @@ export default function EvadirPreview({ db, op }) {
                           paddingLeft: 8,
                           borderLeft: '1px solid var(--border)',
                         }}
-                      >{`MAX: ${Math.round(lPreview.maxL)}`}</span>
+                      >{`MAX: ${fmtResumenNumero(lPreview?.maxL)} · MIN: ${fmtResumenNumero(lPreview?.minL)}`}</span>
                     ) : null}
                   </th>
                   {isLpTab ? (
                     <th>
                       Peso g
-                      {lpPreview?.maxP !== null ? (
+                      {lpPreview?.maxP !== null || lpPreview?.minP !== null ? (
                         <span
                           style={{
                             color: 'var(--text3)',
@@ -1460,7 +1476,7 @@ export default function EvadirPreview({ db, op }) {
                             paddingLeft: 8,
                             borderLeft: '1px solid var(--border)',
                           }}
-                        >{`max: ${Math.round(lpPreview.maxP)}`}</span>
+                        >{`MAX: ${fmtResumenNumero(lpPreview?.maxP)} · MIN: ${fmtResumenNumero(lpPreview?.minP)}`}</span>
                       ) : null}
                     </th>
                   ) : null}
@@ -1474,7 +1490,7 @@ export default function EvadirPreview({ db, op }) {
                   <th>Especie</th>
                   <th>
                     Diam disco cm
-                    {dPreview?.maxD !== null ? (
+                    {dPreview?.maxD !== null || dPreview?.minD !== null ? (
                       <span
                         style={{
                           color: 'var(--text3)',
@@ -1483,7 +1499,7 @@ export default function EvadirPreview({ db, op }) {
                           paddingLeft: 8,
                           borderLeft: '1px solid var(--border)',
                         }}
-                      >{`MAX: ${Math.round(dPreview.maxD)}`}</span>
+                      >{`MAX: ${fmtResumenNumero(dPreview?.maxD)} · MIN: ${fmtResumenNumero(dPreview?.minD)}`}</span>
                     ) : null}
                   </th>
                 </tr>

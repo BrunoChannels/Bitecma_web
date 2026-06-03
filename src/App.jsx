@@ -105,11 +105,14 @@ function ModalHost() {
       <div className={`mb-box${modalState.size ? ' ' + modalState.size : ''}`}>
         <div className="mh">
           <h3>{modalState.title}</h3>
-          {showX ? (
-            <button type="button" className="mc" onClick={closeModal} aria-label="Cerrar">
-              ×
-            </button>
-          ) : null}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {modalState.encabezadoDerecha}
+            {showX ? (
+              <button type="button" className="mc" onClick={closeModal} aria-label="Cerrar">
+                ×
+              </button>
+            ) : null}
+          </div>
         </div>
         <div className="mb-body">{modalState.body}</div>
       </div>
