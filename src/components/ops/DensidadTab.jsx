@@ -1,20 +1,20 @@
 import { useMemo, useRef, useState } from 'react'
 import {
-  addEspecieToUnidad,
-  calcDensidad,
+  agregarEspecieAUnidad,
+  calcularDensidad,
   crearUnidades,
   eliminarUnidad,
-  nextUnidadNum,
-  removeEspecieFromUnidad,
-  setCuadranteEspecie,
-  setUnidadCoord,
-  setUnidadCount,
-  updateUnidad,
+  siguienteNumeroUnidad,
+  quitarEspecieDeUnidad,
+  establecerEspecieCuadrante,
+  establecerCoordenadaUnidad,
+  establecerConteoUnidad,
+  actualizarUnidad,
 } from '../../services/densidadService.js'
-import SpeciesGrid from '../common/SpeciesGrid.jsx'
-import { ensureKind } from '../../services/lpMuestrasService.js'
+import GrillaEspecies from '../common/SpeciesGrid.jsx'
+import { asegurarTipo } from '../../services/lpMuestrasService.js'
 
-function normKey(s) {
+function normalizarClave(s) {
   return String(s || '')
     .toLowerCase()
     .normalize('NFD')
@@ -22,7 +22,7 @@ function normKey(s) {
     .trim()
 }
 
-const ALGA_COM = new Set(
+const algasComunes = new Set(
   [
     'Huiro negro',
     'Huiro palo',
@@ -32,9 +32,9 @@ const ALGA_COM = new Set(
     'Luga roja',
     'Luga negra',
     'Luga cuchara',
-  ].map(normKey),
+  ].map(normalizarClave),
 )
-const ALGA_SCI = new Set(
+const algasCientificas = new Set(
   [
     'Lessonia berteroana',
     'Lessonia trabeculata',
@@ -44,11 +44,11 @@ const ALGA_SCI = new Set(
     'Gigartina skottsbergii',
     'Sarcothalia crispata',
     'Mazzaella laminarioides',
-  ].map(normKey),
+  ].map(normalizarClave),
 )
 
-function isAlgaSpecies(sp) {
-  return ALGA_COM.has(normKey(sp?.com)) || ALGA_SCI.has(normKey(sp?.sci))
+function esEspecieAlga(especie) {
+  return algasComunes.has(normalizarClave(especie?.com)) || algasCientificas.has(normalizarClave(especie?.sci))
 }
 
 /**
@@ -73,20 +73,20 @@ function isAlgaSpecies(sp) {
  * - Si no encuentra el input o no hay siguiente, no hace nada.
  *
  * @example
- * onKeyDown={(e) => e.key==='Enter' && focusNextInput(e.currentTarget, rootRef.current)}
+ * onKeyDown={(e) => e.key==='Enter' && enfocarSiguienteInput(e.currentTarget, referenciaRaiz.current)}
  *
  * Notas de mantenimiento:
  * - Mantener atributos `data-nav` consistentes en los inputs que participan de esta navegación.
  */
-function focusNextInput(from, root) {
-  const container = root || document
-  const inputs = Array.from(container.querySelectorAll('input[data-nav="dens"]'))
+function enfocarSiguienteInput(from, root) {
+  const contenedor = root || document
+  const inputs = Array.from(contenedor.querySelectorAll('input[data-nav="dens"]'))
   const idx = inputs.indexOf(from)
   if (idx < 0) return
-  const next = inputs[idx + 1]
-  if (!next) return
-  next.focus()
-  next.select?.()
+  const siguiente = inputs[idx + 1]
+  if (!siguiente) return
+  siguiente.focus()
+  siguiente.select?.()
 }
 
 /**
@@ -110,98 +110,98 @@ function focusNextInput(from, root) {
  * - Si no hay siguiente input, no hace nada.
  *
  * @example
- * focusNextTransectSpeciesInput(e.currentTarget, rootRef.current)
+ * enfocarSiguienteInputEspeciesTransecto(e.currentTarget, referenciaRaiz.current)
  *
  * Notas de mantenimiento:
  * - Usar este modo solo en inputs del grid de especies por transecto.
  */
-function focusNextTransectSpeciesInput(from, root) {
-  const container = root || document
-  const inputs = Array.from(container.querySelectorAll('input[data-nav="dens-transecto"]'))
+function enfocarSiguienteInputEspeciesTransecto(from, root) {
+  const contenedor = root || document
+  const inputs = Array.from(contenedor.querySelectorAll('input[data-nav="dens-transecto"]'))
   const idx = inputs.indexOf(from)
   if (idx < 0) return
-  const next = inputs[idx + 1]
-  if (!next) return
-  next.focus()
-  next.select?.()
+  const siguiente = inputs[idx + 1]
+  if (!siguiente) return
+  siguiente.focus()
+  siguiente.select?.()
 }
 
 /**
  * Pestaña de densidad para un bote: administra transectos/cuadrantes, especies y conteos.
  *
  * @param {object} props - Props del componente.
- * @param {object} props.op - Operación actual (contiene `id`, `fechaInicio`, etc.).
+ * @param {object} props.operacion - Operación actual (contiene `id`, `fechaInicio`, etc.).
  * @param {object} props.bote - Bote actual (contiene `id`, `transectos`, `densTipo`, etc.).
  * @param {Array<object>} props.especies - Catálogo de especies.
- * @param {(opId: string, updater: (cur: any) => any) => void} props.updateOperacion - Actualiza operación (inmutable).
- * @param {boolean} props.canWrite - Permiso de escritura.
- * @param {(msg: string, color?: string) => void} props.toast - Notificador UI.
- * @param {(title: string, body: import('react').JSX.Element, size?: string) => void} props.openModal - Abre modal.
- * @param {() => void} props.closeModal - Cierra modal.
+ * @param {(opId: string, updater: (cur: any) => any) => void} props.actualizarOperacion - Actualiza operación (inmutable).
+ * @param {boolean} props.puedeEscribir - Permiso de escritura.
+ * @param {(msg: string, color?: string) => void} props.mostrarToast - Notificador UI.
+ * @param {(title: string, body: import('react').JSX.Element, size?: string) => void} props.abrirModal - Abre modal.
+ * @param {() => void} props.cerrarModal - Cierra modal.
  * @returns {import('react').JSX.Element} UI para gestionar densidad.
  *
  * Lógica (alto nivel):
  * 1) Ordena unidades (transectos/cuadrantes) por número.
- * 2) Permite expandir/cerrar detalles por unidad (`openUnits`).
+ * 2) Permite expandir/cerrar detalles por unidad (`unidadesAbiertas`).
  * 3) Provee modales para:
  *    - Crear transectos masivamente (con selección de especies por transecto).
  *    - Crear cuadrantes (con especie asociada y parámetros).
  *    - Editar especies de una unidad, conteos, coordenadas y metadatos.
- * 4) Calcula densidad por especie usando `calcDensidad`.
- * 5) Opcionalmente ofrece transferir especies agregadas a la pestaña Peso-Longitud (LP) mediante `ensureKind`.
+ * 4) Calcula densidad por especie usando `calcularDensidad`.
+ * 5) Opcionalmente ofrece transferir especies agregadas a la pestaña Peso-Longitud (LP) mediante `asegurarTipo`.
  *
  * Dependencias externas:
  * - [densidadService](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/services/densidadService.js): creación/edición de unidades y conteos.
  * - [SpeciesGrid](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/components/common/SpeciesGrid.jsx).
- * - [ensureKind](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/services/lpMuestrasService.js) para habilitar especies en LP.
+ * - [asegurarTipo](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/services/lpMuestrasService.js) para habilitar especies en LP.
  *
  * Efectos secundarios:
- * - Actualiza operación/bote mediante `updateOperacion`.
+ * - Actualiza operación/bote mediante `actualizarOperacion`.
  * - Abre modales y puede disparar `confirm()` del navegador.
  * - Cambia foco de inputs en navegación por Enter.
  *
  * Manejo de errores:
- * - Bloquea acciones de escritura si `canWrite` es false.
+ * - Bloquea acciones de escritura si `puedeEscribir` es false.
  * - Usa `confirm()` para operaciones destructivas (eliminar unidades, quitar especies).
  *
  * @example
- * <DensidadTab op={op} bote={b} especies={db.especies} updateOperacion={updateOperacion} canWrite={canWrite} toast={toast} openModal={openModal} closeModal={closeModal} />
+ * <PestanaDensidad operacion={operacion} bote={b} especies={db.especies} actualizarOperacion={actualizarOperacion} puedeEscribir={puedeEscribir} mostrarToast={mostrarToast} abrirModal={abrirModal} cerrarModal={cerrarModal} />
  *
  * Notas de mantenimiento:
  * - Este archivo contiene mucha lógica UI; si crece, considerar extraer subcomponentes (modales/cards) para legibilidad.
  * - Mantener consistencia de `densTipo` y estructura `transectos` con servicios.
  */
-export default function DensidadTab({ op, bote, especies, updateOperacion, canWrite, toast, openModal, closeModal }) {
-  const rootRef = useRef(null)
-  const [openUnits, setOpenUnits] = useState(() => new Set())
+export default function PestanaDensidad({ operacion, bote, especies, actualizarOperacion, puedeEscribir, mostrarToast, abrirModal, cerrarModal }) {
+  const referenciaRaiz = useRef(null)
+  const [unidadesAbiertas, establecerUnidadesAbiertas] = useState(() => new Set())
 
   const unidades = useMemo(() => {
     const arr = Array.isArray(bote?.transectos) ? bote.transectos : []
     return [...arr].sort((a, b) => (Number(a?.num) || 0) - (Number(b?.num) || 0))
   }, [bote?.transectos])
 
-  const firstTranNum = useMemo(() => {
+  const primerNumeroTransecto = useMemo(() => {
     const u = (Array.isArray(unidades) ? unidades : []).find((x) => String(x?.tipo || 'transecto') === 'transecto')
     const n = Number(u?.num)
     return Number.isFinite(n) ? n : null
   }, [unidades])
 
-  const firstCuadNum = useMemo(() => {
+  const primerNumeroCuadrante = useMemo(() => {
     const u = (Array.isArray(unidades) ? unidades : []).find((x) => String(x?.tipo || '') === 'cuadrante')
     const n = Number(u?.num)
     return Number.isFinite(n) ? n : null
   }, [unidades])
 
-  const especiesAll = useMemo(() => {
+  const especiesOrdenadas = useMemo(() => {
     const arr = Array.isArray(especies) ? especies : []
     return arr.slice().sort((a, b) => String(a?.com || '').localeCompare(String(b?.com || '')))
   }, [especies])
 
-  const byId = useMemo(() => {
+  const especiePorId = useMemo(() => {
     const m = new Map()
-    especiesAll.forEach((e) => m.set(Number(e.id), e))
+    especiesOrdenadas.forEach((e) => m.set(Number(e.id), e))
     return m
-  }, [especiesAll])
+  }, [especiesOrdenadas])
 
   /**
    * Alterna la expansión (detalles) de una unidad por su número.
@@ -210,12 +210,12 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
    * @returns {void} No retorna valor.
    *
    * Lógica:
-   * 1) Clona el Set previo (`openUnits`).
+  * 1) Clona el Set previo (`unidadesAbiertas`).
    * 2) Si existe `num`, lo elimina; si no, lo agrega.
    * 3) Devuelve el nuevo Set para re-render.
    *
    * Dependencias externas:
-   * - `setOpenUnits` (estado local).
+  * - `establecerUnidadesAbiertas` (estado local).
    *
    * Efectos secundarios:
    * - Cambia estado local (UI).
@@ -224,13 +224,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
    * - No aplica.
    *
    * @example
-   * onClick={() => toggleUnit(3)}
+  * onClick={() => alternarUnidad(3)}
    *
    * Notas de mantenimiento:
    * - Mantener `num` como number consistente (se usa como clave en UI).
    */
-  const toggleUnit = (num) => {
-    setOpenUnits((prev) => {
+  const alternarUnidad = (num) => {
+    establecerUnidadesAbiertas((prev) => {
       const next = new Set(prev)
       if (next.has(num)) next.delete(num)
       else next.add(num)
@@ -244,33 +244,33 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
    * @returns {void} No retorna valor.
    *
    * Lógica:
-   * 1) Valida `canWrite`; en modo lectura muestra toast y aborta.
-   * 2) Define un Body interno con una grilla de transectos (área, sustrato, cubierta, especies).
+  * 1) Valida `puedeEscribir`; en modo lectura muestra toast y aborta.
+   * 2) Define un Cuerpo interno con una grilla de transectos (área, sustrato, cubierta, especies).
    * 3) Permite replicar configuración del primer transecto y agregar/eliminar filas.
    * 4) Al guardar, reconstruye la lista de transectos del bote preservando unidades no-transecto y conteos existentes cuando aplica.
-   * 5) Ofrece (opcional) transferir especies nuevas a Peso-Longitud vía `ensureKind`.
+  * 5) Ofrece (opcional) transferir especies nuevas a Peso-Longitud vía `asegurarTipo`.
    *
    * Dependencias externas:
-   * - `openModal/closeModal`, `toast`, `updateOperacion`.
-   * - `nextUnidadNum` y utilidades de servicio.
-   * - `SpeciesGrid` para selección de especies por transecto.
-   * - `ensureKind` para habilitar especies en LP.
+  * - `abrirModal/cerrarModal`, `mostrarToast`, `actualizarOperacion`.
+  * - `siguienteNumeroUnidad` y utilidades de servicio.
+  * - `GrillaEspecies` para selección de especies por transecto.
+  * - `asegurarTipo` para habilitar especies en LP.
    *
    * Efectos secundarios:
    * - Abre un modal y puede modificar el bote (transectos y/o lpMuestras).
    *
    * Manejo de errores:
-   * - Valida `canWrite` y `canSave` antes de persistir.
+  * - Valida `puedeEscribir` y `puedeGuardar` antes de persistir.
    *
    * @example
-   * <button onClick={openCrearTransectos}>Agregar Transecto</button>
+  * <button onClick={abrirCrearTransectos}>Agregar Transecto</button>
    *
    * Notas de mantenimiento:
    * - Mantener la preservación de conteos/coordenadas para no perder datos al guardar en bloque.
    */
-  const openCrearTransectos = () => {
-    if (!canWrite) {
-      toast('Modo solo lectura', 'blue')
+  const abrirCrearTransectos = () => {
+    if (!puedeEscribir) {
+      mostrarToast('Modo solo lectura', 'blue')
       return
     }
     /**
@@ -280,12 +280,12 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
      *
      * Lógica:
      * 1) Inicializa filas desde transectos existentes (seed) o crea un set por defecto.
-     * 2) Permite seleccionar especies por transecto usando `SpeciesGrid` (modo pick).
+     * 2) Permite seleccionar especies por transecto usando `GrillaEspecies` (modo pick).
      * 3) Permite replicar fila 1 y agregar/eliminar transectos.
-     * 4) Valida `canSave` (al menos una especie seleccionada en algún transecto).
+     * 4) Valida `puedeGuardar` (al menos una especie seleccionada en algún transecto).
      *
      * Dependencias externas:
-     * - `SpeciesGrid`, `nextUnidadNum`.
+     * - `GrillaEspecies`, `siguienteNumeroUnidad`.
      *
      * Efectos secundarios:
      * - Actualiza estado local del modal (rows/pick).
@@ -294,20 +294,20 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
      * - No aplica.
      *
      * @example
-     * openModal('Agregar transectos', <Body />, 'wide')
+     * abrirModal('Agregar transectos', <Cuerpo />, 'wide')
      *
      * Notas de mantenimiento:
      * - Mantener la representación `rows` alineada con el esquema de `transectos` del bote.
      */
-    const Body = () => {
-      const startNum = nextUnidadNum(bote?.transectos)
-      const seeded = (Array.isArray(bote?.transectos) ? bote.transectos : [])
+    const Cuerpo = () => {
+      const numeroInicial = siguienteNumeroUnidad(bote?.transectos)
+      const transectosSemilla = (Array.isArray(bote?.transectos) ? bote.transectos : [])
         .filter((u) => String(u?.tipo || 'transecto') === 'transecto')
         .slice()
         .sort((a, b) => (Number(a?.num) || 0) - (Number(b?.num) || 0))
-      const [rows, setRows] = useState(() =>
-        seeded.length
-          ? seeded.map((u) => ({
+      const [filas, establecerFilas] = useState(() =>
+        transectosSemilla.length
+          ? transectosSemilla.map((u) => ({
               num: Number(u?.num) || 0,
               area: Number(u?.area) || 120,
               sustrato: String(u?.sustrato || ''),
@@ -317,40 +317,48 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                 .filter((x) => Number.isFinite(x)),
             }))
           : Array.from({ length: 6 }, (_, i) => ({
-              num: startNum + i,
+              num: numeroInicial + i,
               area: 120,
               sustrato: '',
               cubierta: '',
               especiesIds: [],
             })),
       )
-      const [pick, setPick] = useState(null)
+      const [seleccionEspecies, establecerSeleccionEspecies] = useState(null)
 
-      const replicate = () => {
-        setRows((prev) => {
-          const first = prev[0]
-          if (!first) return prev
+      const replicar = () => {
+        establecerFilas((prev) => {
+          const primeraFila = prev[0]
+          if (!primeraFila) return prev
           return prev.map((r, idx) =>
-            idx === 0 ? r : { ...r, area: first.area, sustrato: first.sustrato, cubierta: first.cubierta, especiesIds: (first.especiesIds || []).slice() },
+            idx === 0
+              ? r
+              : {
+                  ...r,
+                  area: primeraFila.area,
+                  sustrato: primeraFila.sustrato,
+                  cubierta: primeraFila.cubierta,
+                  especiesIds: (primeraFila.especiesIds || []).slice(),
+                },
           )
         })
       }
 
-      const canSave = rows.some((r) => Array.isArray(r.especiesIds) && r.especiesIds.length)
+      const puedeGuardar = filas.some((r) => Array.isArray(r.especiesIds) && r.especiesIds.length)
 
-      if (pick) {
+      if (seleccionEspecies) {
         return (
           <div data-tutorial-id="ops-dens-species-panel" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>
-              Especies — Transecto {pick.num}
+              Especies — Transecto {seleccionEspecies.num}
             </div>
             <div data-tutorial-id="ops-dens-species-grid">
-              <SpeciesGrid
-                especies={especiesAll}
-                selectedIds={pick.sel}
+              <GrillaEspecies
+                especies={especiesOrdenadas}
+                selectedIds={seleccionEspecies.sel}
                 onChange={(ids) => {
                   const nextIds = Array.isArray(ids) ? ids : []
-                  setPick((p) => ({ ...p, sel: nextIds }))
+                  establecerSeleccionEspecies((p) => ({ ...p, sel: nextIds }))
                   if (nextIds.length > 0) {
                     window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-dens-species-selected' } }))
                   } else {
@@ -363,7 +371,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
               />
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn b-out" style={{ flex: 1 }} disabled onClick={() => setPick(null)}>
+              <button className="btn b-out" style={{ flex: 1 }} disabled onClick={() => establecerSeleccionEspecies(null)}>
                 Volver
               </button>
               <button
@@ -371,11 +379,11 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                 style={{ flex: 1 }}
                 data-tutorial-id="ops-dens-species-apply"
                 onClick={() => {
-                  setRows((prev) => prev.map((x) => (x.num === pick.num ? { ...x, especiesIds: pick.sel } : x)))
-                  setPick(null)
+                  establecerFilas((prev) => prev.map((x) => (x.num === seleccionEspecies.num ? { ...x, especiesIds: seleccionEspecies.sel } : x)))
+                  establecerSeleccionEspecies(null)
                 }}
               >
-                Aplicar a Transecto {pick.num}
+                Aplicar a Transecto {seleccionEspecies.num}
               </button>
             </div>
           </div>
@@ -390,15 +398,21 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn b-out b-sm" data-tutorial-id="ops-dens-replicar" onClick={replicate}>
+            <button className="btn b-out b-sm" data-tutorial-id="ops-dens-replicar" onClick={replicar}>
               Replicar fila 1
             </button>
             <button
               className="btn b-out b-sm"
               onClick={() =>
-                setRows((prev) => [
+                establecerFilas((prev) => [
                   ...prev,
-                  { num: (prev[prev.length - 1]?.num || startNum - 1) + 1, area: prev[0]?.area ?? 120, sustrato: '', cubierta: '', especiesIds: [] },
+                  {
+                    num: (prev[prev.length - 1]?.num || numeroInicial - 1) + 1,
+                    area: prev[0]?.area ?? 120,
+                    sustrato: '',
+                    cubierta: '',
+                    especiesIds: [],
+                  },
                 ])
               }
             >
@@ -423,7 +437,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, idx) => (
+                {filas.map((r, idx) => (
                   <tr key={r.num} data-tutorial-id={idx === 0 ? 'ops-dens-tx-row1' : undefined}>
                     <td>{idx + 1}</td>
                     <td>
@@ -438,7 +452,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                         data-tutorial-id={idx === 0 ? 'ops-dens-tx-area' : undefined}
                         onChange={(e) => {
                           const v = e.target.value
-                          setRows((prev) => prev.map((x) => (x.num === r.num ? { ...x, area: v } : x)))
+                          establecerFilas((prev) => prev.map((x) => (x.num === r.num ? { ...x, area: v } : x)))
                         }}
                       />
                     </td>
@@ -447,7 +461,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                         className="ii"
                         value={r.sustrato}
                         data-tutorial-id={idx === 0 ? 'ops-dens-tx-sustrato' : undefined}
-                        onChange={(e) => setRows((prev) => prev.map((x) => (x.num === r.num ? { ...x, sustrato: e.target.value } : x)))}
+                        onChange={(e) => establecerFilas((prev) => prev.map((x) => (x.num === r.num ? { ...x, sustrato: e.target.value } : x)))}
                       />
                     </td>
                     <td style={{ minWidth: 180 }}>
@@ -455,20 +469,20 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                         className="ii"
                         value={r.cubierta}
                         data-tutorial-id={idx === 0 ? 'ops-dens-tx-cubierta' : undefined}
-                        onChange={(e) => setRows((prev) => prev.map((x) => (x.num === r.num ? { ...x, cubierta: e.target.value } : x)))}
+                        onChange={(e) => establecerFilas((prev) => prev.map((x) => (x.num === r.num ? { ...x, cubierta: e.target.value } : x)))}
                       />
                     </td>
                     <td style={{ minWidth: 240 }}>
                       <button
                         className="btn b-out b-sm"
                         data-tutorial-id={idx === 0 ? 'ops-dens-tx-especies' : undefined}
-                        onClick={() => setPick({ num: r.num, sel: (r.especiesIds || []).slice() })}
+                        onClick={() => establecerSeleccionEspecies({ num: r.num, sel: (r.especiesIds || []).slice() })}
                       >
                         {Array.isArray(r.especiesIds) && r.especiesIds.length ? `${r.especiesIds.length} especies` : 'Seleccionar especies'}
                       </button>
                     </td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <button className="btn b-out b-sm" onClick={() => setRows((prev) => prev.filter((x) => x.num !== r.num))}>
+                      <button className="btn b-out b-sm" onClick={() => establecerFilas((prev) => prev.filter((x) => x.num !== r.num))}>
                         Eliminar
                       </button>
                     </td>
@@ -479,75 +493,78 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
           </div>
 
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+            <button className="btn b-out" style={{ flex: 1 }} onClick={cerrarModal}>
               Cancelar
             </button>
             <button
               className="btn b-teal"
               style={{ flex: 1 }}
-              disabled={!canSave}
+              disabled={!puedeGuardar}
               data-tutorial-id="ops-dens-tx-save"
               onClick={() => {
-                if (!canSave) return
-                updateOperacion(op.id, (cur) => {
+                if (!puedeGuardar) return
+                actualizarOperacion(operacion.id, (cur) => {
                   const nextBotes = (cur.botes || []).map((x) => {
                     if (x.id !== bote.id) return x
-                    const prevUnits = Array.isArray(x.transectos) ? x.transectos : []
-                    const prevTranByNum = new Map(
-                      prevUnits
+                    const unidadesPrevias = Array.isArray(x.transectos) ? x.transectos : []
+                    const transectoPrevioPorNumero = new Map(
+                      unidadesPrevias
                         .filter((u) => String(u?.tipo || 'transecto') === 'transecto')
                         .map((u) => [Number(u?.num) || 0, u]),
                     )
-                    const preservedNonTran = prevUnits.filter((u) => String(u?.tipo || 'transecto') !== 'transecto')
-                    const sorted = rows
+                    const unidadesNoTransectoPreservadas = unidadesPrevias.filter((u) => String(u?.tipo || 'transecto') !== 'transecto')
+                    const filasOrdenadas = filas
                       .slice()
                       .sort((a, b) => (Number(a.num) || 0) - (Number(b.num) || 0))
-                    const nextTran = sorted.map((row) => {
-                      const num = Number(row?.num) || 0
-                      const prev = prevTranByNum.get(num)
-                      const prevCounts = prev?.counts && typeof prev.counts === 'object' ? prev.counts : {}
-                      const selected = Array.isArray(row?.especiesIds) ? row.especiesIds.map(Number).filter((v) => Number.isFinite(v)) : []
-                      const counts = Object.fromEntries(selected.map((id) => [id, Number(prevCounts[id] ?? 0)]))
+                    const transectosSiguientes = filasOrdenadas.map((fila) => {
+                      const num = Number(fila?.num) || 0
+                      const transectoPrevio = transectoPrevioPorNumero.get(num)
+                      const conteosPrevios =
+                        transectoPrevio?.counts && typeof transectoPrevio.counts === 'object' ? transectoPrevio.counts : {}
+                      const idsEspeciesSeleccionadas = Array.isArray(fila?.especiesIds)
+                        ? fila.especiesIds.map(Number).filter((v) => Number.isFinite(v))
+                        : []
+                      const conteosPorEspecie = Object.fromEntries(
+                        idsEspeciesSeleccionadas.map((id) => [id, Number(conteosPrevios[id] ?? 0)]),
+                      )
                       return {
                         num,
                         tipo: 'transecto',
-                        area: Number(row?.area) || 120,
-                        fecha: String(prev?.fecha || op?.fechaInicio || ''),
-                        sustrato: String(row?.sustrato || ''),
-                        cubierta: String(row?.cubierta || ''),
-                        coordX: prev?.coordX ?? null,
-                        coordY: prev?.coordY ?? null,
-                        coordLong: prev?.coordLong ?? null,
-                        coordLat: prev?.coordLat ?? null,
-                        counts,
+                        area: Number(fila?.area) || 120,
+                        fecha: String(transectoPrevio?.fecha || operacion?.fechaInicio || ''),
+                        sustrato: String(fila?.sustrato || ''),
+                        cubierta: String(fila?.cubierta || ''),
+                        coordX: transectoPrevio?.coordX ?? null,
+                        coordY: transectoPrevio?.coordY ?? null,
+                        coordLong: transectoPrevio?.coordLong ?? null,
+                        coordLat: transectoPrevio?.coordLat ?? null,
+                        counts: conteosPorEspecie,
                       }
                     })
-                    return { ...x, transectos: [...preservedNonTran, ...nextTran] }
+                    return { ...x, transectos: [...unidadesNoTransectoPreservadas, ...transectosSiguientes] }
                   })
                   return { ...cur, botes: nextBotes }
                 })
-                closeModal()
-                toast?.('Transectos actualizados', 'green')
+                cerrarModal()
+                mostrarToast?.('Transectos actualizados', 'green')
 
                 // Detectar si hay especies nuevas añadidas en este guardado masivo
-                const existingSpIds = new Set(
+                const idsEspeciesExistentes = new Set(
                   (Array.isArray(bote?.transectos) ? bote.transectos : [])
                     .filter((u) => String(u?.tipo || 'transecto') === 'transecto')
-                    .flatMap(u => Object.keys(u?.counts && typeof u.counts === 'object' ? u.counts : {}).map(Number))
+                    .flatMap((u) => Object.keys(u?.counts && typeof u.counts === 'object' ? u.counts : {}).map(Number)),
                 )
-                const newSpIds = new Set(
-                  rows.flatMap(r => Array.isArray(r.especiesIds) ? r.especiesIds.map(Number) : [])
-                )
-                const newlyAdded = [...newSpIds].filter(id => !existingSpIds.has(id))
+                const idsEspeciesNuevas = new Set(filas.flatMap((r) => (Array.isArray(r.especiesIds) ? r.especiesIds.map(Number) : [])))
+                const idsEspeciesRecienAgregadas = [...idsEspeciesNuevas].filter((id) => !idsEspeciesExistentes.has(id))
 
-                if (newlyAdded.length > 0) {
+                if (idsEspeciesRecienAgregadas.length > 0) {
                   setTimeout(() => {
-                    const BodyTransfer = () => {
-                      const names = newlyAdded
-                        .map((id) => byId.get(Number(id))?.com)
+                    const CuerpoTransferencia = () => {
+                      const nombresEspecies = idsEspeciesRecienAgregadas
+                        .map((id) => especiePorId.get(Number(id))?.com)
                         .filter(Boolean)
                         .slice(0, 8)
-                      const extra = newlyAdded.length - names.length
+                      const cantidadExtra = idsEspeciesRecienAgregadas.length - nombresEspecies.length
 
                       return (
                         <div data-tutorial-id="ops-dens-transfer-modal" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -555,12 +572,12 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                             ¿Deseas agregar también estas especies a la pestaña Peso-Longitud de este bote?
                           </div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                            {names.map((n) => (
-                              <span key={n} className="pill p-blu">
-                                {n}
+                            {nombresEspecies.map((nombreEspecie) => (
+                              <span key={nombreEspecie} className="pill p-blu">
+                                {nombreEspecie}
                               </span>
                             ))}
-                            {extra > 0 ? <span className="pill p-out">+{extra}</span> : null}
+                            {cantidadExtra > 0 ? <span className="pill p-out">+{cantidadExtra}</span> : null}
                           </div>
                           <div data-tutorial-id="ops-dens-transfer-actions" style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                             <button
@@ -569,7 +586,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                               data-tutorial-id="ops-dens-transfer-no"
                               onClick={() => {
                                 window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-dens-transfer-done' } }))
-                                closeModal()
+                                cerrarModal()
                               }}
                             >
                               No, gracias
@@ -580,20 +597,20 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                               data-tutorial-id="ops-dens-transfer-yes"
                               onClick={() => {
                                 window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-dens-transfer-done' } }))
-                                updateOperacion(op.id, (cur) => {
+                                actualizarOperacion(operacion.id, (cur) => {
                                   const nextBotes = (cur.botes || []).map((x) => {
                                     if (x.id !== bote.id) return x
-                                    let map = x.lpMuestras || {}
-                                    newlyAdded.forEach((id) => {
-                                      const sp = byId.get(Number(id))
-                                      map = ensureKind(map, id, isAlgaSpecies(sp) ? 'D' : 'LP')
+                                    let mapaLpMuestras = x.lpMuestras || {}
+                                    idsEspeciesRecienAgregadas.forEach((id) => {
+                                      const especie = especiePorId.get(Number(id))
+                                      mapaLpMuestras = asegurarTipo(mapaLpMuestras, id, esEspecieAlga(especie) ? 'D' : 'LP')
                                     })
-                                    return { ...x, lpMuestras: map }
+                                    return { ...x, lpMuestras: mapaLpMuestras }
                                   })
                                   return { ...cur, botes: nextBotes }
                                 })
-                                closeModal()
-                                toast?.('Especies agregadas a Peso-Longitud', 'blue')
+                                cerrarModal()
+                                mostrarToast?.('Especies agregadas a Peso-Longitud', 'blue')
                               }}
                             >
                               Sí, agregar
@@ -603,7 +620,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                       )
                     }
 
-                    openModal('Transferir especies', <BodyTransfer />, 'normal')
+                    abrirModal('Transferir especies', <CuerpoTransferencia />, 'normal')
                     window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-dens-transfer-open' } }))
                   }, 150)
                 }
@@ -616,39 +633,39 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
       )
     }
 
-    openModal(`Agregar transectos — ${bote?.nombre || bote?.id}`, <Body />, 'wide')
+    abrirModal(`Agregar transectos — ${bote?.nombre || bote?.id}`, <Cuerpo />, 'wide')
   }
 
-  const openCrearCuadrantes = () => {
-    if (!canWrite) {
-      toast('Modo solo lectura', 'blue')
+  const abrirCrearCuadrantes = () => {
+    if (!puedeEscribir) {
+      mostrarToast('Modo solo lectura', 'blue')
       return
     }
-    const Body = () => {
-      const [form, setForm] = useState(() => ({
+    const Cuerpo = () => {
+      const [formulario, establecerFormulario] = useState(() => ({
         cantidad: 30,
         area: 0.25,
         sustrato: '',
         especieId: '',
       }))
-      const [showPick, setShowPick] = useState(false)
+      const [mostrarSelectorEspecie, establecerMostrarSelectorEspecie] = useState(false)
 
-      const canSave = String(form.especieId || '').trim() !== '' && Number(form.cantidad) > 0
-      const selectedSp = byId.get(Number(form.especieId))
+      const puedeGuardar = String(formulario.especieId || '').trim() !== '' && Number(formulario.cantidad) > 0
+      const especieSeleccionada = especiePorId.get(Number(formulario.especieId))
 
-      if (showPick) {
+      if (mostrarSelectorEspecie) {
         return (
           <div data-tutorial-id="ops-cuad-especie-panel" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>Especie del cuadrante</div>
             <div data-tutorial-id="ops-cuad-especie-grid">
-              <SpeciesGrid
-                especies={especiesAll}
-                selectedIds={form.especieId ? [Number(form.especieId)] : []}
-                onChange={(ids) => {
-                  const id = ids?.[0]
-                  setForm((s) => ({ ...s, especieId: id ? String(id) : '' }))
-                  setShowPick(false)
-                  if (id) {
+              <GrillaEspecies
+                especies={especiesOrdenadas}
+                selectedIds={formulario.especieId ? [Number(formulario.especieId)] : []}
+                onChange={(idsSeleccionados) => {
+                  const idSeleccionado = idsSeleccionados?.[0]
+                  establecerFormulario((estadoPrevio) => ({ ...estadoPrevio, especieId: idSeleccionado ? String(idSeleccionado) : '' }))
+                  establecerMostrarSelectorEspecie(false)
+                  if (idSeleccionado) {
                     window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-cuad-especie-picked' } }))
                   }
                 }}
@@ -657,7 +674,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                 maxHeight={420}
               />
             </div>
-            <button className="btn b-out" onClick={() => setShowPick(false)}>
+            <button className="btn b-out" onClick={() => establecerMostrarSelectorEspecie(false)}>
               Volver
             </button>
           </div>
@@ -673,8 +690,8 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                 className="ii"
                 type="number"
                 data-tutorial-id="ops-cuad-cantidad"
-                value={form.cantidad}
-                onChange={(e) => setForm((s) => ({ ...s, cantidad: parseInt(e.target.value, 10) || 0 }))}
+                value={formulario.cantidad}
+                onChange={(e) => establecerFormulario((estadoPrevio) => ({ ...estadoPrevio, cantidad: parseInt(e.target.value, 10) || 0 }))}
               />
             </div>
             <div className="ig">
@@ -682,8 +699,8 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
               <select
                 className="is"
                 data-tutorial-id="ops-cuad-area"
-                value={String(form.area)}
-                onChange={(e) => setForm((s) => ({ ...s, area: Number(e.target.value) }))}
+                value={String(formulario.area)}
+                onChange={(e) => establecerFormulario((estadoPrevio) => ({ ...estadoPrevio, area: Number(e.target.value) }))}
               >
                 <option value="1">1 m²</option>
                 <option value="0.25">0.25 m²</option>
@@ -697,48 +714,53 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
               <input
                 className="ii"
                 data-tutorial-id="ops-cuad-sustrato"
-                value={form.sustrato}
-                onChange={(e) => setForm((s) => ({ ...s, sustrato: e.target.value }))}
+                value={formulario.sustrato}
+                onChange={(e) => establecerFormulario((estadoPrevio) => ({ ...estadoPrevio, sustrato: e.target.value }))}
               />
             </div>
             <div className="ig">
               <label className="il">Especie</label>
-              <button className="btn b-out" data-tutorial-id="ops-cuad-especie-btn" data-tutorial-advance="true" onClick={() => setShowPick(true)}>
-                {selectedSp ? `${selectedSp.com} — ${selectedSp.sci}` : 'Seleccionar especie'}
+              <button
+                className="btn b-out"
+                data-tutorial-id="ops-cuad-especie-btn"
+                data-tutorial-advance="true"
+                onClick={() => establecerMostrarSelectorEspecie(true)}
+              >
+                {especieSeleccionada ? `${especieSeleccionada.com} — ${especieSeleccionada.sci}` : 'Seleccionar especie'}
               </button>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+            <button className="btn b-out" style={{ flex: 1 }} onClick={cerrarModal}>
               Cancelar
             </button>
             <button
               className="btn b-teal"
               style={{ flex: 1 }}
-              disabled={!canSave}
+              disabled={!puedeGuardar}
               data-tutorial-id="ops-cuad-crear"
               data-tutorial-advance="true"
               onClick={() => {
-                if (!canSave) return
-                updateOperacion(op.id, (cur) => {
+                if (!puedeGuardar) return
+                actualizarOperacion(operacion.id, (cur) => {
                   const nextBotes = (cur.botes || []).map((x) => {
                     if (x.id !== bote.id) return x
-                    const nextUnits = crearUnidades({
+                    const unidadesSiguientes = crearUnidades({
                       unidades: x.transectos,
                       tipo: 'cuadrante',
-                      cantidad: form.cantidad,
-                      area: form.area,
-                      fecha: String(op?.fechaInicio || ''),
-                      sustrato: form.sustrato,
+                      cantidad: formulario.cantidad,
+                      area: formulario.area,
+                      fecha: String(operacion?.fechaInicio || ''),
+                      sustrato: formulario.sustrato,
                       cubierta: '',
-                      especieId: form.especieId,
+                      especieId: formulario.especieId,
                     })
-                    return { ...x, transectos: nextUnits }
+                    return { ...x, transectos: unidadesSiguientes }
                   })
                   return { ...cur, botes: nextBotes }
                 })
-                closeModal()
-                toast?.('Cuadrantes creados', 'green')
+                cerrarModal()
+                mostrarToast?.('Cuadrantes creados', 'green')
               }}
             >
               Crear
@@ -748,21 +770,21 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
       )
     }
 
-    openModal(`Agregar cuadrantes — ${bote?.nombre || bote?.id}`, <Body />, 'wide')
+    abrirModal(`Agregar cuadrantes — ${bote?.nombre || bote?.id}`, <Cuerpo />, 'wide')
   }
 
-  const openCrearUnidades = () => {
-    if (bote?.densTipo === 'cuadrante') openCrearCuadrantes()
-    else openCrearTransectos()
+  const abrirCrearUnidades = () => {
+    if (bote?.densTipo === 'cuadrante') abrirCrearCuadrantes()
+    else abrirCrearTransectos()
   }
 
   return (
-    <div ref={rootRef} data-tutorial-id={bote?.densTipo === 'cuadrante' ? 'ops-cuad-dens-panel' : undefined}>
+    <div ref={referenciaRaiz} data-tutorial-id={bote?.densTipo === 'cuadrante' ? 'ops-cuad-dens-panel' : undefined}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 10 }}>
         <div style={{ fontFamily: 'var(--ff-d)', fontSize: 14, fontWeight: 800, color: 'var(--navy)' }}>
           {bote?.densTipo === 'cuadrante' ? 'Cuadrantes' : 'Transectos'}
         </div>
-        <button className="btn b-teal b-sm" data-tutorial-id="ops-dens-add-transecto" onClick={openCrearUnidades}>
+        <button className="btn b-teal b-sm" data-tutorial-id="ops-dens-add-transecto" onClick={abrirCrearUnidades}>
           {bote?.densTipo === 'cuadrante' ? 'Agregar Cuadrante' : 'Agregar Transecto'}
         </button>
       </div>
@@ -773,43 +795,43 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
           <div>Sin unidades de densidad. Crea transectos/cuadrantes para comenzar.</div>
         </div>
       ) : (
-        unidades.map((t) => {
-          const num = Number(t?.num) || 0
-          const isCuad = t?.tipo === 'cuadrante'
-          const counts = t?.counts && typeof t.counts === 'object' ? t.counts : {}
-          const spIds = Object.keys(counts)
+        unidades.map((unidad) => {
+          const numeroUnidad = Number(unidad?.num) || 0
+          const esCuadrante = unidad?.tipo === 'cuadrante'
+          const conteosPorEspecie = unidad?.counts && typeof unidad.counts === 'object' ? unidad.counts : {}
+          const idsEspecies = Object.keys(conteosPorEspecie)
             .map(Number)
             .filter((x) => Number.isFinite(x))
             .sort((a, b) => a - b)
-          const area = Number(t.area) || 0
-          const coordX = t?.coordX ?? ''
-          const coordY = t?.coordY ?? ''
-          const coordLong = t?.coordLong ?? ''
-          const coordLat = t?.coordLat ?? ''
-          const speciesChips = spIds
-            .map((id) => byId.get(Number(id))?.com)
+          const areaUnidad = Number(unidad.area) || 0
+          const coordenadaX = unidad?.coordX ?? ''
+          const coordenadaY = unidad?.coordY ?? ''
+          const coordenadaLong = unidad?.coordLong ?? ''
+          const coordenadaLat = unidad?.coordLat ?? ''
+          const etiquetasEspecies = idsEspecies
+            .map((id) => especiePorId.get(Number(id))?.com)
             .filter(Boolean)
             .slice(0, 12)
 
-          if (isCuad) {
-            const spId = Number(t.especieId ?? spIds[0] ?? null)
-            const sp = byId.get(spId)
-            const cnt = Number(counts?.[spId] ?? 0)
-            const dens = calcDensidad(cnt, area)
-            const open = openUnits.has(num)
-            const summary = `Área ${area || '—'} m² · Sustrato ${t?.sustrato ? t.sustrato : '—'}`
+          if (esCuadrante) {
+            const idEspecie = Number(unidad.especieId ?? idsEspecies[0] ?? null)
+            const especie = especiePorId.get(idEspecie)
+            const conteoIndividuos = Number(conteosPorEspecie?.[idEspecie] ?? 0)
+            const densidad = calcularDensidad(conteoIndividuos, areaUnidad)
+            const estaAbierta = unidadesAbiertas.has(numeroUnidad)
+            const resumen = `Área ${areaUnidad || '—'} m² · Sustrato ${unidad?.sustrato ? unidad.sustrato : '—'}`
 
             return (
-              <div key={`${bote.id}-${num}`} className="tx-card cuad">
+              <div key={`${bote.id}-${numeroUnidad}`} className="tx-card cuad">
                 <div
                   className="tx-hd"
-                  onClick={() => toggleUnit(num)}
+                  onClick={() => alternarUnidad(numeroUnidad)}
                   style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}
                 >
                   <span className="pill p-pur" style={{ fontSize: 10 }}>
-                    Cuadrante {num}
+                    Cuadrante {numeroUnidad}
                   </span>
-                  <span style={{ fontWeight: 800, color: 'var(--navy)' }}>{sp?.com || '—'}</span>
+                  <span style={{ fontWeight: 800, color: 'var(--navy)' }}>{especie?.com || '—'}</span>
 
                   <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -821,92 +843,107 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                         step="1"
                         min="0"
                         data-nav="dens"
-                        data-tutorial-id={firstCuadNum != null && num === firstCuadNum ? 'ops-cuad-count' : undefined}
-                        value={String(cnt)}
+                        data-tutorial-id={
+                          primerNumeroCuadrante != null && numeroUnidad === primerNumeroCuadrante ? 'ops-cuad-count' : undefined
+                        }
+                        value={String(conteoIndividuos)}
                         onClick={(e) => e.stopPropagation()}
                         onKeyDown={(e) => {
                           if (e.key !== 'Enter') return
                           e.preventDefault()
-                          focusNextInput(e.currentTarget, rootRef.current)
+                          enfocarSiguienteInput(e.currentTarget, referenciaRaiz.current)
                         }}
                         onChange={(e) => {
                           const v = e.target.value
-                          updateOperacion(op.id, (cur) => {
+                          actualizarOperacion(operacion.id, (cur) => {
                             const nextBotes = (cur.botes || []).map((x) => {
                               if (x.id !== bote.id) return x
-                              return { ...x, transectos: setUnidadCount(x.transectos, num, spId, v) }
+                              return { ...x, transectos: establecerConteoUnidad(x.transectos, numeroUnidad, idEspecie, v) }
                             })
                             return { ...cur, botes: nextBotes }
                           })
                         }}
                       />
                       <span style={{ fontFamily: 'var(--ff-m)', fontSize: 12, fontWeight: 800, color: 'var(--teal)' }}>
-                        {dens.toFixed(4)}
+                        {densidad.toFixed(4)}
                       </span>
                       <span style={{ fontSize: 11, color: 'var(--text3)' }}>ind/m²</span>
                     </div>
 
                     <div style={{ width: 1, height: 26, background: 'var(--border2)' }} />
 
-                    <div style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{summary}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{resumen}</div>
 
                     <button
                       className="btn b-out b-sm"
                       onClick={(e) => {
                         e.stopPropagation()
-                        if (!confirm(`Eliminar Cuadrante ${num}?`)) return
-                        updateOperacion(op.id, (cur) => {
+                        if (!confirm(`Eliminar Cuadrante ${numeroUnidad}?`)) return
+                        actualizarOperacion(operacion.id, (cur) => {
                           const nextBotes = (cur.botes || []).map((x) => {
                             if (x.id !== bote.id) return x
-                            return { ...x, transectos: eliminarUnidad(x.transectos, num) }
+                            return { ...x, transectos: eliminarUnidad(x.transectos, numeroUnidad) }
                           })
                           return { ...cur, botes: nextBotes }
                         })
-                        toast?.('Cuadrante eliminado', 'green')
+                        mostrarToast?.('Cuadrante eliminado', 'green')
                       }}
                     >
                       Eliminar
                     </button>
 
-                    <button className="btn b-out b-sm" onClick={(e) => { e.stopPropagation(); toggleUnit(num) }}>
-                      {open ? '▴' : '▾'}
+                    <button
+                      className="btn b-out b-sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        alternarUnidad(numeroUnidad)
+                      }}
+                    >
+                      {estaAbierta ? '▴' : '▾'}
                     </button>
                   </div>
                 </div>
 
-                <div className={`tx-body${open ? ' open' : ''}`}>
+                <div className={`tx-body${estaAbierta ? ' open' : ''}`}>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
                     <button
                       className="btn b-out b-sm"
                       onClick={() => {
-                        const Body = () => {
-                          const [sel, setSel] = useState(() => (spId ? [spId] : []))
-                          const current = sel?.[0] ? byId.get(Number(sel[0])) : null
+                        const Cuerpo = () => {
+                          const [idsSeleccionados, establecerIdsSeleccionados] = useState(() => (idEspecie ? [idEspecie] : []))
+                          const especieActual = idsSeleccionados?.[0] ? especiePorId.get(Number(idsSeleccionados[0])) : null
                           return (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                               <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>
-                                Especie del cuadrante — Cuadrante {num}
+                                Especie del cuadrante — Cuadrante {numeroUnidad}
                               </div>
-                              <SpeciesGrid especies={especiesAll} selectedIds={sel} onChange={setSel} multi={false} columns={3} maxHeight={420} />
+                              <GrillaEspecies
+                                especies={especiesOrdenadas}
+                                selectedIds={idsSeleccionados}
+                                onChange={establecerIdsSeleccionados}
+                                multi={false}
+                                columns={3}
+                                maxHeight={420}
+                              />
                               <div style={{ display: 'flex', gap: 8 }}>
-                                <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+                                <button className="btn b-out" style={{ flex: 1 }} onClick={cerrarModal}>
                                   Cancelar
                                 </button>
                                 <button
                                   className="btn b-teal"
                                   style={{ flex: 1 }}
-                                  disabled={!current}
+                                  disabled={!especieActual}
                                   onClick={() => {
-                                    if (!current) return
-                                    updateOperacion(op.id, (cur) => {
+                                    if (!especieActual) return
+                                    actualizarOperacion(operacion.id, (cur) => {
                                       const nextBotes = (cur.botes || []).map((x) => {
                                         if (x.id !== bote.id) return x
-                                        return { ...x, transectos: setCuadranteEspecie(x.transectos, num, current.id) }
+                                        return { ...x, transectos: establecerEspecieCuadrante(x.transectos, numeroUnidad, especieActual.id) }
                                       })
                                       return { ...cur, botes: nextBotes }
                                     })
-                                    closeModal()
-                                    toast?.('Especie actualizada', 'green')
+                                    cerrarModal()
+                                    mostrarToast?.('Especie actualizada', 'green')
                                   }}
                                 >
                                   Confirmar
@@ -915,11 +952,11 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                             </div>
                           )
                         }
-                        if (!canWrite) {
-                          toast('Modo solo lectura', 'blue')
+                        if (!puedeEscribir) {
+                          mostrarToast('Modo solo lectura', 'blue')
                           return
                         }
-                        openModal(`Seleccionar especie — Cuadrante ${num}`, <Body />, 'wide')
+                        abrirModal(`Seleccionar especie — Cuadrante ${numeroUnidad}`, <Cuerpo />, 'wide')
                       }}
                     >
                       Cambiar especie
@@ -932,13 +969,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                         className="ii"
                         type="number"
                         step="any"
-                        value={t.area ?? ''}
+                        value={unidad.area ?? ''}
                         onChange={(e) => {
                           const v = e.target.value
-                          updateOperacion(op.id, (cur) => {
+                          actualizarOperacion(operacion.id, (cur) => {
                             const nextBotes = (cur.botes || []).map((x) => {
                               if (x.id !== bote.id) return x
-                              return { ...x, transectos: updateUnidad(x.transectos, num, { area: v }) }
+                              return { ...x, transectos: actualizarUnidad(x.transectos, numeroUnidad, { area: v }) }
                             })
                             return { ...cur, botes: nextBotes }
                           })
@@ -949,13 +986,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                       <label className="il">Sustrato</label>
                       <input
                         className="ii"
-                        value={t?.sustrato || ''}
+                        value={unidad?.sustrato || ''}
                         onChange={(e) => {
                           const v = e.target.value
-                          updateOperacion(op.id, (cur) => {
+                          actualizarOperacion(operacion.id, (cur) => {
                             const nextBotes = (cur.botes || []).map((x) => {
                               if (x.id !== bote.id) return x
-                              return { ...x, transectos: updateUnidad(x.transectos, num, { sustrato: v }) }
+                              return { ...x, transectos: actualizarUnidad(x.transectos, numeroUnidad, { sustrato: v }) }
                             })
                             return { ...cur, botes: nextBotes }
                           })
@@ -972,13 +1009,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                         type="number"
                         step="any"
                         inputMode="decimal"
-                        value={coordX}
+                        value={coordenadaX}
                         onChange={(e) => {
                           const v = e.target.value
-                          updateOperacion(op.id, (cur) => {
+                          actualizarOperacion(operacion.id, (cur) => {
                             const nextBotes = (cur.botes || []).map((x) => {
                               if (x.id !== bote.id) return x
-                              return { ...x, transectos: setUnidadCoord(x.transectos, num, 'x', v) }
+                              return { ...x, transectos: establecerCoordenadaUnidad(x.transectos, numeroUnidad, 'x', v) }
                             })
                             return { ...cur, botes: nextBotes }
                           })
@@ -992,13 +1029,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                         type="number"
                         step="any"
                         inputMode="decimal"
-                        value={coordY}
+                        value={coordenadaY}
                         onChange={(e) => {
                           const v = e.target.value
-                          updateOperacion(op.id, (cur) => {
+                          actualizarOperacion(operacion.id, (cur) => {
                             const nextBotes = (cur.botes || []).map((x) => {
                               if (x.id !== bote.id) return x
-                              return { ...x, transectos: setUnidadCoord(x.transectos, num, 'y', v) }
+                              return { ...x, transectos: establecerCoordenadaUnidad(x.transectos, numeroUnidad, 'y', v) }
                             })
                             return { ...cur, botes: nextBotes }
                           })
@@ -1015,13 +1052,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                         type="number"
                         step="any"
                         inputMode="decimal"
-                        value={coordLong}
+                        value={coordenadaLong}
                         onChange={(e) => {
                           const v = e.target.value
-                          updateOperacion(op.id, (cur) => {
+                          actualizarOperacion(operacion.id, (cur) => {
                             const nextBotes = (cur.botes || []).map((x) => {
                               if (x.id !== bote.id) return x
-                              return { ...x, transectos: setUnidadCoord(x.transectos, num, 'lon', v) }
+                              return { ...x, transectos: establecerCoordenadaUnidad(x.transectos, numeroUnidad, 'lon', v) }
                             })
                             return { ...cur, botes: nextBotes }
                           })
@@ -1035,13 +1072,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                         type="number"
                         step="any"
                         inputMode="decimal"
-                        value={coordLat}
+                        value={coordenadaLat}
                         onChange={(e) => {
                           const v = e.target.value
-                          updateOperacion(op.id, (cur) => {
+                          actualizarOperacion(operacion.id, (cur) => {
                             const nextBotes = (cur.botes || []).map((x) => {
                               if (x.id !== bote.id) return x
-                              return { ...x, transectos: setUnidadCoord(x.transectos, num, 'lat', v) }
+                              return { ...x, transectos: establecerCoordenadaUnidad(x.transectos, numeroUnidad, 'lat', v) }
                             })
                             return { ...cur, botes: nextBotes }
                           })
@@ -1054,21 +1091,23 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
             )
           }
 
-          const open = openUnits.has(num)
+          const estaAbierta = unidadesAbiertas.has(numeroUnidad)
 
           return (
             <div
-              key={`${bote.id}-${num}`}
+              key={`${bote.id}-${numeroUnidad}`}
               className="tx-card"
-              data-tutorial-id={firstTranNum != null && num === firstTranNum ? 'ops-dens-transecto-card' : undefined}
+              data-tutorial-id={
+                primerNumeroTransecto != null && numeroUnidad === primerNumeroTransecto ? 'ops-dens-transecto-card' : undefined
+              }
             >
               <div className="tx-hd">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <div style={{ fontWeight: 800, color: 'var(--navy)' }}>{`Transecto ${num}`}</div>
-                  {speciesChips.length ? (
-                    speciesChips.map((name) => (
-                      <span key={name} className="pill p-teal" style={{ fontSize: 10 }}>
-                        {name}
+                  <div style={{ fontWeight: 800, color: 'var(--navy)' }}>{`Transecto ${numeroUnidad}`}</div>
+                  {etiquetasEspecies.length ? (
+                    etiquetasEspecies.map((nombreEspecie) => (
+                      <span key={nombreEspecie} className="pill p-teal" style={{ fontSize: 10 }}>
+                        {nombreEspecie}
                       </span>
                     ))
                   ) : (
@@ -1077,25 +1116,25 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                 </div>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   <span style={{ fontSize: 11, color: 'var(--text3)' }}>
-                    Área {area || '—'} · {t?.sustrato ? `Sustrato ${t.sustrato}` : 'Sustrato —'} ·{' '}
-                    {t?.cubierta ? `Cubierta ${t.cubierta}` : 'Cubierta —'}
+                    Área {areaUnidad || '—'} · {unidad?.sustrato ? `Sustrato ${unidad.sustrato}` : 'Sustrato —'} ·{' '}
+                    {unidad?.cubierta ? `Cubierta ${unidad.cubierta}` : 'Cubierta —'}
                   </span>
-                  <button className="btn b-out b-sm" onClick={() => toggleUnit(num)}>
-                    {open ? 'Detalles ▴' : 'Detalles ▾'}
+                  <button className="btn b-out b-sm" onClick={() => alternarUnidad(numeroUnidad)}>
+                    {estaAbierta ? 'Detalles ▴' : 'Detalles ▾'}
                   </button>
                   <button
                     className="btn b-out b-sm"
                     onClick={(e) => {
                       e.stopPropagation()
-                      if (!confirm(`Eliminar Transecto ${num}?`)) return
-                      updateOperacion(op.id, (cur) => {
+                      if (!confirm(`Eliminar Transecto ${numeroUnidad}?`)) return
+                      actualizarOperacion(operacion.id, (cur) => {
                         const nextBotes = (cur.botes || []).map((x) => {
                           if (x.id !== bote.id) return x
-                          return { ...x, transectos: eliminarUnidad(x.transectos, num) }
+                          return { ...x, transectos: eliminarUnidad(x.transectos, numeroUnidad) }
                         })
                         return { ...cur, botes: nextBotes }
                       })
-                      toast?.('Transecto eliminado', 'green')
+                      mostrarToast?.('Transecto eliminado', 'green')
                     }}
                   >
                     Eliminar
@@ -1103,7 +1142,7 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                 </div>
               </div>
 
-              <div className={`tx-body${open ? ' open' : ''}`}>
+              <div className={`tx-body${estaAbierta ? ' open' : ''}`}>
                 <div className="i2">
                   <div className="ig">
                     <label className="il">Área</label>
@@ -1111,13 +1150,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                       className="ii"
                       type="number"
                       step="any"
-                      value={t.area ?? ''}
+                      value={unidad.area ?? ''}
                       onChange={(e) => {
                         const v = e.target.value
-                        updateOperacion(op.id, (cur) => {
+                        actualizarOperacion(operacion.id, (cur) => {
                           const nextBotes = (cur.botes || []).map((x) => {
                             if (x.id !== bote.id) return x
-                            return { ...x, transectos: updateUnidad(x.transectos, num, { area: v }) }
+                            return { ...x, transectos: actualizarUnidad(x.transectos, numeroUnidad, { area: v }) }
                           })
                           return { ...cur, botes: nextBotes }
                         })
@@ -1129,13 +1168,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                     <input
                       className="ii"
                       type="date"
-                      value={String(t.fecha || '')}
+                      value={String(unidad.fecha || '')}
                       onChange={(e) => {
                         const v = e.target.value
-                        updateOperacion(op.id, (cur) => {
+                        actualizarOperacion(operacion.id, (cur) => {
                           const nextBotes = (cur.botes || []).map((x) => {
                             if (x.id !== bote.id) return x
-                            return { ...x, transectos: updateUnidad(x.transectos, num, { fecha: v }) }
+                            return { ...x, transectos: actualizarUnidad(x.transectos, numeroUnidad, { fecha: v }) }
                           })
                           return { ...cur, botes: nextBotes }
                         })
@@ -1149,13 +1188,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                     <label className="il">Sustrato</label>
                     <input
                       className="ii"
-                      value={t.sustrato || ''}
+                      value={unidad.sustrato || ''}
                       onChange={(e) => {
                         const v = e.target.value
-                        updateOperacion(op.id, (cur) => {
+                        actualizarOperacion(operacion.id, (cur) => {
                           const nextBotes = (cur.botes || []).map((x) => {
                             if (x.id !== bote.id) return x
-                            return { ...x, transectos: updateUnidad(x.transectos, num, { sustrato: v }) }
+                            return { ...x, transectos: actualizarUnidad(x.transectos, numeroUnidad, { sustrato: v }) }
                           })
                           return { ...cur, botes: nextBotes }
                         })
@@ -1166,13 +1205,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                     <label className="il">Cubierta biológica</label>
                     <input
                       className="ii"
-                      value={t.cubierta || ''}
+                      value={unidad.cubierta || ''}
                       onChange={(e) => {
                         const v = e.target.value
-                        updateOperacion(op.id, (cur) => {
+                        actualizarOperacion(operacion.id, (cur) => {
                           const nextBotes = (cur.botes || []).map((x) => {
                             if (x.id !== bote.id) return x
-                            return { ...x, transectos: updateUnidad(x.transectos, num, { cubierta: v }) }
+                            return { ...x, transectos: actualizarUnidad(x.transectos, numeroUnidad, { cubierta: v }) }
                           })
                           return { ...cur, botes: nextBotes }
                         })
@@ -1189,13 +1228,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                       type="number"
                       step="any"
                       inputMode="decimal"
-                      value={coordX}
+                      value={coordenadaX}
                       onChange={(e) => {
                         const v = e.target.value
-                        updateOperacion(op.id, (cur) => {
+                        actualizarOperacion(operacion.id, (cur) => {
                           const nextBotes = (cur.botes || []).map((x) => {
                             if (x.id !== bote.id) return x
-                            return { ...x, transectos: setUnidadCoord(x.transectos, num, 'x', v) }
+                            return { ...x, transectos: establecerCoordenadaUnidad(x.transectos, numeroUnidad, 'x', v) }
                           })
                           return { ...cur, botes: nextBotes }
                         })
@@ -1209,13 +1248,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                       type="number"
                       step="any"
                       inputMode="decimal"
-                      value={coordY}
+                      value={coordenadaY}
                       onChange={(e) => {
                         const v = e.target.value
-                        updateOperacion(op.id, (cur) => {
+                        actualizarOperacion(operacion.id, (cur) => {
                           const nextBotes = (cur.botes || []).map((x) => {
                             if (x.id !== bote.id) return x
-                            return { ...x, transectos: setUnidadCoord(x.transectos, num, 'y', v) }
+                            return { ...x, transectos: establecerCoordenadaUnidad(x.transectos, numeroUnidad, 'y', v) }
                           })
                           return { ...cur, botes: nextBotes }
                         })
@@ -1232,13 +1271,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                       type="number"
                       step="any"
                       inputMode="decimal"
-                      value={coordLong}
+                      value={coordenadaLong}
                       onChange={(e) => {
                         const v = e.target.value
-                        updateOperacion(op.id, (cur) => {
+                        actualizarOperacion(operacion.id, (cur) => {
                           const nextBotes = (cur.botes || []).map((x) => {
                             if (x.id !== bote.id) return x
-                            return { ...x, transectos: setUnidadCoord(x.transectos, num, 'lon', v) }
+                            return { ...x, transectos: establecerCoordenadaUnidad(x.transectos, numeroUnidad, 'lon', v) }
                           })
                           return { ...cur, botes: nextBotes }
                         })
@@ -1252,13 +1291,13 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                       type="number"
                       step="any"
                       inputMode="decimal"
-                      value={coordLat}
+                      value={coordenadaLat}
                       onChange={(e) => {
                         const v = e.target.value
-                        updateOperacion(op.id, (cur) => {
+                        actualizarOperacion(operacion.id, (cur) => {
                           const nextBotes = (cur.botes || []).map((x) => {
                             if (x.id !== bote.id) return x
-                            return { ...x, transectos: setUnidadCoord(x.transectos, num, 'lat', v) }
+                            return { ...x, transectos: establecerCoordenadaUnidad(x.transectos, numeroUnidad, 'lat', v) }
                           })
                           return { ...cur, botes: nextBotes }
                         })
@@ -1272,64 +1311,75 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                 <button
                   className="btn b-out b-sm"
                   onClick={() => {
-                    const Body = () => {
-                      const [sel, setSel] = useState(() => spIds.slice())
-                      const prevSet = new Set(spIds.map(Number))
-                      const nextSet = new Set((Array.isArray(sel) ? sel : []).map(Number).filter((x) => Number.isFinite(x)))
-                      const removed = [...prevSet].filter((x) => !nextSet.has(x))
-                      const added = [...nextSet].filter((x) => !prevSet.has(x))
+                    const Cuerpo = () => {
+                      const [idsSeleccionados, establecerIdsSeleccionados] = useState(() => idsEspecies.slice())
+                      const conjuntoPrevio = new Set(idsEspecies.map(Number))
+                      const conjuntoSiguiente = new Set(
+                        (Array.isArray(idsSeleccionados) ? idsSeleccionados : [])
+                          .map(Number)
+                          .filter((x) => Number.isFinite(x)),
+                      )
+                      const idsQuitados = [...conjuntoPrevio].filter((x) => !conjuntoSiguiente.has(x))
+                      const idsAgregados = [...conjuntoSiguiente].filter((x) => !conjuntoPrevio.has(x))
                       return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                           <div style={{ fontFamily: 'var(--ff-d)', fontSize: 13, fontWeight: 800, color: 'var(--navy)' }}>
-                            Especies del transecto — Transecto {num}
+                            Especies del transecto — Transecto {numeroUnidad}
                           </div>
-                          <SpeciesGrid especies={especiesAll} selectedIds={sel} onChange={setSel} multi columns={3} maxHeight={420} />
+                          <GrillaEspecies
+                            especies={especiesOrdenadas}
+                            selectedIds={idsSeleccionados}
+                            onChange={establecerIdsSeleccionados}
+                            multi
+                            columns={3}
+                            maxHeight={420}
+                          />
                           <div style={{ display: 'flex', gap: 8 }}>
-                            <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+                            <button className="btn b-out" style={{ flex: 1 }} onClick={cerrarModal}>
                               Cancelar
                             </button>
                             <button
                               className="btn b-teal"
                               style={{ flex: 1 }}
                               onClick={() => {
-                                updateOperacion(op.id, (cur) => {
+                                actualizarOperacion(operacion.id, (cur) => {
                                   const nextBotes = (cur.botes || []).map((x) => {
                                     if (x.id !== bote.id) return x
-                                    let u = x.transectos
-                                    added.forEach((id) => {
-                                      u = addEspecieToUnidad(u, num, id)
+                                    let unidadesDensidad = x.transectos
+                                    idsAgregados.forEach((id) => {
+                                      unidadesDensidad = agregarEspecieAUnidad(unidadesDensidad, numeroUnidad, id)
                                     })
-                                    removed.forEach((id) => {
-                                      u = removeEspecieFromUnidad(u, num, id)
+                                    idsQuitados.forEach((id) => {
+                                      unidadesDensidad = quitarEspecieDeUnidad(unidadesDensidad, numeroUnidad, id)
                                     })
-                                    return { ...x, transectos: u }
+                                    return { ...x, transectos: unidadesDensidad }
                                   })
                                   return { ...cur, botes: nextBotes }
                                 })
 
-                                closeModal()
-                                toast?.('Especies actualizadas', 'green')
+                                cerrarModal()
+                                mostrarToast?.('Especies actualizadas', 'green')
 
                                 // Preguntar si desea pasar las agregadas a Peso-Longitud
-                                if (added.length > 0) {
+                                if (idsAgregados.length > 0) {
                                   setTimeout(() => {
                                     const transferir = window.confirm(
                                       '¿Deseas agregar también estas especies a la pestaña Peso-Longitud de este bote?'
                                     )
                                     if (transferir) {
-                                      updateOperacion(op.id, (cur) => {
+                                      actualizarOperacion(operacion.id, (cur) => {
                                         const nextBotes = (cur.botes || []).map((x) => {
                                           if (x.id !== bote.id) return x
-                                          let map = x.lpMuestras || {}
-                                          added.forEach((id) => {
-                                            const sp = byId.get(Number(id))
-                                            map = ensureKind(map, id, isAlgaSpecies(sp) ? 'D' : 'LP')
+                                          let mapaLpMuestras = x.lpMuestras || {}
+                                          idsAgregados.forEach((id) => {
+                                            const especie = especiePorId.get(Number(id))
+                                            mapaLpMuestras = asegurarTipo(mapaLpMuestras, id, esEspecieAlga(especie) ? 'D' : 'LP')
                                           })
-                                          return { ...x, lpMuestras: map }
+                                          return { ...x, lpMuestras: mapaLpMuestras }
                                         })
                                         return { ...cur, botes: nextBotes }
                                       })
-                                      toast?.('Especies agregadas a Peso-Longitud', 'blue')
+                                      mostrarToast?.('Especies agregadas a Peso-Longitud', 'blue')
                                     }
                                   }, 150)
                                 }
@@ -1341,11 +1391,11 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                         </div>
                       )
                     }
-                    if (!canWrite) {
-                      toast('Modo solo lectura', 'blue')
+                    if (!puedeEscribir) {
+                      mostrarToast('Modo solo lectura', 'blue')
                       return
                     }
-                    openModal(`Seleccionar especies — Transecto ${num}`, <Body />, 'wide')
+                    abrirModal(`Seleccionar especies — Transecto ${numeroUnidad}`, <Cuerpo />, 'wide')
                   }}
                 >
                   Seleccionar especies
@@ -1363,16 +1413,19 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                     </tr>
                   </thead>
                   <tbody>
-                    {spIds.length ? (
-                      spIds.map((spId) => {
-                        const sp = byId.get(Number(spId))
-                        const cnt = Number(counts?.[spId] ?? 0)
-                        const dens = calcDensidad(cnt, area)
-                        const isFirstCount =
-                          firstTranNum != null && num === firstTranNum && spIds.length && Number(spIds[0]) === Number(spId)
+                    {idsEspecies.length ? (
+                      idsEspecies.map((idEspecie) => {
+                        const especie = especiePorId.get(Number(idEspecie))
+                        const conteoIndividuos = Number(conteosPorEspecie?.[idEspecie] ?? 0)
+                        const densidad = calcularDensidad(conteoIndividuos, areaUnidad)
+                        const esPrimerConteo =
+                          primerNumeroTransecto != null &&
+                          numeroUnidad === primerNumeroTransecto &&
+                          idsEspecies.length &&
+                          Number(idsEspecies[0]) === Number(idEspecie)
                         return (
-                          <tr key={`${num}-${spId}`}>
-                            <td style={{ textAlign: 'left' }}>{sp?.com || spId}</td>
+                          <tr key={`${numeroUnidad}-${idEspecie}`}>
+                            <td style={{ textAlign: 'left' }}>{especie?.com || idEspecie}</td>
                             <td>
                               <input
                                 className="ii lp-num-inp"
@@ -1381,34 +1434,34 @@ export default function DensidadTab({ op, bote, especies, updateOperacion, canWr
                                 step="1"
                                 min="0"
                                 data-nav="dens-transecto"
-                                data-tutorial-id={isFirstCount ? 'ops-dens-transecto-count' : undefined}
-                                value={String(cnt)}
+                                data-tutorial-id={esPrimerConteo ? 'ops-dens-transecto-count' : undefined}
+                                value={String(conteoIndividuos)}
                                 onKeyDown={(e) => {
                                   if (e.key !== 'Enter') return
                                   e.preventDefault()
-                                  focusNextTransectSpeciesInput(e.currentTarget, rootRef.current)
+                                  enfocarSiguienteInputEspeciesTransecto(e.currentTarget, referenciaRaiz.current)
                                 }}
                                 onChange={(e) => {
                                   const v = e.target.value
-                                  updateOperacion(op.id, (cur) => {
+                                  actualizarOperacion(operacion.id, (cur) => {
                                     const nextBotes = (cur.botes || []).map((x) => {
                                       if (x.id !== bote.id) return x
-                                      return { ...x, transectos: setUnidadCount(x.transectos, num, spId, v) }
+                                      return { ...x, transectos: establecerConteoUnidad(x.transectos, numeroUnidad, idEspecie, v) }
                                     })
                                     return { ...cur, botes: nextBotes }
                                   })
                                 }}
                               />
                             </td>
-                            <td>{dens.toFixed(4)}</td>
+                            <td>{densidad.toFixed(4)}</td>
                             <td style={{ textAlign: 'right' }}>
                               <button
                                 className="btn b-out b-sm"
                                 onClick={() => {
-                                  updateOperacion(op.id, (cur) => {
+                                  actualizarOperacion(operacion.id, (cur) => {
                                     const nextBotes = (cur.botes || []).map((x) => {
                                       if (x.id !== bote.id) return x
-                                      return { ...x, transectos: removeEspecieFromUnidad(x.transectos, num, spId) }
+                                      return { ...x, transectos: quitarEspecieDeUnidad(x.transectos, numeroUnidad, idEspecie) }
                                     })
                                     return { ...cur, botes: nextBotes }
                                   })

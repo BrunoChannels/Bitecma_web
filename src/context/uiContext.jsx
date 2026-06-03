@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
-const UiContext = createContext(null)
+const ContextoInterfaz = createContext(null)
 
-const THEME_KEY = 'bitecma_theme_v1'
-const TOAST_HISTORY_KEY = 'bitecma_toast_history_v1'
-const MAX_TOAST_HISTORY = 250
+const claveTema = 'bitecma_theme_v1'
+const claveHistorialToast = 'bitecma_toast_history_v1'
+const maximoHistorialToast = 250
 
 /**
  * Lee el tema persistido (light/dark) desde localStorage.
@@ -24,9 +24,9 @@ const MAX_TOAST_HISTORY = 250
  * Manejo de errores:
  * - En navegadores/entornos sin acceso a storage, retorna 'light'.
  */
-function readTheme() {
+function leerTema() {
   try {
-    const v = localStorage.getItem(THEME_KEY)
+    const v = localStorage.getItem(claveTema)
     return v === 'dark' ? 'dark' : 'light'
   } catch {
     return 'light'
@@ -48,21 +48,21 @@ function readTheme() {
  * Manejo de errores:
  * - Si falla, no hace nada (silencioso).
  */
-function writeTheme(v) {
+function guardarTema(v) {
   try {
-    localStorage.setItem(THEME_KEY, v)
+    localStorage.setItem(claveTema, v)
   } catch {
     return
   }
 }
 
-function readToastHistory() {
+function leerHistorialToast() {
   try {
-    const raw = localStorage.getItem(TOAST_HISTORY_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed
+    const bruto = localStorage.getItem(claveHistorialToast)
+    if (!bruto) return []
+    const parseado = JSON.parse(bruto)
+    if (!Array.isArray(parseado)) return []
+    return parseado
       .filter((x) => x && typeof x === 'object')
       .map((x) => ({
         id: String(x.id || ''),
@@ -71,21 +71,21 @@ function readToastHistory() {
         ts: Number(x.ts) || Date.now(),
       }))
       .filter((x) => x.id && x.msg)
-      .slice(-MAX_TOAST_HISTORY)
+      .slice(-maximoHistorialToast)
   } catch {
     return []
   }
 }
 
-function writeToastHistory(arr) {
+function guardarHistorialToast(arreglo) {
   try {
-    localStorage.setItem(TOAST_HISTORY_KEY, JSON.stringify(Array.isArray(arr) ? arr : []))
+    localStorage.setItem(claveHistorialToast, JSON.stringify(Array.isArray(arreglo) ? arreglo : []))
   } catch {
     return
   }
 }
 
-function newToastId() {
+function crearIdToast() {
   try {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
   } catch {
@@ -121,141 +121,141 @@ function newToastId() {
  * Notas de mantenimiento:
  * - El breakpoint de sidebar está alineado con `main.css` (max-width: 767.98px).
  */
-export function UiProvider({ children }) {
-  const [toastState, setToastState] = useState({ show: false, msg: 'OK', type: '' })
-  const toastT = useRef(null)
-  const [toastHistory, setToastHistory] = useState(() => readToastHistory())
-  const errRef = useRef({ lastMsg: '', lastAt: 0 })
+export function ProveedorInterfaz({ children }) {
+  const [estadoToast, establecerEstadoToast] = useState({ show: false, msg: 'OK', type: '' })
+  const temporizadorToastRef = useRef(null)
+  const [historialToast, establecerHistorialToast] = useState(() => leerHistorialToast())
+  const errorRecienteRef = useRef({ ultimoMensaje: '', ultimaVez: 0 })
 
   useEffect(() => {
-    writeToastHistory(toastHistory)
-  }, [toastHistory])
+    guardarHistorialToast(historialToast)
+  }, [historialToast])
 
-  const removeToastHistory = useCallback((id) => {
-    const rid = String(id || '')
-    if (!rid) return
-    setToastHistory((arr) => (Array.isArray(arr) ? arr.filter((x) => String(x?.id || '') !== rid) : []))
+  const eliminarHistorialToast = useCallback((id) => {
+    const idNormalizado = String(id || '')
+    if (!idNormalizado) return
+    establecerHistorialToast((arreglo) => (Array.isArray(arreglo) ? arreglo.filter((x) => String(x?.id || '') !== idNormalizado) : []))
   }, [])
 
   const vaciarHistorialToast = useCallback(() => {
-    setToastHistory([])
+    establecerHistorialToast([])
   }, [])
 
-  const toast = useCallback((msg, type = '') => {
-    const m = String(msg || '')
-    const t = String(type || '')
-    const entry = { id: newToastId(), msg: m, type: t, ts: Date.now() }
-    if (m) {
-      setToastHistory((arr) => {
-        const prev = Array.isArray(arr) ? arr : []
-        const next = [...prev, entry]
-        return next.length > MAX_TOAST_HISTORY ? next.slice(-MAX_TOAST_HISTORY) : next
+  const mostrarToast = useCallback((msg, type = '') => {
+    const mensaje = String(msg || '')
+    const tipo = String(type || '')
+    const entrada = { id: crearIdToast(), msg: mensaje, type: tipo, ts: Date.now() }
+    if (mensaje) {
+      establecerHistorialToast((arreglo) => {
+        const anterior = Array.isArray(arreglo) ? arreglo : []
+        const siguiente = [...anterior, entrada]
+        return siguiente.length > maximoHistorialToast ? siguiente.slice(-maximoHistorialToast) : siguiente
       })
     }
-    setToastState({ show: true, msg: m, type: t })
-    clearTimeout(toastT.current)
-    toastT.current = setTimeout(() => setToastState((s) => ({ ...s, show: false })), 2600)
+    establecerEstadoToast({ show: true, msg: mensaje, type: tipo })
+    clearTimeout(temporizadorToastRef.current)
+    temporizadorToastRef.current = setTimeout(() => establecerEstadoToast((estado) => ({ ...estado, show: false })), 2600)
   }, [])
 
   useEffect(() => {
-    const onErr = (ev) => {
-      const msg = String(ev?.message || ev?.error?.message || 'Error inesperado')
-      const now = Date.now()
-      const s = errRef.current
-      if (msg && s.lastMsg === msg && now - s.lastAt < 1200) return
-      errRef.current = { lastMsg: msg, lastAt: now }
-      toast(`Error: ${msg}`, 'red')
+    const alError = (ev) => {
+      const mensaje = String(ev?.message || ev?.error?.message || 'Error inesperado')
+      const ahora = Date.now()
+      const estado = errorRecienteRef.current
+      if (mensaje && estado.ultimoMensaje === mensaje && ahora - estado.ultimaVez < 1200) return
+      errorRecienteRef.current = { ultimoMensaje: mensaje, ultimaVez: ahora }
+      mostrarToast(`Error: ${mensaje}`, 'red')
     }
-    const onRej = (ev) => {
-      const msg = String(ev?.reason?.message || ev?.reason || 'Error inesperado')
-      const now = Date.now()
-      const s = errRef.current
-      if (msg && s.lastMsg === msg && now - s.lastAt < 1200) return
-      errRef.current = { lastMsg: msg, lastAt: now }
-      toast(`Error: ${msg}`, 'red')
+    const alRechazo = (ev) => {
+      const mensaje = String(ev?.reason?.message || ev?.reason || 'Error inesperado')
+      const ahora = Date.now()
+      const estado = errorRecienteRef.current
+      if (mensaje && estado.ultimoMensaje === mensaje && ahora - estado.ultimaVez < 1200) return
+      errorRecienteRef.current = { ultimoMensaje: mensaje, ultimaVez: ahora }
+      mostrarToast(`Error: ${mensaje}`, 'red')
     }
-    window.addEventListener('error', onErr)
-    window.addEventListener('unhandledrejection', onRej)
+    window.addEventListener('error', alError)
+    window.addEventListener('unhandledrejection', alRechazo)
     return () => {
-      window.removeEventListener('error', onErr)
-      window.removeEventListener('unhandledrejection', onRej)
+      window.removeEventListener('error', alError)
+      window.removeEventListener('unhandledrejection', alRechazo)
     }
-  }, [toast])
+  }, [mostrarToast])
 
-  const [modalState, setModalState] = useState({ open: false, title: '—', body: null, size: '', encabezadoDerecha: null })
-  const openModal = useCallback((title, body, size = '', encabezadoDerecha = null) => {
-    setModalState({ open: true, title: String(title || '—'), body, size: String(size || ''), encabezadoDerecha })
+  const [estadoModal, establecerEstadoModal] = useState({ open: false, title: '—', body: null, size: '', encabezadoDerecha: null })
+  const abrirModal = useCallback((title, body, size = '', encabezadoDerecha = null) => {
+    establecerEstadoModal({ open: true, title: String(title || '—'), body, size: String(size || ''), encabezadoDerecha })
   }, [])
-  const closeModal = useCallback(() => {
-    setModalState((s) => ({ ...s, open: false, encabezadoDerecha: null }))
+  const cerrarModal = useCallback(() => {
+    establecerEstadoModal((estado) => ({ ...estado, open: false, encabezadoDerecha: null }))
   }, [])
 
-  const [theme, setTheme] = useState(() => readTheme())
+  const [tema, establecerTema] = useState(() => leerTema())
   useEffect(() => {
-    const root = document.documentElement
-    if (theme === 'dark') root.setAttribute('data-theme', 'dark')
-    else root.removeAttribute('data-theme')
-    writeTheme(theme)
-  }, [theme])
-  const toggleTheme = useCallback(() => setTheme((t) => (t === 'dark' ? 'light' : 'dark')), [])
+    const raiz = document.documentElement
+    if (tema === 'dark') raiz.setAttribute('data-theme', 'dark')
+    else raiz.removeAttribute('data-theme')
+    guardarTema(tema)
+  }, [tema])
+  const alternarTema = useCallback(() => establecerTema((temaActual) => (temaActual === 'dark' ? 'light' : 'dark')), [])
 
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const openSidebar = useCallback(() => setSidebarOpen(true), [])
-  const closeSidebar = useCallback(() => setSidebarOpen(false), [])
-  const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), [])
+  const [barraLateralAbierta, establecerBarraLateralAbierta] = useState(false)
+  const abrirBarraLateral = useCallback(() => establecerBarraLateralAbierta(true), [])
+  const cerrarBarraLateral = useCallback(() => establecerBarraLateralAbierta(false), [])
+  const alternarBarraLateral = useCallback(() => establecerBarraLateralAbierta((v) => !v), [])
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window?.matchMedia) return
-    const mq = window.matchMedia('(max-width: 767.98px)')
-    const onChange = () => {
-      if (mq.matches) setSidebarOpen(false)
+    const consultaMedios = window.matchMedia('(max-width: 767.98px)')
+    const alCambiar = () => {
+      if (consultaMedios.matches) establecerBarraLateralAbierta(false)
     }
-    onChange()
-    if (mq.addEventListener) mq.addEventListener('change', onChange)
-    else mq.addListener(onChange)
+    alCambiar()
+    if (consultaMedios.addEventListener) consultaMedios.addEventListener('change', alCambiar)
+    else consultaMedios.addListener(alCambiar)
     return () => {
-      if (mq.removeEventListener) mq.removeEventListener('change', onChange)
-      else mq.removeListener(onChange)
+      if (consultaMedios.removeEventListener) consultaMedios.removeEventListener('change', alCambiar)
+      else consultaMedios.removeListener(alCambiar)
     }
   }, [])
 
-  const value = useMemo(
+  const valorContexto = useMemo(
     () => ({
-      toastState,
-      toast,
-      toastHistory,
-      removeToastHistory,
+      estadoToast,
+      mostrarToast,
+      historialToast,
+      eliminarHistorialToast,
       vaciarHistorialToast,
-      modalState,
-      openModal,
-      closeModal,
-      theme,
-      setTheme,
-      toggleTheme,
-      sidebarOpen,
-      openSidebar,
-      closeSidebar,
-      toggleSidebar,
+      estadoModal,
+      abrirModal,
+      cerrarModal,
+      tema,
+      establecerTema,
+      alternarTema,
+      barraLateralAbierta,
+      abrirBarraLateral,
+      cerrarBarraLateral,
+      alternarBarraLateral,
     }),
     [
-      toastState,
-      toast,
-      toastHistory,
-      removeToastHistory,
+      estadoToast,
+      mostrarToast,
+      historialToast,
+      eliminarHistorialToast,
       vaciarHistorialToast,
-      modalState,
-      openModal,
-      closeModal,
-      theme,
-      toggleTheme,
-      sidebarOpen,
-      openSidebar,
-      closeSidebar,
-      toggleSidebar,
+      estadoModal,
+      abrirModal,
+      cerrarModal,
+      tema,
+      alternarTema,
+      barraLateralAbierta,
+      abrirBarraLateral,
+      cerrarBarraLateral,
+      alternarBarraLateral,
     ],
   )
 
-  return <UiContext.Provider value={value}>{children}</UiContext.Provider>
+  return <ContextoInterfaz.Provider value={valorContexto}>{children}</ContextoInterfaz.Provider>
 }
 
 /**
@@ -279,8 +279,8 @@ export function UiProvider({ children }) {
  * Manejo de errores:
  * - Lanza si se usa fuera de `UiProvider`.
  */
-export function useUi() {
-  const ctx = useContext(UiContext)
-  if (!ctx) throw new Error('UiProvider missing')
-  return ctx
+export function usarInterfaz() {
+  const contexto = useContext(ContextoInterfaz)
+  if (!contexto) throw new Error('UiProvider missing')
+  return contexto
 }

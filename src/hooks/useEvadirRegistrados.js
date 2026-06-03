@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
-import { getEvadirRegistradosRows } from '../services/evadirService.js'
-import { useDb } from '../context/dbContext.jsx'
+import { obtenerFilasEvadirRegistrados } from '../services/evadirService.js'
+import { usarBaseDatos } from '../context/dbContext.jsx'
 
 /**
  * Hook selector para la tabla de “EVADIR registrados”.
@@ -19,9 +19,9 @@ import { useDb } from '../context/dbContext.jsx'
  * - Ninguno.
  */
 export function useEvadirRegistrados() {
-  const { db } = useDb()
+  const { baseDatos: db } = usarBaseDatos()
   const rows = useMemo(
-    () => getEvadirRegistradosRows(db?.operaciones || []),
+    () => obtenerFilasEvadirRegistrados(db?.operaciones || []),
     [db?.operaciones],
   )
   return { rows }

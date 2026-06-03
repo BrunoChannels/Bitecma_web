@@ -7,7 +7,7 @@
  * Efectos secundarios:
  * - Ninguno.
  */
-function asArray(v) {
+function comoArreglo(v) {
   return Array.isArray(v) ? v : []
 }
 
@@ -31,8 +31,8 @@ function asArray(v) {
  * Notas de mantenimiento:
  * - Incrementar `version` si cambia el schema del payload.
  */
-export function serializeOperaciones(operaciones) {
-  const ops = asArray(operaciones)
+export function serializarOperaciones(operaciones) {
+  const ops = comoArreglo(operaciones)
   return JSON.stringify(
     {
       version: 1,
@@ -65,11 +65,11 @@ export function serializeOperaciones(operaciones) {
  * Manejo de errores:
  * - Lanza `Error('Formato inválido')` si no reconoce el schema.
  */
-export function parseOperacionesPayload(raw) {
-  const text = String(raw || '')
-  const data = JSON.parse(text)
-  if (Array.isArray(data)) return data
-  if (data && typeof data === 'object' && Array.isArray(data.operaciones)) return data.operaciones
+export function parsearPayloadOperaciones(raw) {
+  const texto = String(raw || '')
+  const datos = JSON.parse(texto)
+  if (Array.isArray(datos)) return datos
+  if (datos && typeof datos === 'object' && Array.isArray(datos.operaciones)) return datos.operaciones
   throw new Error('Formato inválido')
 }
 
@@ -94,14 +94,14 @@ export function parseOperacionesPayload(raw) {
  * Notas de mantenimiento:
  * - No hace merge profundo: reemplaza el objeto completo por id.
  */
-export function mergeOperacionesById(existing, incoming) {
-  const cur = asArray(existing)
-  const inc = asArray(incoming)
-  const byId = new Map(cur.map((o) => [String(o?.id || ''), o]).filter(([id]) => id))
+export function combinarOperacionesPorId(existing, incoming) {
+  const cur = comoArreglo(existing)
+  const inc = comoArreglo(incoming)
+  const porId = new Map(cur.map((o) => [String(o?.id || ''), o]).filter(([id]) => id))
   inc.forEach((o) => {
     const id = String(o?.id || '')
     if (!id) return
-    byId.set(id, o)
+    porId.set(id, o)
   })
-  return Array.from(byId.values())
+  return Array.from(porId.values())
 }

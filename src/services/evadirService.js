@@ -13,7 +13,7 @@
  * Notas de mantenimiento:
  * - Esta función retorna '' (no '—') porque suele usarse en export/tabla.
  */
-export function fmtDMY(iso) {
+export function formatearDMY(iso) {
   if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return ''
   return iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4)
 }
@@ -44,7 +44,7 @@ export function fmtDMY(iso) {
  * - Los ids 1 (loco) y 5 (erizo) son una convención del catálogo; si cambia, parametrizar.
  * - `denLoco/denErizo` son strings por requerimientos de export/tabla (toFixed).
  */
-export function getEvadirResumenOperacion(op) {
+export function obtenerResumenOperacionEvadir(op) {
   const botes = Array.isArray(op?.botes) ? op.botes : []
   const totalBotes = botes.length
   const totalTx = botes.reduce(
@@ -104,10 +104,10 @@ export function getEvadirResumenOperacion(op) {
  * Notas de mantenimiento:
  * - `estado` está hardcodeado como 'Borrador' porque no existe workflow persistente aún.
  */
-export function getEvadirRegistradosRows(operaciones) {
-  const ops = Array.isArray(operaciones) ? operaciones : []
-  return ops.map((op) => {
-    const { totalBotes, totalTx, totalCq, denLoco, denErizo } = getEvadirResumenOperacion(op)
+export function obtenerFilasEvadirRegistrados(operaciones) {
+  const operacionesNormalizadas = Array.isArray(operaciones) ? operaciones : []
+  return operacionesNormalizadas.map((op) => {
+    const { totalBotes, totalTx, totalCq, denLoco, denErizo } = obtenerResumenOperacionEvadir(op)
     return {
       id: op?.id,
       region: op?.region ?? null,

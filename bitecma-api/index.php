@@ -27,6 +27,51 @@ function api_json_body()
     return $data && is_array($data) ? $data : [];
 }
 
+function api_exception_payload(Throwable $e)
+{
+    if ($e instanceof PDOException) {
+        $info = is_array($e->errorInfo ?? null) ? $e->errorInfo : null;
+        $sqlState = is_array($info) ? (string)($info[0] ?? '') : '';
+        $driverCode = is_array($info) ? (int)($info[1] ?? 0) : 0;
+
+        if ($sqlState === '23000' || $driverCode === 1451 || $driverCode === 1452 || $driverCode === 1062) {
+            if ($driverCode === 1451) {
+                return [
+                    'status' => 409,
+                    'payload' => ['ok' => false, 'error' => 'No se puede completar la operación: existen registros relacionados.'],
+                ];
+            }
+            if ($driverCode === 1452) {
+                return [
+                    'status' => 400,
+                    'payload' => ['ok' => false, 'error' => 'Referencia inválida: el registro relacionado no existe.'],
+                ];
+            }
+            if ($driverCode === 1062) {
+                return [
+                    'status' => 409,
+                    'payload' => ['ok' => false, 'error' => 'Conflicto: registro duplicado.'],
+                ];
+            }
+
+            return [
+                'status' => 409,
+                'payload' => ['ok' => false, 'error' => 'Conflicto de integridad en base de datos.'],
+            ];
+        }
+    }
+
+    return [
+        'status' => 500,
+        'payload' => ['ok' => false, 'error' => 'Error interno del servidor.'],
+    ];
+}
+
+set_exception_handler(function (Throwable $e) {
+    $out = api_exception_payload($e);
+    api_send((int)$out['status'], $out['payload']);
+});
+
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
 $scriptDir = rtrim($scriptDir, '/');

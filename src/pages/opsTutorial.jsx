@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useDb } from '../context/dbContext.jsx'
-import { useUi } from '../context/uiContext.jsx'
+import { usarBaseDatos } from '../context/dbContext.jsx'
+import { usarInterfaz } from '../context/uiContext.jsx'
 import BoteCard from '../components/ops/BoteCard.jsx'
-import SearchableSelect from '../components/common/SearchableSelect.jsx'
-import SvgIcon from '../components/svgIcon.jsx'
-import { crearUnidades, setUnidadCount } from '../services/densidadService.js'
-import { addSample, ensureKind } from '../services/lpMuestrasService.js'
+import SeleccionBuscable from '../components/common/SearchableSelect.jsx'
+import IconoSvg from '../components/svgIcon.jsx'
+import { crearUnidades, establecerConteoUnidad } from '../services/densidadService.js'
+import { agregarMuestra, asegurarTipo } from '../services/lpMuestrasService.js'
 import { normalizarZonaMuestreo } from '../services/operacionesService.js'
 
 function todayISO() {
@@ -92,9 +92,9 @@ function getOperacionEspeciesComunes(op, especiesById) {
     .filter(Boolean)
 }
 
-export default function OpsTutorialPage({ active }) {
-  const { db } = useDb()
-  const { toast, openModal, closeModal, modalState } = useUi()
+export default function OpsTutorialPage({ activo }) {
+  const { baseDatos: db } = usarBaseDatos()
+  const { mostrarToast: toast, abrirModal: openModal, cerrarModal: closeModal, estadoModal: modalState } = usarInterfaz()
 
   const safeClone = (v) => {
     try {
@@ -295,22 +295,22 @@ export default function OpsTutorialPage({ active }) {
               especieId: null,
               especiesIds: [locoId, lapaId],
             })
-            transectos = setUnidadCount(transectos, 1, locoId, 12)
-            transectos = setUnidadCount(transectos, 1, lapaId, 6)
-            transectos = setUnidadCount(transectos, 2, locoId, 10)
-            transectos = setUnidadCount(transectos, 2, lapaId, 4)
+            transectos = establecerConteoUnidad(transectos, 1, locoId, 12)
+            transectos = establecerConteoUnidad(transectos, 1, lapaId, 6)
+            transectos = establecerConteoUnidad(transectos, 2, locoId, 10)
+            transectos = establecerConteoUnidad(transectos, 2, lapaId, 4)
           }
 
           let lpMuestras = cur?.lpMuestras && typeof cur.lpMuestras === 'object' ? cur.lpMuestras : {}
           if (ensureLp && Number.isFinite(locoId)) {
-            lpMuestras = ensureKind(lpMuestras, locoId, 'LP')
-            lpMuestras = ensureKind(lpMuestras, locoId, 'L')
-            if (((lpMuestras[locoId] || {})?.LP || []).length === 0) lpMuestras = addSample(lpMuestras, locoId, 'LP', { l: 95, p: 240 })
-            if (((lpMuestras[locoId] || {})?.L || []).length === 0) lpMuestras = addSample(lpMuestras, locoId, 'L', { l: 102 })
+            lpMuestras = asegurarTipo(lpMuestras, locoId, 'LP')
+            lpMuestras = asegurarTipo(lpMuestras, locoId, 'L')
+            if (((lpMuestras[locoId] || {})?.LP || []).length === 0) lpMuestras = agregarMuestra(lpMuestras, locoId, 'LP', { l: 95, p: 240 })
+            if (((lpMuestras[locoId] || {})?.L || []).length === 0) lpMuestras = agregarMuestra(lpMuestras, locoId, 'L', { l: 102 })
           }
           if (ensureLp && Number.isFinite(lapaId)) {
-            lpMuestras = ensureKind(lpMuestras, lapaId, 'LP')
-            if (((lpMuestras[lapaId] || {})?.LP || []).length === 0) lpMuestras = addSample(lpMuestras, lapaId, 'LP', { l: 60, p: 120 })
+            lpMuestras = asegurarTipo(lpMuestras, lapaId, 'LP')
+            if (((lpMuestras[lapaId] || {})?.LP || []).length === 0) lpMuestras = agregarMuestra(lpMuestras, lapaId, 'LP', { l: 60, p: 120 })
           }
 
           return {
@@ -340,9 +340,9 @@ export default function OpsTutorialPage({ active }) {
               especieId: lapaId,
               especiesIds: [],
             })
-            transectos = setUnidadCount(transectos, 1, lapaId, 3)
-            transectos = setUnidadCount(transectos, 2, lapaId, 2)
-            transectos = setUnidadCount(transectos, 3, lapaId, 4)
+            transectos = establecerConteoUnidad(transectos, 1, lapaId, 3)
+            transectos = establecerConteoUnidad(transectos, 2, lapaId, 2)
+            transectos = establecerConteoUnidad(transectos, 3, lapaId, 4)
           }
 
           return {
@@ -363,7 +363,7 @@ export default function OpsTutorialPage({ active }) {
     }
 
     const onSeed = (e) => {
-      if (!active) return
+      if (!activo) return
       const chapterId = String(e?.detail?.chapterId || '').trim()
       if (!chapterId) return
       const rank = chapterRank[chapterId] || 0
@@ -398,7 +398,7 @@ export default function OpsTutorialPage({ active }) {
 
     window.addEventListener('bitecma:tutorial:seed', onSeed)
     return () => window.removeEventListener('bitecma:tutorial:seed', onSeed)
-  }, [active, especies, seedMeta])
+  }, [activo, especies, seedMeta])
 
   const resolveStepNeeds = useCallback(
     (stepId) => {
@@ -667,7 +667,7 @@ export default function OpsTutorialPage({ active }) {
 
   useEffect(() => {
     const onStep = (e) => {
-      if (!active) return
+      if (!activo) return
       const tour = String(e?.detail?.tour || '')
       if (tour && tour !== 'ops') return
       const stepId = String(e?.detail?.stepId || '').trim()
@@ -678,11 +678,11 @@ export default function OpsTutorialPage({ active }) {
     }
     window.addEventListener('bitecma:tutorial:step', onStep)
     return () => window.removeEventListener('bitecma:tutorial:step', onStep)
-  }, [active])
+  }, [activo])
 
   useEffect(() => {
     clearTimeout(pendingStepTimerRef.current)
-    if (!active) return
+    if (!activo) return
     if (!pendingStep || typeof pendingStep !== 'object') return
     const stepId = String(pendingStep.stepId || '').trim()
     const token = String(pendingStep.token || '').trim()
@@ -690,7 +690,7 @@ export default function OpsTutorialPage({ active }) {
 
     let tries = 0
     const tick = () => {
-      if (!active) return
+      if (!activo) return
       const cur = pendingStep && typeof pendingStep === 'object' ? pendingStep : null
       if (!cur || String(cur.token || '') !== token) return
       const ok = resolveStepNeeds(stepId)
@@ -702,11 +702,11 @@ export default function OpsTutorialPage({ active }) {
 
     tick()
     return () => clearTimeout(pendingStepTimerRef.current)
-  }, [active, pendingStep, resolveStepNeeds])
+  }, [activo, pendingStep, resolveStepNeeds])
 
   useEffect(() => {
     const onReq = (e) => {
-      if (!active) return
+      if (!activo) return
       const tour = String(e?.detail?.tour || '')
       if (tour && tour !== 'ops') return
       const token = String(e?.detail?.token || '')
@@ -716,7 +716,7 @@ export default function OpsTutorialPage({ active }) {
     }
 
     const onRestore = (e) => {
-      if (!active) return
+      if (!activo) return
       const tour = String(e?.detail?.tour || '')
       if (tour && tour !== 'ops') return
       const s = e?.detail?.state
@@ -737,7 +737,7 @@ export default function OpsTutorialPage({ active }) {
       window.removeEventListener('bitecma:tutorial:snapshot:request', onReq)
       window.removeEventListener('bitecma:tutorial:snapshot:restore', onRestore)
     }
-  }, [active, closeModal])
+  }, [activo, closeModal])
 
   const regionButtons = useMemo(() => {
     const ops = Array.isArray(tutorialOps) ? tutorialOps : []
@@ -1357,7 +1357,7 @@ export default function OpsTutorialPage({ active }) {
 
   useEffect(() => {
     const onEnsureBotes = (e) => {
-      if (!active) return
+      if (!activo) return
       const op = (Array.isArray(tutorialOps) ? tutorialOps : [])[0] || null
       const opId = String(op?.id || '').trim()
       if (!opId) return
@@ -1367,7 +1367,7 @@ export default function OpsTutorialPage({ active }) {
     }
     window.addEventListener('bitecma:tutorial:ensure-botes-modal', onEnsureBotes)
     return () => window.removeEventListener('bitecma:tutorial:ensure-botes-modal', onEnsureBotes)
-  }, [active, tutorialOps])
+  }, [activo, tutorialOps])
 
   const openNewOp = () => {
     const iso = todayISO()
@@ -1480,36 +1480,36 @@ export default function OpsTutorialPage({ active }) {
               <input className="ii" placeholder="Ej: 16" value={s.numSeg} onChange={(e) => setS((p) => ({ ...p, numSeg: e.target.value }))} />
             </div>
           </div>
-          <SearchableSelect
-            label="Sector AMERB"
-            value={s.sectorAmerbId}
-            options={amerbOpts.map((a) => ({ value: String(a.id), label: a.nombreamerb }))}
-            placeholder="Buscar sector AMERB..."
-            onChange={(id) => {
+          <SeleccionBuscable
+            etiqueta="Sector AMERB"
+            valor={s.sectorAmerbId}
+            opciones={amerbOpts.map((a) => ({ value: String(a.id), label: a.nombreamerb }))}
+            textoPlaceholder="Buscar sector AMERB..."
+            alCambiar={(id) => {
               const f = amerbOpts.find((x) => String(x.id) === String(id))
               setS((p) => ({ ...p, sectorAmerbId: String(id || ''), sectorAmerb: f?.nombreamerb || '' }))
             }}
-            onAdd={() => {
+            alAgregar={() => {
               const name = prompt('Nuevo Sector AMERB (no se guardará aún):')
               if (!name) return
               toast('Sector AMERB agregado solo para esta operación (pendiente BD)', 'blue')
               setS((p) => ({ ...p, sectorAmerbId: 'custom', sectorAmerb: String(name).trim() }))
             }}
-            addLabel="Agregar Sector..."
+            etiquetaAgregar="Agregar Sector..."
           />
-          <SearchableSelect
-            label="Caleta"
-            value={s.sector}
-            options={caletasOpts.map((c) => ({ value: c, label: c }))}
-            placeholder="Buscar caleta..."
-            onChange={(v) => setS((p) => ({ ...p, sector: String(v || '') }))}
-            onAdd={() => {
+          <SeleccionBuscable
+            etiqueta="Caleta"
+            valor={s.sector}
+            opciones={caletasOpts.map((c) => ({ value: c, label: c }))}
+            textoPlaceholder="Buscar caleta..."
+            alCambiar={(v) => setS((p) => ({ ...p, sector: String(v || '') }))}
+            alAgregar={() => {
               const name = prompt('Nueva Caleta (no se guardará aún):')
               if (!name) return
               toast('Caleta agregada solo para esta operación (pendiente BD)', 'blue')
               setS((p) => ({ ...p, sector: String(name).trim() }))
             }}
-            addLabel="Agregar Caleta..."
+            etiquetaAgregar="Agregar Caleta..."
           />
           <div className="i2">
             <div className="ig">
@@ -1520,13 +1520,13 @@ export default function OpsTutorialPage({ active }) {
                 <option value="OTRO">OTRO</option>
               </select>
             </div>
-            <SearchableSelect
-              label="Organización (OPA)"
-              value={s.opaId}
-              options={opaOpts.map((o) => ({ value: String(o.id), label: o.nombre || o.nombrecorto }))}
-              placeholder="Buscar organización..."
-              dataTutorialId="ops-opa"
-              onChange={(id) => {
+            <SeleccionBuscable
+              etiqueta="Organización (OPA)"
+              valor={s.opaId}
+              opciones={opaOpts.map((o) => ({ value: String(o.id), label: o.nombre || o.nombrecorto }))}
+              textoPlaceholder="Buscar organización..."
+              idTutorial="ops-opa"
+              alCambiar={(id) => {
                 const f = opaOpts.find((x) => String(x.id) === String(id))
                 const nextId = String(id || '')
                 setS((p) => ({ ...p, opaId: nextId, org: f?.nombre || '' }))
@@ -1534,14 +1534,14 @@ export default function OpsTutorialPage({ active }) {
                   window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-opa-selected' } }))
                 }
               }}
-              onAdd={() => {
+              alAgregar={() => {
                 const name = prompt('Nueva Organización (pendiente BD):')
                 if (!name) return
                 toast('Organización agregada solo para esta operación (pendiente BD)', 'blue')
                 setS((p) => ({ ...p, opaId: 'custom', org: String(name).trim() }))
                 window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-opa-selected' } }))
               }}
-              addLabel="Agregar Organización..."
+              etiquetaAgregar="Agregar Organización..."
             />
           </div>
           <div className="i2">
@@ -2026,37 +2026,37 @@ export default function OpsTutorialPage({ active }) {
                 </div>
               </div>
 
-              <SearchableSelect
-                label="Sector AMERB"
-                value={s.sectorAmerbId}
-                options={amerbOpts.map((a) => ({ value: String(a.id), label: a.nombreamerb }))}
-                placeholder="Buscar sector AMERB..."
-                onChange={(id) => {
+              <SeleccionBuscable
+                etiqueta="Sector AMERB"
+                valor={s.sectorAmerbId}
+                opciones={amerbOpts.map((a) => ({ value: String(a.id), label: a.nombreamerb }))}
+                textoPlaceholder="Buscar sector AMERB..."
+                alCambiar={(id) => {
                   const f = amerbOpts.find((x) => String(x.id) === String(id))
                   setS((p) => ({ ...p, sectorAmerbId: String(id || ''), sectorAmerb: f?.nombreamerb || '' }))
                 }}
-                onAdd={() => {
+                alAgregar={() => {
                   const name = prompt('Nuevo Sector AMERB (no se guardará aún):')
                   if (!name) return
                   toast('Sector AMERB agregado solo para esta operación (pendiente BD)', 'blue')
                   setS((p) => ({ ...p, sectorAmerbId: 'custom', sectorAmerb: String(name).trim() }))
                 }}
-                addLabel="Agregar Sector..."
+                etiquetaAgregar="Agregar Sector..."
               />
 
-              <SearchableSelect
-                label="Caleta"
-                value={s.sector}
-                options={caletasOpts.map((c) => ({ value: c, label: c }))}
-                placeholder="Buscar caleta..."
-                onChange={(v) => setS((p) => ({ ...p, sector: String(v || '') }))}
-                onAdd={() => {
+              <SeleccionBuscable
+                etiqueta="Caleta"
+                valor={s.sector}
+                opciones={caletasOpts.map((c) => ({ value: c, label: c }))}
+                textoPlaceholder="Buscar caleta..."
+                alCambiar={(v) => setS((p) => ({ ...p, sector: String(v || '') }))}
+                alAgregar={() => {
                   const name = prompt('Nueva Caleta (no se guardará aún):')
                   if (!name) return
                   toast('Caleta agregada solo para esta operación (pendiente BD)', 'blue')
                   setS((p) => ({ ...p, sector: String(name).trim() }))
                 }}
-                addLabel="Agregar Caleta..."
+                etiquetaAgregar="Agregar Caleta..."
               />
 
               <div className="i2">
@@ -2068,22 +2068,22 @@ export default function OpsTutorialPage({ active }) {
                     <option value="OTRO">OTRO</option>
                   </select>
                 </div>
-                <SearchableSelect
-                  label="Organización (OPA)"
-                  value={s.opaId}
-                  options={opaOpts.map((o) => ({ value: String(o.id), label: o.nombre || o.nombrecorto }))}
-                  placeholder="Buscar organización..."
-                  onChange={(id) => {
+                <SeleccionBuscable
+                  etiqueta="Organización (OPA)"
+                  valor={s.opaId}
+                  opciones={opaOpts.map((o) => ({ value: String(o.id), label: o.nombre || o.nombrecorto }))}
+                  textoPlaceholder="Buscar organización..."
+                  alCambiar={(id) => {
                     const f = opaOpts.find((x) => String(x.id) === String(id))
                     setS((p) => ({ ...p, opaId: String(id || ''), org: f?.nombre || '' }))
                   }}
-                  onAdd={() => {
+                  alAgregar={() => {
                     const name = prompt('Nueva Organización (pendiente BD):')
                     if (!name) return
                     toast('Organización agregada solo para esta operación (pendiente BD)', 'blue')
                     setS((p) => ({ ...p, opaId: 'custom', org: String(name).trim() }))
                   }}
-                  addLabel="Agregar Organización..."
+                  etiquetaAgregar="Agregar Organización..."
                 />
               </div>
 
@@ -2120,7 +2120,7 @@ export default function OpsTutorialPage({ active }) {
   }
 
   return (
-    <div className={`page${active ? ' active' : ''}`} id="pg-ops-tutorial">
+    <div className={`page${activo ? ' active' : ''}`} id="pg-ops-tutorial">
       <div className="ph">
         <div>
           <h2>Operaciones (Tutorial)</h2>
@@ -2310,7 +2310,7 @@ export default function OpsTutorialPage({ active }) {
                             openEditOp(op)
                           }}
                         >
-                          <SvgIcon name="edit" aria-hidden="true" />
+                          <IconoSvg name="edit" aria-hidden="true" />
                         </button>
                       </div>
                     </div>

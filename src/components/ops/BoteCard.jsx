@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import DensidadTab from './DensidadTab.jsx'
-import LpTab from './LpTab.jsx'
+import PestanaDensidad from './DensidadTab.jsx'
+import PestanaLp from './LpTab.jsx'
 import { normalizarZonaMuestreo } from '../../services/operacionesService.js'
 
 /**
@@ -30,7 +30,7 @@ import { normalizarZonaMuestreo } from '../../services/operacionesService.js'
  * Notas de mantenimiento:
  * - Mantener consistente con otras funciones `normKey/normHeader` del proyecto.
  */
-function normKey(v) {
+function normalizarClave(v) {
   return String(v || '')
     .toLowerCase()
     .normalize('NFD')
@@ -81,103 +81,114 @@ function normKey(v) {
  * - Mantener la lógica de matching de `lpJump` sincronizada con el emisor (por ejemplo, EvadirPreview).
  * - Evitar cálculos pesados sin memoización.
  */
-export default function BoteCard({ op, bote, especies, updateOperacion, canWrite, toast, openModal, closeModal, lpJump, tutorialJump }) {
-  const [open, setOpen] = useState(false)
-  const [tab, setTab] = useState('dens')
-  const rootRef = useRef(null)
-  const lastTokenRef = useRef(null)
-  const lastTutTokenRef = useRef(null)
+export default function TarjetaBote({
+  operacion,
+  bote,
+  especies,
+  actualizarOperacion,
+  puedeEscribir,
+  mostrarToast,
+  abrirModal,
+  cerrarModal,
+  saltoLp,
+  saltoTutorial,
+}) {
+  const [estaAbierta, establecerAbierta] = useState(false)
+  const [pestanaActiva, establecerPestanaActiva] = useState('dens')
+  const referenciaRaiz = useRef(null)
+  const tokenSaltoLpAnteriorRef = useRef(null)
+  const tokenSaltoTutorialAnteriorRef = useRef(null)
   const esIntermareal = bote?.submareal == null ? false : bote?.submareal === false || bote?.submareal === 0 || bote?.submareal === '0'
 
   useEffect(() => {
-    const onCollapse = () => {
-      setOpen(false)
-      setTab('dens')
+    const alColapsarBotes = () => {
+      establecerAbierta(false)
+      establecerPestanaActiva('dens')
     }
-    window.addEventListener('bitecma:tutorial:collapse-botes', onCollapse)
-    return () => window.removeEventListener('bitecma:tutorial:collapse-botes', onCollapse)
+    window.addEventListener('bitecma:tutorial:collapse-botes', alColapsarBotes)
+    return () => window.removeEventListener('bitecma:tutorial:collapse-botes', alColapsarBotes)
   }, [])
 
   useEffect(() => {
-    const token = lpJump?.token ?? null
-    if (!token || lastTokenRef.current === token) return
+    const tokenSalto = saltoLp?.token ?? null
+    if (!tokenSalto || tokenSaltoLpAnteriorRef.current === tokenSalto) return
 
-    const opId = String(lpJump?.opId ?? '')
-    if (!opId || String(op?.id ?? '') !== opId) return
+    const idOperacionSalto = String(saltoLp?.opId ?? '')
+    if (!idOperacionSalto || String(operacion?.id ?? '') !== idOperacionSalto) return
 
-    const byId = lpJump?.boteId != null && String(lpJump.boteId) !== '' ? String(lpJump.boteId) : null
-    const matchId = byId ? String(bote?.id ?? '') === byId : false
+    const idBoteSalto = saltoLp?.boteId != null && String(saltoLp.boteId) !== '' ? String(saltoLp.boteId) : null
+    const coincidePorId = idBoteSalto ? String(bote?.id ?? '') === idBoteSalto : false
     const zonaBote = normalizarZonaMuestreo(bote?.zona)
-    const zonaJump = lpJump?.zona == null ? '' : normalizarZonaMuestreo(lpJump?.zona)
-    const matchZona =
-      lpJump?.zona == null
+    const zonaSalto = saltoLp?.zona == null ? '' : normalizarZonaMuestreo(saltoLp?.zona)
+    const coincideZona =
+      saltoLp?.zona == null
         ? true
-        : !zonaJump
+        : !zonaSalto
           ? true
           : (() => {
               if (!zonaBote) return false
               const esNumeroBote = /^\d+$/.test(zonaBote)
-              const esNumeroJump = /^\d+$/.test(zonaJump)
-              if (esNumeroBote && esNumeroJump) return parseInt(zonaBote, 10) === parseInt(zonaJump, 10)
-              return zonaBote.localeCompare(zonaJump, 'es', { sensitivity: 'base' }) === 0
+              const esNumeroSalto = /^\d+$/.test(zonaSalto)
+              if (esNumeroBote && esNumeroSalto) return parseInt(zonaBote, 10) === parseInt(zonaSalto, 10)
+              return zonaBote.localeCompare(zonaSalto, 'es', { sensitivity: 'base' }) === 0
             })()
-    const matchName =
-      !byId &&
-      normKey(bote?.nombre) &&
-      normKey(bote?.nombre) === normKey(lpJump?.boteNombre) &&
-      (!lpJump?.buzo || normKey(bote?.buzo) === normKey(lpJump?.buzo)) &&
-      matchZona
+    const coincidePorNombre =
+      !idBoteSalto &&
+      normalizarClave(bote?.nombre) &&
+      normalizarClave(bote?.nombre) === normalizarClave(saltoLp?.boteNombre) &&
+      (!saltoLp?.buzo || normalizarClave(bote?.buzo) === normalizarClave(saltoLp?.buzo)) &&
+      coincideZona
 
-    if (!matchId && !matchName) return
+    if (!coincidePorId && !coincidePorNombre) return
 
-    lastTokenRef.current = token
+    tokenSaltoLpAnteriorRef.current = tokenSalto
     setTimeout(() => {
-      setOpen(true)
-      setTab('lp')
-      const target = rootRef.current
-      const scroller = target?.closest?.('.main')
-      if (target && scroller) {
-        const scRect = scroller.getBoundingClientRect()
-        const tRect = target.getBoundingClientRect()
-        const top = scroller.scrollTop + (tRect.top - scRect.top) - 10
-        if (typeof scroller.scrollTo === 'function') scroller.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
-        else scroller.scrollTop = Math.max(0, top)
+      establecerAbierta(true)
+      establecerPestanaActiva('lp')
+      const objetivo = referenciaRaiz.current
+      const contenedorScroll = objetivo?.closest?.('.main')
+      if (objetivo && contenedorScroll) {
+        const rectContenedor = contenedorScroll.getBoundingClientRect()
+        const rectObjetivo = objetivo.getBoundingClientRect()
+        const top = contenedorScroll.scrollTop + (rectObjetivo.top - rectContenedor.top) - 10
+        if (typeof contenedorScroll.scrollTo === 'function') contenedorScroll.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+        else contenedorScroll.scrollTop = Math.max(0, top)
       } else {
-        target?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+        objetivo?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
       }
     }, 0)
-  }, [lpJump?.token, lpJump?.opId, lpJump?.boteId, lpJump?.boteNombre, lpJump?.buzo, lpJump?.zona, op?.id, bote?.id, bote?.nombre, bote?.buzo, bote?.zona])
+  }, [saltoLp?.token, saltoLp?.opId, saltoLp?.boteId, saltoLp?.boteNombre, saltoLp?.buzo, saltoLp?.zona, operacion?.id, bote?.id, bote?.nombre, bote?.buzo, bote?.zona])
 
   useEffect(() => {
-    const token = tutorialJump?.token ?? null
-    if (!token || lastTutTokenRef.current === token) return
+    const tokenSalto = saltoTutorial?.token ?? null
+    if (!tokenSalto || tokenSaltoTutorialAnteriorRef.current === tokenSalto) return
 
-    const opId = String(tutorialJump?.opId ?? '')
-    if (!opId || String(op?.id ?? '') !== opId) return
+    const idOperacionSalto = String(saltoTutorial?.opId ?? '')
+    if (!idOperacionSalto || String(operacion?.id ?? '') !== idOperacionSalto) return
 
-    const byId = tutorialJump?.boteId != null && String(tutorialJump.boteId) !== '' ? String(tutorialJump.boteId) : null
-    if (!byId || String(bote?.id ?? '') !== byId) return
+    const idBoteSalto = saltoTutorial?.boteId != null && String(saltoTutorial.boteId) !== '' ? String(saltoTutorial.boteId) : null
+    if (!idBoteSalto || String(bote?.id ?? '') !== idBoteSalto) return
 
-    lastTutTokenRef.current = token
+    tokenSaltoTutorialAnteriorRef.current = tokenSalto
     setTimeout(() => {
-      setOpen(true)
-      const nextTab = String(tutorialJump?.tab || '')
-      if (nextTab === 'lp' || nextTab === 'dens') setTab(nextTab)
-      const target = rootRef.current
-      const scroller = target?.closest?.('.main')
-      if (target && scroller) {
-        const scRect = scroller.getBoundingClientRect()
-        const tRect = target.getBoundingClientRect()
-        const top = scroller.scrollTop + (tRect.top - scRect.top) - 10
-        if (typeof scroller.scrollTo === 'function') scroller.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
-        else scroller.scrollTop = Math.max(0, top)
+      establecerAbierta(true)
+      const siguientePestana = String(saltoTutorial?.tab || '')
+      if (siguientePestana === 'lp' || siguientePestana === 'dens') establecerPestanaActiva(siguientePestana)
+      const objetivo = referenciaRaiz.current
+      const contenedorScroll = objetivo?.closest?.('.main')
+      if (objetivo && contenedorScroll) {
+        const rectContenedor = contenedorScroll.getBoundingClientRect()
+        const rectObjetivo = objetivo.getBoundingClientRect()
+        const top = contenedorScroll.scrollTop + (rectObjetivo.top - rectContenedor.top) - 10
+        if (typeof contenedorScroll.scrollTo === 'function') contenedorScroll.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+        else contenedorScroll.scrollTop = Math.max(0, top)
       } else {
-        target?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+        objetivo?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
       }
     }, 0)
-  }, [tutorialJump?.token, tutorialJump?.opId, tutorialJump?.boteId, tutorialJump?.tab, op?.id, bote?.id])
+  }, [saltoTutorial?.token, saltoTutorial?.opId, saltoTutorial?.boteId, saltoTutorial?.tab, operacion?.id, bote?.id])
 
-  const densSpecies = useMemo(() => {
+  const especiesDensidad = useMemo(() => {
     const arr = Array.isArray(especies) ? especies : []
     const byId = new Map(arr.map((e) => [Number(e?.id), e]))
     const transectos = Array.isArray(bote?.transectos) ? bote.transectos : []
@@ -248,19 +259,19 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
   return (
     <div
       className="bote-card"
-      ref={rootRef}
+      ref={referenciaRaiz}
       data-tutorial-role="bote-card"
       data-tutorial-boteid={String(bote?.id ?? '')}
     >
       <div
-        className={`bote-hd${open ? ' open-hd' : ''}`}
-        onClick={() => setOpen((v) => !v)}
+        className={`bote-hd${estaAbierta ? ' open-hd' : ''}`}
+        onClick={() => establecerAbierta((v) => !v)}
         data-tutorial-role="bote-header"
         data-tutorial-advance="true"
         data-tutorial-boteid={String(bote?.id ?? '')}
       >
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
-          <div className={`bote-icon${esIntermareal ? ' pie' : ''}${open ? ' open-ic' : ''}`} />
+          <div className={`bote-icon${esIntermareal ? ' pie' : ''}${estaAbierta ? ' open-ic' : ''}`} />
           <div style={{ minWidth: 0 }}>
             <div className="bote-name">
               {(esIntermareal ? (bote?.buzo || '—') : (bote?.nombre || '—'))} · Zona {bote?.zona ?? '—'}
@@ -268,16 +279,16 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
             <div className="bote-meta">
               {(esIntermareal ? 'Intermareal' : (bote?.buzo || '—'))} · {bote?.densTipo === 'cuadrante' ? 'Cuadrantes' : 'Transectos'}
             </div>
-            {densSpecies.length ? (
+            {especiesDensidad.length ? (
               <div className="bote-meta" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                {densSpecies.slice(0, 6).map((name, idx) => (
+                {especiesDensidad.slice(0, 6).map((name, idx) => (
                   <span key={`${name}-${idx}`} className="pill p-blu" style={{ fontSize: 10 }}>
                     {name}
                   </span>
                 ))}
-                {densSpecies.length > 6 ? (
+                {especiesDensidad.length > 6 ? (
                   <span className="pill p-amb" style={{ fontSize: 10 }}>
-                    +{densSpecies.length - 6}
+                    +{especiesDensidad.length - 6}
                   </span>
                 ) : null}
               </div>
@@ -290,19 +301,19 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
         </div>
       </div>
 
-      <div className={`bote-body${open ? ' open' : ''}`}>
+      <div className={`bote-body${estaAbierta ? ' open' : ''}`}>
         <div className="btabs">
           <div
-            className={`btab${tab === 'dens' ? ' on' : ''}`}
-            onClick={() => setTab('dens')}
+            className={`btab${pestanaActiva === 'dens' ? ' on' : ''}`}
+            onClick={() => establecerPestanaActiva('dens')}
             data-tutorial-role="bote-tab-dens"
             data-tutorial-advance="true"
           >
             Densidad
           </div>
           <div
-            className={`btab${tab === 'lp' ? ' on' : ''}`}
-            onClick={() => setTab('lp')}
+            className={`btab${pestanaActiva === 'lp' ? ' on' : ''}`}
+            onClick={() => establecerPestanaActiva('lp')}
             data-tutorial-role="bote-tab-lp"
             data-tutorial-advance="true"
           >
@@ -310,28 +321,28 @@ export default function BoteCard({ op, bote, especies, updateOperacion, canWrite
           </div>
         </div>
 
-        {tab === 'dens' ? (
-          <DensidadTab
-            op={op}
+        {pestanaActiva === 'dens' ? (
+          <PestanaDensidad
+            operacion={operacion}
             bote={bote}
             especies={especies}
-            updateOperacion={updateOperacion}
-            canWrite={canWrite}
-            toast={toast}
-            openModal={openModal}
-            closeModal={closeModal}
+            actualizarOperacion={actualizarOperacion}
+            puedeEscribir={puedeEscribir}
+            mostrarToast={mostrarToast}
+            abrirModal={abrirModal}
+            cerrarModal={cerrarModal}
           />
         ) : (
-          <LpTab
-            op={op}
+          <PestanaLp
+            operacion={operacion}
             bote={bote}
             especies={especies}
-            updateOperacion={updateOperacion}
-            canWrite={canWrite}
-            toast={toast}
-            openModal={openModal}
-            closeModal={closeModal}
-            lpJump={lpJump}
+            actualizarOperacion={actualizarOperacion}
+            puedeEscribir={puedeEscribir}
+            mostrarToast={mostrarToast}
+            abrirModal={abrirModal}
+            cerrarModal={cerrarModal}
+            saltoLp={saltoLp}
           />
         )}
       </div>

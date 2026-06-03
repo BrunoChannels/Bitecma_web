@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { buildEvadirPreviewSheets } from '../../services/evadirPreviewService.js'
-import { useUi } from '../../context/uiContext.jsx'
-import { useApp } from '../../context/appContext.jsx'
+import { usarInterfaz } from '../../context/uiContext.jsx'
+import { usarAplicacion } from '../../context/appContext.jsx'
 import { normalizarZonaMuestreo } from '../../services/operacionesService.js'
 
 const PLOT_PAD = { l: 54, r: 10, t: 24, b: 44 }
@@ -764,8 +764,8 @@ function countSamplesFromOp(op) {
  * - La lógica de “jump” debe mantenerse compatible con el consumidor (LpTab/BoteCard).
  */
 export default function EvadirPreview({ db, op }) {
-  const { closeModal } = useUi()
-  const { navigate } = useApp()
+  const { cerrarModal: closeModal } = usarInterfaz()
+  const { navegar: navigate } = usarAplicacion()
   const especies = db?.especies
   const { sheets } = useMemo(() => buildEvadirPreviewSheets({ db: { especies }, op }), [especies, op])
   const [tab, setTab] = useState(() => sheets[0]?.name || 'EVADIR')

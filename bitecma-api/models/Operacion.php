@@ -502,10 +502,242 @@ class Operacion
             ':fecha_fin' => array_key_exists('fechaFin', $data) ? (trim((string)$data['fechaFin']) ?: null) : $cur['fechaFin'],
         ]);
 
-        $db->prepare("DELETE FROM operacion_botes WHERE operacion_id = :id")->execute([':id' => (string)$id]);
-        self::upsertChildren($db, $id, $data);
+        self::syncChildren($db, $id, $data);
 
         return self::find($db, $id);
+    }
+
+    private static function deleteBoatUnidadesYCounts(PDO $db, array $boatIds)
+    {
+        $boatIds = array_values(array_filter(array_map(function ($x) {
+            return (int)$x;
+        }, $boatIds), function ($x) {
+            return $x > 0;
+        }));
+
+        if (!$boatIds) return;
+
+        $phB = implode(',', array_fill(0, count($boatIds), '?'));
+        $stmtU = $db->prepare("SELECT id FROM densidad_unidades WHERE operacion_bote_id IN ($phB)");
+        $stmtU->execute($boatIds);
+        $unitIds = array_map(function ($r) {
+            return (int)$r['id'];
+        }, $stmtU->fetchAll());
+        $unitIds = array_values(array_filter($unitIds, function ($x) {
+            return $x > 0;
+        }));
+
+        if ($unitIds) {
+            $phU = implode(',', array_fill(0, count($unitIds), '?'));
+            $stmtDelCounts = $db->prepare("DELETE FROM densidad_unidad_counts WHERE unidad_id IN ($phU)");
+            $stmtDelCounts->execute($unitIds);
+        }
+
+        $stmtDelUnidades = $db->prepare("DELETE FROM densidad_unidades WHERE operacion_bote_id IN ($phB)");
+        $stmtDelUnidades->execute($boatIds);
+    }
+
+    private static function deleteBoatMuestras(PDO $db, array $boatIds)
+    {
+        $boatIds = array_values(array_filter(array_map(function ($x) {
+            return (int)$x;
+        }, $boatIds), function ($x) {
+            return $x > 0;
+        }));
+
+        if (!$boatIds) return;
+
+        $phB = implode(',', array_fill(0, count($boatIds), '?'));
+        $stmtDelMuestras = $db->prepare("DELETE FROM muestras WHERE operacion_bote_id IN ($phB)");
+        $stmtDelMuestras->execute($boatIds);
+    }
+
+    private static function deleteBoatDetails(PDO $db, array $boatIds)
+    {
+        self::deleteBoatUnidadesYCounts($db, $boatIds);
+        self::deleteBoatMuestras($db, $boatIds);
+    }
+
+    private static function deleteChildren(PDO $db, $opId)
+    {
+        $opId = (string)$opId;
+        if ($opId === '') return;
+
+        $stmtB = $db->prepare("SELECT id FROM operacion_botes WHERE operacion_id = :id");
+        $stmtB->execute([':id' => $opId]);
+        $boatIds = array_map(function ($r) {
+            return (int)$r['id'];
+        }, $stmtB->fetchAll());
+
+        self::deleteBoatDetails($db, $boatIds);
+
+        $db->prepare("DELETE FROM operacion_botes WHERE operacion_id = :id")->execute([':id' => $opId]);
+    }
+
+    private static function syncChildren(PDO $db, $opId, array $data)
+    {
+        if (!array_key_exists('botes', $data)) return;
+        $botes = isset($data['botes']) && is_array($data['botes']) ? $data['botes'] : [];
+
+        $stmtSel = $db->prepare("SELECT id, zona_muestreo FROM operacion_botes WHERE operacion_id = :id");
+        $stmtSel->execute([':id' => (string)$opId]);
+        $rows = $stmtSel->fetchAll();
+        $existentesPorZona = [];
+        foreach ($rows as $r) {
+            $zona = self::normalizeZonaMuestreo($r['zona_muestreo'] ?? null);
+            if ($zona === null) continue;
+            $existentesPorZona[$zona] = (int)$r['id'];
+        }
+
+        $stmtUpdB = $db->prepare(
+            "UPDATE operacion_botes
+             SET zona_muestreo = :zona,
+                 bote_maestro_id = :bote_maestro_id,
+                 nombre_bote = :nombre_bote,
+                 buzo = :buzo,
+                 dens_tipo = :dens_tipo,
+                 submareal = :submareal
+             WHERE id = :id"
+        );
+        $stmtInsB = $db->prepare(
+            "INSERT INTO operacion_botes (operacion_id, zona_muestreo, bote_maestro_id, nombre_bote, buzo, dens_tipo, submareal)
+             VALUES (:operacion_id, :zona, :bote_maestro_id, :nombre_bote, :buzo, :dens_tipo, :submareal)"
+        );
+
+        $stmtU = $db->prepare(
+            "INSERT INTO densidad_unidades (operacion_bote_id, num, tipo, area_m2, fecha, sustrato, cubierta, especie_id, coord_x, coord_y, coord_long, coord_lat, datum)
+             VALUES (:operacion_bote_id, :num, :tipo, :area_m2, :fecha, :sustrato, :cubierta, :especie_id, :coord_x, :coord_y, :coord_long, :coord_lat, :datum)"
+        );
+        $stmtC = $db->prepare(
+            "INSERT INTO densidad_unidad_counts (unidad_id, especie_id, cantidad)
+             VALUES (:unidad_id, :especie_id, :cantidad)"
+        );
+        $stmtM = $db->prepare(
+            "INSERT INTO muestras (operacion_bote_id, especie_id, kind, longitud_mm, peso_g, diam_disco_cm)
+             VALUES (:operacion_bote_id, :especie_id, :kind, :longitud_mm, :peso_g, :diam_disco_cm)"
+        );
+
+        $zonasEntrantes = [];
+
+        foreach ($botes as $i => $b) {
+            $b = is_array($b) ? $b : [];
+            $zona = self::normalizeZonaMuestreo($b['zona'] ?? null, (string)($i + 1));
+            if ($zona === null) continue;
+            $zonasEntrantes[$zona] = true;
+
+            $submareal = self::normalizeSubmarealFromBote($b);
+            $nombreBote = trim((string)($b['nombre'] ?? $b['nombre_bote'] ?? ''));
+            if ($submareal === 0) $nombreBote = 'Intermareal';
+            if ($submareal === 1 && $nombreBote === '') continue;
+            $buzo = trim((string)($b['buzo'] ?? ''));
+            $densTipo = isset($b['densTipo']) && $b['densTipo'] === 'cuadrante' ? 'cuadrante' : 'transecto';
+            $boteMaestroId = $submareal === 1 && isset($b['boteMaestroId']) && $b['boteMaestroId'] !== '' ? (int)$b['boteMaestroId'] : null;
+
+            $opBoteId = null;
+            if (isset($existentesPorZona[$zona])) {
+                $opBoteId = (int)$existentesPorZona[$zona];
+                $stmtUpdB->execute([
+                    ':id' => $opBoteId,
+                    ':zona' => $zona,
+                    ':bote_maestro_id' => $boteMaestroId,
+                    ':nombre_bote' => $nombreBote,
+                    ':buzo' => $buzo,
+                    ':dens_tipo' => $densTipo,
+                    ':submareal' => $submareal,
+                ]);
+            } else {
+                $stmtInsB->execute([
+                    ':operacion_id' => (string)$opId,
+                    ':zona' => $zona,
+                    ':bote_maestro_id' => $boteMaestroId,
+                    ':nombre_bote' => $nombreBote,
+                    ':buzo' => $buzo,
+                    ':dens_tipo' => $densTipo,
+                    ':submareal' => $submareal,
+                ]);
+                $opBoteId = (int)$db->lastInsertId();
+            }
+
+            if (array_key_exists('transectos', $b)) {
+                self::deleteBoatUnidadesYCounts($db, [$opBoteId]);
+                $transectos = isset($b['transectos']) && is_array($b['transectos']) ? $b['transectos'] : [];
+                foreach ($transectos as $tRaw) {
+                    $t = self::trxToUnidadInsert(is_array($tRaw) ? $tRaw : []);
+                    if ($t['num'] <= 0) continue;
+                    $stmtU->execute([
+                        ':operacion_bote_id' => $opBoteId,
+                        ':num' => $t['num'],
+                        ':tipo' => $t['tipo'],
+                        ':area_m2' => $t['area_m2'],
+                        ':fecha' => $t['fecha'],
+                        ':sustrato' => $t['sustrato'],
+                        ':cubierta' => $t['cubierta'],
+                        ':especie_id' => $t['especie_id'],
+                        ':coord_x' => $t['coord_x'],
+                        ':coord_y' => $t['coord_y'],
+                        ':coord_long' => $t['coord_long'],
+                        ':coord_lat' => $t['coord_lat'],
+                        ':datum' => $t['datum'],
+                    ]);
+                    $unidadId = (int)$db->lastInsertId();
+                    foreach ($t['counts'] as $spIdRaw => $cantRaw) {
+                        $spId = (int)$spIdRaw;
+                        if ($spId <= 0) continue;
+                        $cant = (int)$cantRaw;
+                        $stmtC->execute([
+                            ':unidad_id' => $unidadId,
+                            ':especie_id' => $spId,
+                            ':cantidad' => $cant,
+                        ]);
+                    }
+                }
+            }
+
+            if (array_key_exists('lpMuestras', $b)) {
+                $stmtDelM = $db->prepare("DELETE FROM muestras WHERE operacion_bote_id = :id");
+                $stmtDelM->execute([':id' => $opBoteId]);
+
+                $lp = self::normalizeLpMuestras(isset($b['lpMuestras']) ? $b['lpMuestras'] : null);
+                foreach ($lp as $spId => $entry) {
+                    foreach ($entry as $kind => $arr) {
+                        if (!is_array($arr)) continue;
+                        $k = strtoupper(trim((string)$kind));
+                        if ($k !== 'LP' && $k !== 'L' && $k !== 'D') continue;
+                        foreach ($arr as $m) {
+                            $m = is_array($m) ? $m : [];
+                            $l = array_key_exists('l', $m) && $m['l'] !== null && $m['l'] !== '' ? (float)$m['l'] : null;
+                            $p = array_key_exists('p', $m) && $m['p'] !== null && $m['p'] !== '' ? (float)$m['p'] : null;
+                            $d = array_key_exists('d', $m) && $m['d'] !== null && $m['d'] !== '' ? (float)$m['d'] : null;
+
+                            if ($k === 'LP' && ($l === null || $p === null)) continue;
+                            if ($k === 'L' && $l === null) continue;
+                            if ($k === 'D' && $d === null) continue;
+
+                            $stmtM->execute([
+                                ':operacion_bote_id' => $opBoteId,
+                                ':especie_id' => (int)$spId,
+                                ':kind' => $k,
+                                ':longitud_mm' => $k === 'D' ? null : $l,
+                                ':peso_g' => $k === 'LP' ? $p : null,
+                                ':diam_disco_cm' => $k === 'D' ? $d : null,
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
+
+        $idsAEliminar = [];
+        foreach ($existentesPorZona as $zona => $boteId) {
+            if (!isset($zonasEntrantes[$zona])) $idsAEliminar[] = (int)$boteId;
+        }
+
+        if ($idsAEliminar) {
+            self::deleteBoatDetails($db, $idsAEliminar);
+            $ph = implode(',', array_fill(0, count($idsAEliminar), '?'));
+            $stmtDelB = $db->prepare("DELETE FROM operacion_botes WHERE id IN ($ph)");
+            $stmtDelB->execute($idsAEliminar);
+        }
     }
 
     private static function upsertChildren(PDO $db, $opId, array $data)
@@ -623,50 +855,7 @@ class Operacion
         $found = $stmtExists->fetch();
         if (!$found) return false;
 
-        $stmtB = $db->prepare("SELECT id FROM operacion_botes WHERE operacion_id = :id");
-        $stmtB->execute([':id' => $opId]);
-        $boatIds = array_map(function ($r) {
-            return (int)$r['id'];
-        }, $stmtB->fetchAll());
-
-        $boatIds = array_values(array_filter($boatIds, function ($x) {
-            return $x > 0;
-        }));
-
-        $unitIds = [];
-        if ($boatIds) {
-            $phB = implode(',', array_fill(0, count($boatIds), '?'));
-            $stmtU = $db->prepare("SELECT id FROM densidad_unidades WHERE operacion_bote_id IN ($phB)");
-            $stmtU->execute($boatIds);
-            $unitIds = array_map(function ($r) {
-                return (int)$r['id'];
-            }, $stmtU->fetchAll());
-            $unitIds = array_values(array_filter($unitIds, function ($x) {
-                return $x > 0;
-            }));
-        }
-
-        if ($unitIds) {
-            $phU = implode(',', array_fill(0, count($unitIds), '?'));
-            $stmtDelCounts = $db->prepare("DELETE FROM densidad_unidad_counts WHERE unidad_id IN ($phU)");
-            $stmtDelCounts->execute($unitIds);
-        }
-
-        if ($boatIds) {
-            $phB = implode(',', array_fill(0, count($boatIds), '?'));
-
-            $stmtDelUnidades = $db->prepare("DELETE FROM densidad_unidades WHERE operacion_bote_id IN ($phB)");
-            $stmtDelUnidades->execute($boatIds);
-
-            $stmtDelMuestras = $db->prepare("DELETE FROM muestras WHERE operacion_bote_id IN ($phB)");
-            $stmtDelMuestras->execute($boatIds);
-
-            $stmtDelBotes = $db->prepare("DELETE FROM operacion_botes WHERE operacion_id = :id");
-            $stmtDelBotes->execute([':id' => $opId]);
-        } else {
-            $stmtDelBotes = $db->prepare("DELETE FROM operacion_botes WHERE operacion_id = :id");
-            $stmtDelBotes->execute([':id' => $opId]);
-        }
+        self::deleteChildren($db, $opId);
 
         $stmtDelOp = $db->prepare("DELETE FROM operaciones WHERE id = :id");
         $stmtDelOp->execute([':id' => $opId]);

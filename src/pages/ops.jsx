@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useOperaciones } from '../hooks/useOperaciones.js'
-import { useDb } from '../context/dbContext.jsx'
-import { useUi } from '../context/uiContext.jsx'
-import { useApp } from '../context/appContext.jsx'
-import SvgIcon from '../components/svgIcon.jsx'
+import { usarBaseDatos } from '../context/dbContext.jsx'
+import { usarInterfaz } from '../context/uiContext.jsx'
+import { usarAplicacion } from '../context/appContext.jsx'
+import IconoSvg from '../components/svgIcon.jsx'
 import BoteCard from '../components/ops/BoteCard.jsx'
 import EvadirPreview from '../components/evadir/EvadirPreview.jsx'
-import SearchableSelect from '../components/common/SearchableSelect.jsx'
+import SeleccionBuscable from '../components/common/SearchableSelect.jsx'
 import EvadirImporter from '../components/ops/EvadirImporter.jsx'
 import { compararZonaMuestreo, normalizarZonaMuestreo } from '../services/operacionesService.js'
 
@@ -355,7 +355,7 @@ function toRoman(n) {
  * Página de Operaciones: crea/edita operaciones, administra botes y permite previsualizar/importar EVADIR.
  *
  * @param {object} props - Props del componente.
- * @param {boolean} props.active - Indica si la página está activa (habilita carga de maestros/operaciones).
+ * @param {boolean} props.activo - Indica si la página está activa (habilita carga de maestros/operaciones).
  * @returns {import('react').JSX.Element} UI completa de operaciones, agrupada por región y con filtros.
  *
  * Lógica (alto nivel):
@@ -387,30 +387,30 @@ function toRoman(n) {
  * - Protege acceso de escritura con `canWrite`.
  *
  * @example
- * <OpsPage active={page === 'ops'} />
+ * <OpsPage activo={page === 'ops'} />
  *
  * Notas de mantenimiento:
  * - Este archivo concentra mucha lógica UI; si sigue creciendo, extraer editores/modales a componentes dedicados.
  * - Mantener el contrato del evento `bitecma:lp-jump` sincronizado con EvadirPreview/LpTab.
  */
-export default function OpsPage({ active }) {
+export default function OpsPage({ activo }) {
   const {
-    db,
-    ensureRegionesLoaded,
-    ensureCaletasLoaded,
-    ensureOperacionesLoaded,
-    ensureBotesMaestroLoaded,
-    ensureSectoresAmerbLoaded,
-    ensureOpaLoaded,
-    upsertOperacion,
-    updateOperacion,
-    deleteOperacion,
-    saveOperacion,
-    deleteOperacionApi,
-    upsertBoteMaestro,
-  } = useDb()
-  const { toast, openModal, closeModal } = useUi()
-  const { canWrite, isAdmin, page } = useApp()
+    baseDatos: db,
+    asegurarRegionesCargadas: ensureRegionesLoaded,
+    asegurarCaletasCargadas: ensureCaletasLoaded,
+    asegurarOperacionesCargadas: ensureOperacionesLoaded,
+    asegurarBotesMaestroCargados: ensureBotesMaestroLoaded,
+    asegurarSectoresAmerbCargados: ensureSectoresAmerbLoaded,
+    asegurarOpaCargada: ensureOpaLoaded,
+    insertarOActualizarOperacion: upsertOperacion,
+    actualizarOperacion: updateOperacion,
+    eliminarOperacion: deleteOperacion,
+    guardarOperacion: saveOperacion,
+    eliminarOperacionApi: deleteOperacionApi,
+    insertarOActualizarBoteMaestro: upsertBoteMaestro,
+  } = usarBaseDatos()
+  const { mostrarToast: toast, abrirModal: openModal, cerrarModal: closeModal } = usarInterfaz()
+  const { puedeEscribir: canWrite, esAdmin: isAdmin, pagina: page } = usarAplicacion()
   const { filtered, meses, sector, setSector, mes, setMes, texto, setTexto, operaciones } =
     useOperaciones()
 
@@ -419,7 +419,7 @@ export default function OpsPage({ active }) {
   const [lpJump, setLpJump] = useState(null)
 
   useEffect(() => {
-    if (!active) return
+    if (!activo) return
     if (page !== 'ops') return
     const KEY = 'bitecma_tutorial_ops_prompt_v1'
     let already = false
@@ -459,7 +459,7 @@ export default function OpsPage({ active }) {
     )
 
     openModal('Tutorial Operaciones', <Body />)
-  }, [active, page, openModal, closeModal])
+  }, [activo, page, openModal, closeModal])
 
   useEffect(() => {
     /**
@@ -587,7 +587,7 @@ export default function OpsPage({ active }) {
   }, [])
 
   useEffect(() => {
-    if (!active) return
+    if (!activo) return
     ensureBotesMaestroLoaded?.()
     ensureRegionesLoaded?.()
     ensureCaletasLoaded?.()
@@ -595,7 +595,7 @@ export default function OpsPage({ active }) {
     ensureSectoresAmerbLoaded?.()
     ensureOpaLoaded?.()
   }, [
-    active,
+    activo,
     ensureBotesMaestroLoaded,
     ensureRegionesLoaded,
     ensureCaletasLoaded,
@@ -1356,11 +1356,11 @@ export default function OpsPage({ active }) {
      * Notas de mantenimiento:
      * - Esta función no persiste al backend; la persistencia se realiza en otros flujos (saveOperacion).
      */
-    const onSaveBotes = () => {
+    const onSaveBotes = async () => {
       const clean = rows
         .map((r) => {
           const submareal = r?.submareal == null ? true : !!r.submareal
-          const nombre = submareal ? String(r.nombre || '').trim() : 'Intermareal'
+          const nombre = submareal ? String(r.nombre || '').trim() : ''
           const buzo = String(r.buzo || '').trim()
           const tieneDatos = !submareal || nombre !== '' || buzo !== ''
           return tieneDatos
@@ -1384,12 +1384,19 @@ export default function OpsPage({ active }) {
         toast(`Fila ${firstSinZona + 1}: ingresa la zona de muestreo`, 'red')
         return
       }
-      const firstSinNombre = clean.findIndex((r) => !String(r?.nombre || '').trim())
+      const firstSinNombre = clean.findIndex((r) => (r?.submareal ? !String(r?.nombre || '').trim() : false))
       if (firstSinNombre >= 0) {
         toast(`Fila ${firstSinNombre + 1}: ingresa el nombre del bote`, 'red')
         return
       }
-      safeUpdateOperacion(opId, (cur) => {
+      if (!canWrite) {
+        toast('Modo solo lectura', 'blue')
+        return
+      }
+
+      updateOperacion(
+        opId,
+        (cur) => {
         const prevBotes = Array.isArray(cur?.botes) ? cur.botes : []
         const prevById = new Map(prevBotes.map((b) => [String(b?.id || ''), b]))
         const nextBotes = clean.map((r, i) => {
@@ -1399,7 +1406,7 @@ export default function OpsPage({ active }) {
           return {
             id: `B${i + 1}`,
             submareal: r.submareal,
-            nombre: r.submareal ? r.nombre : 'Intermareal',
+            nombre: r.submareal ? r.nombre : '',
             buzo: r.buzo,
             zona: r.zona,
             densTipo: r.densTipo,
@@ -1408,9 +1415,25 @@ export default function OpsPage({ active }) {
           }
         })
         return { ...cur, botes: nextBotes }
-      })
-      toast('Botes actualizados', 'green')
-      if (typeof onSaved === 'function') onSaved()
+        },
+        { omitirAutoGuardado: true },
+      )
+
+      const botesParaPersistir = clean.map((r) => ({
+        zona: r.zona,
+        submareal: r.submareal,
+        nombre: r.submareal ? r.nombre : '',
+        buzo: r.buzo,
+        densTipo: r.densTipo,
+      }))
+
+      try {
+        await saveOperacion({ id: opId, botes: botesParaPersistir }, { mode: 'update' })
+        toast('Botes actualizados', 'green')
+        if (typeof onSaved === 'function') onSaved()
+      } catch (err) {
+        toast(String(err?.message || 'Error guardando botes'), 'red')
+      }
     }
 
     const botesMaestro = db?.botesMaestro
@@ -1904,11 +1927,11 @@ export default function OpsPage({ active }) {
        * Notas de mantenimiento:
        * - Mantener consistente con `BotesEditor`.
        */
-      const onSaveBotes = () => {
+      const onSaveBotes = async () => {
         const clean = rows
           .map((r) => {
             const submareal = r?.submareal == null ? true : !!r.submareal
-            const nombre = submareal ? String(r.nombre || '').trim() : 'Intermareal'
+            const nombre = submareal ? String(r.nombre || '').trim() : ''
             const buzo = String(r.buzo || '').trim()
             const tieneDatos = !submareal || nombre !== '' || buzo !== ''
             return tieneDatos
@@ -1932,12 +1955,19 @@ export default function OpsPage({ active }) {
           toast(`Fila ${firstSinZona + 1}: ingresa la zona de muestreo`, 'red')
           return
         }
-        const firstSinNombre = clean.findIndex((r) => !String(r?.nombre || '').trim())
+        const firstSinNombre = clean.findIndex((r) => (r?.submareal ? !String(r?.nombre || '').trim() : false))
         if (firstSinNombre >= 0) {
           toast(`Fila ${firstSinNombre + 1}: ingresa el nombre del bote`, 'red')
           return
         }
-        safeUpdateOperacion(opId, (cur) => {
+        if (!canWrite) {
+          toast('Modo solo lectura', 'blue')
+          return
+        }
+
+        updateOperacion(
+          opId,
+          (cur) => {
           const prevBotes = Array.isArray(cur?.botes) ? cur.botes : []
           const prevById = new Map(prevBotes.map((b) => [String(b?.id || ''), b]))
           const nextBotes = clean.map((r, i) => {
@@ -1947,7 +1977,7 @@ export default function OpsPage({ active }) {
             return {
               id: `B${i + 1}`,
               submareal: r.submareal,
-              nombre: r.submareal ? r.nombre : 'Intermareal',
+              nombre: r.submareal ? r.nombre : '',
               buzo: r.buzo,
               zona: r.zona,
               densTipo: r.densTipo,
@@ -1956,9 +1986,25 @@ export default function OpsPage({ active }) {
             }
           })
           return { ...cur, botes: nextBotes }
-        })
-        closeModal()
-        toast('Botes actualizados', 'green')
+          },
+          { omitirAutoGuardado: true },
+        )
+
+        const botesParaPersistir = clean.map((r) => ({
+          zona: r.zona,
+          submareal: r.submareal,
+          nombre: r.submareal ? r.nombre : '',
+          buzo: r.buzo,
+          densTipo: r.densTipo,
+        }))
+
+        try {
+          await saveOperacion({ id: opId, botes: botesParaPersistir }, { mode: 'update' })
+          closeModal()
+          toast('Botes actualizados', 'green')
+        } catch (err) {
+          toast(String(err?.message || 'Error guardando botes'), 'red')
+        }
       }
 
       const botesMaestro = db?.botesMaestro
@@ -2427,37 +2473,37 @@ export default function OpsPage({ active }) {
             </div>
           </div>
 
-          <SearchableSelect
-            label="Sector AMERB"
-            value={s.sectorAmerbId}
-            options={amerbOpts.map((a) => ({ value: String(a.id), label: a.nombreamerb }))}
-            placeholder="Buscar sector AMERB..."
-            onChange={(id) => {
+          <SeleccionBuscable
+            etiqueta="Sector AMERB"
+            valor={s.sectorAmerbId}
+            opciones={amerbOpts.map((a) => ({ value: String(a.id), label: a.nombreamerb }))}
+            textoPlaceholder="Buscar sector AMERB..."
+            alCambiar={(id) => {
               const f = amerbOpts.find((x) => String(x.id) === String(id))
               setS((p) => ({ ...p, sectorAmerbId: String(id || ''), sectorAmerb: f?.nombreamerb || '' }))
             }}
-            onAdd={() => {
+            alAgregar={() => {
               const name = prompt('Nuevo Sector AMERB (no se guardará aún):')
               if (!name) return
               toast('Sector AMERB agregado solo para esta operación (pendiente BD)', 'blue')
               setS((p) => ({ ...p, sectorAmerbId: 'custom', sectorAmerb: String(name).trim() }))
             }}
-            addLabel="Agregar Sector..."
+            etiquetaAgregar="Agregar Sector..."
           />
 
-          <SearchableSelect
-            label="Caleta"
-            value={s.sector}
-            options={caletasOpts.map((c) => ({ value: c, label: c }))}
-            placeholder="Buscar caleta..."
-            onChange={(v) => setS((p) => ({ ...p, sector: String(v || '') }))}
-            onAdd={() => {
+          <SeleccionBuscable
+            etiqueta="Caleta"
+            valor={s.sector}
+            opciones={caletasOpts.map((c) => ({ value: c, label: c }))}
+            textoPlaceholder="Buscar caleta..."
+            alCambiar={(v) => setS((p) => ({ ...p, sector: String(v || '') }))}
+            alAgregar={() => {
               const name = prompt('Nueva Caleta (no se guardará aún):')
               if (!name) return
               toast('Caleta agregada solo para esta operación (pendiente BD)', 'blue')
               setS((p) => ({ ...p, sector: String(name).trim() }))
             }}
-            addLabel="Agregar Caleta..."
+            etiquetaAgregar="Agregar Caleta..."
           />
 
           <div className="i2">
@@ -2469,22 +2515,22 @@ export default function OpsPage({ active }) {
                 <option value="OTRO">OTRO</option>
               </select>
             </div>
-            <SearchableSelect
-              label="Organización (OPA)"
-              value={s.opaId}
-              options={opaOpts.map((o) => ({ value: String(o.id), label: o.nombre || o.nombrecorto }))}
-              placeholder="Buscar organización..."
-              onChange={(id) => {
+            <SeleccionBuscable
+              etiqueta="Organización (OPA)"
+              valor={s.opaId}
+              opciones={opaOpts.map((o) => ({ value: String(o.id), label: o.nombre || o.nombrecorto }))}
+              textoPlaceholder="Buscar organización..."
+              alCambiar={(id) => {
                 const f = opaOpts.find((x) => String(x.id) === String(id))
                 setS((p) => ({ ...p, opaId: String(id || ''), org: f?.nombre || '' }))
               }}
-              onAdd={() => {
+              alAgregar={() => {
                 const name = prompt('Nueva Organización (pendiente BD):')
                 if (!name) return
                 toast('Organización agregada solo para esta operación (pendiente BD)', 'blue')
                 setS((p) => ({ ...p, opaId: 'custom', org: String(name).trim() }))
               }}
-              addLabel="Agregar Organización..."
+              etiquetaAgregar="Agregar Organización..."
             />
           </div>
 
@@ -2722,36 +2768,36 @@ export default function OpsPage({ active }) {
               />
             </div>
           </div>
-          <SearchableSelect
-            label="Sector AMERB"
-            value={s.sectorAmerbId}
-            options={amerbOpts.map((a) => ({ value: String(a.id), label: a.nombreamerb }))}
-            placeholder="Buscar sector AMERB..."
-            onChange={(id) => {
+          <SeleccionBuscable
+            etiqueta="Sector AMERB"
+            valor={s.sectorAmerbId}
+            opciones={amerbOpts.map((a) => ({ value: String(a.id), label: a.nombreamerb }))}
+            textoPlaceholder="Buscar sector AMERB..."
+            alCambiar={(id) => {
               const f = amerbOpts.find((x) => String(x.id) === String(id))
               setS((p) => ({ ...p, sectorAmerbId: String(id || ''), sectorAmerb: f?.nombreamerb || '' }))
             }}
-            onAdd={() => {
+            alAgregar={() => {
               const name = prompt('Nuevo Sector AMERB (no se guardará aún):')
               if (!name) return
               toast('Sector AMERB agregado solo para esta operación (pendiente BD)', 'blue')
               setS((p) => ({ ...p, sectorAmerbId: 'custom', sectorAmerb: String(name).trim() }))
             }}
-            addLabel="Agregar Sector..."
+            etiquetaAgregar="Agregar Sector..."
           />
-          <SearchableSelect
-            label="Caleta"
-            value={s.sector}
-            options={caletasOpts.map((c) => ({ value: c, label: c }))}
-            placeholder="Buscar caleta..."
-            onChange={(v) => setS((p) => ({ ...p, sector: String(v || '') }))}
-            onAdd={() => {
+          <SeleccionBuscable
+            etiqueta="Caleta"
+            valor={s.sector}
+            opciones={caletasOpts.map((c) => ({ value: c, label: c }))}
+            textoPlaceholder="Buscar caleta..."
+            alCambiar={(v) => setS((p) => ({ ...p, sector: String(v || '') }))}
+            alAgregar={() => {
               const name = prompt('Nueva Caleta (no se guardará aún):')
               if (!name) return
               toast('Caleta agregada solo para esta operación (pendiente BD)', 'blue')
               setS((p) => ({ ...p, sector: String(name).trim() }))
             }}
-            addLabel="Agregar Caleta..."
+            etiquetaAgregar="Agregar Caleta..."
           />
           <div className="i2">
             <div className="ig">
@@ -2766,22 +2812,22 @@ export default function OpsPage({ active }) {
                 <option value="OTRO">OTRO</option>
               </select>
             </div>
-            <SearchableSelect
-              label="Organización (OPA)"
-              value={s.opaId}
-              options={opaOpts.map((o) => ({ value: String(o.id), label: o.nombre || o.nombrecorto }))}
-              placeholder="Buscar organización..."
-              onChange={(id) => {
+            <SeleccionBuscable
+              etiqueta="Organización (OPA)"
+              valor={s.opaId}
+              opciones={opaOpts.map((o) => ({ value: String(o.id), label: o.nombre || o.nombrecorto }))}
+              textoPlaceholder="Buscar organización..."
+              alCambiar={(id) => {
                 const f = opaOpts.find((x) => String(x.id) === String(id))
                 setS((p) => ({ ...p, opaId: String(id || ''), org: f?.nombre || '' }))
               }}
-              onAdd={() => {
+              alAgregar={() => {
                 const name = prompt('Nueva Organización (pendiente BD):')
                 if (!name) return
                 toast('Organización agregada solo para esta operación (pendiente BD)', 'blue')
                 setS((p) => ({ ...p, opaId: 'custom', org: String(name).trim() }))
               }}
-              addLabel="Agregar Organización..."
+              etiquetaAgregar="Agregar Organización..."
             />
           </div>
           <div className="i2">
@@ -2820,7 +2866,7 @@ export default function OpsPage({ active }) {
   }
 
   return (
-    <div className={`page${active ? ' active' : ''}`} id="pg-ops">
+    <div className={`page${activo ? ' active' : ''}`} id="pg-ops">
       <div className="ph">
         <div>
           <h2>Operaciones</h2>
@@ -3047,7 +3093,7 @@ export default function OpsPage({ active }) {
                         openEditOp(op)
                       }}
                     >
-                      <SvgIcon name="edit" aria-hidden="true" />
+                      <IconoSvg name="edit" aria-hidden="true" />
                     </button>
                   ) : null}
                 </div>

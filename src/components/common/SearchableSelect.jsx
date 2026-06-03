@@ -45,24 +45,27 @@ import { useEffect, useMemo, useRef, useState } from 'react'
  * - Si el dataset crece, considerar virtualización; hoy se limita a 400 resultados.
  * - Mantener `onMouseDown(e.preventDefault())` en ítems para evitar pérdida de foco antes del click.
  */
-export default function SearchableSelect({
-  label,
-  placeholder,
-  value,
-  options,
-  onChange,
-  onAdd,
-  addLabel,
-  disabled,
-  dataTutorialId,
-  dataTutorialAdvance,
+export default function SeleccionBuscable({
+  etiqueta,
+  textoPlaceholder,
+  valor,
+  opciones,
+  alCambiar,
+  alAgregar,
+  etiquetaAgregar,
+  deshabilitado,
+  idTutorial,
+  avanzarTutorial,
 }) {
-  const [open, setOpen] = useState(false)
-  const [q, setQ] = useState('')
-  const wrapRef = useRef(null)
+  const [desplegableAbierto, establecerDesplegableAbierto] = useState(false)
+  const [textoBusqueda, establecerTextoBusqueda] = useState('')
+  const contenedorRef = useRef(null)
 
-  const opts = useMemo(() => (Array.isArray(options) ? options : []), [options])
-  const selected = useMemo(() => opts.find((o) => String(o.value) === String(value)) || null, [opts, value])
+  const opcionesNormalizadas = useMemo(() => (Array.isArray(opciones) ? opciones : []), [opciones])
+  const opcionSeleccionada = useMemo(
+    () => opcionesNormalizadas.find((o) => String(o.value) === String(valor)) || null,
+    [opcionesNormalizadas, valor],
+  )
 
   /**
    * Abre el dropdown y resetea el texto de búsqueda al enfocar el input.
@@ -88,10 +91,10 @@ export default function SearchableSelect({
    * Notas de mantenimiento:
    * - Mantener el componente controlado para que el input muestre `selected.label` cuando está cerrado.
    */
-  const handleFocus = () => {
-    if (disabled) return
-    setOpen(true)
-    setQ('')
+  const alEnfocar = () => {
+    if (deshabilitado) return
+    establecerDesplegableAbierto(true)
+    establecerTextoBusqueda('')
   }
 
   /**
@@ -116,9 +119,9 @@ export default function SearchableSelect({
    * Notas de mantenimiento:
    * - Si se agrega debounce, hacerlo aquí para no recalcular `filtered` en cada tecla.
    */
-  const handleInputChange = (e) => {
-    setOpen(true)
-    setQ(e.target.value)
+  const alCambiarInput = (e) => {
+    establecerDesplegableAbierto(true)
+    establecerTextoBusqueda(e.target.value)
   }
 
   /**
@@ -143,10 +146,10 @@ export default function SearchableSelect({
    * Notas de mantenimiento:
    * - Mantener el botón `type="button"` para evitar submits no deseados dentro de forms.
    */
-  const handleToggleOpen = () => {
-    if (disabled) return
-    setOpen((v) => !v)
-    setQ('')
+  const alternarDesplegable = () => {
+    if (deshabilitado) return
+    establecerDesplegableAbierto((v) => !v)
+    establecerTextoBusqueda('')
   }
 
   /**
@@ -173,10 +176,10 @@ export default function SearchableSelect({
    * Notas de mantenimiento:
    * - Mantener `onMouseDown(e.preventDefault())` en el elemento clickeable para evitar blur prematuro.
    */
-  const handleAdd = () => {
-    setOpen(false)
-    setQ('')
-    onAdd()
+  const ejecutarAgregar = () => {
+    establecerDesplegableAbierto(false)
+    establecerTextoBusqueda('')
+    alAgregar()
   }
 
   /**
@@ -201,19 +204,19 @@ export default function SearchableSelect({
    * Notas de mantenimiento:
    * - Se comparan valores como string para tolerar `number|string` en `value`.
    */
-  const handlePickOption = (o) => {
-    onChange?.(o.value, o)
-    setOpen(false)
-    setQ('')
+  const seleccionarOpcion = (o) => {
+    alCambiar?.(o.value, o)
+    establecerDesplegableAbierto(false)
+    establecerTextoBusqueda('')
   }
 
-  const filtered = useMemo(() => {
-    const query = String(q || '').toLowerCase().trim()
-    if (!query) return opts.slice(0, 400)
-    return opts
-      .filter((o) => String(o.label || '').toLowerCase().includes(query))
+  const opcionesFiltradas = useMemo(() => {
+    const consulta = String(textoBusqueda || '').toLowerCase().trim()
+    if (!consulta) return opcionesNormalizadas.slice(0, 400)
+    return opcionesNormalizadas
+      .filter((o) => String(o.label || '').toLowerCase().includes(consulta))
       .slice(0, 400)
-  }, [opts, q])
+  }, [opcionesNormalizadas, textoBusqueda])
 
   useEffect(() => {
     /**
@@ -243,49 +246,49 @@ export default function SearchableSelect({
      * Notas de mantenimiento:
      * - Mantener el listener en `mousedown` para cerrar antes del `click` y evitar estados intermedios.
      */
-    const onDoc = (e) => {
-      if (!wrapRef.current) return
-      if (wrapRef.current.contains(e.target)) return
-      setOpen(false)
+    const alMouseDownDocumento = (e) => {
+      if (!contenedorRef.current) return
+      if (contenedorRef.current.contains(e.target)) return
+      establecerDesplegableAbierto(false)
     }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
+    document.addEventListener('mousedown', alMouseDownDocumento)
+    return () => document.removeEventListener('mousedown', alMouseDownDocumento)
   }, [])
 
   return (
     <div
       className="ig"
-      ref={wrapRef}
+      ref={contenedorRef}
       style={{ position: 'relative' }}
-      data-tutorial-id={dataTutorialId}
-      data-tutorial-advance={dataTutorialAdvance}
+      data-tutorial-id={idTutorial}
+      data-tutorial-advance={avanzarTutorial}
     >
-      {label ? <label className="il">{label}</label> : null}
+      {etiqueta ? <label className="il">{etiqueta}</label> : null}
       <div style={{ display: 'flex', gap: 8 }}>
         <input
           className="ii"
-          disabled={!!disabled}
-          value={open ? q : selected?.label || ''}
-          placeholder={placeholder || 'Selecciona...'}
-          onFocus={handleFocus}
-          onChange={handleInputChange}
+          disabled={!!deshabilitado}
+          value={desplegableAbierto ? textoBusqueda : opcionSeleccionada?.label || ''}
+          placeholder={textoPlaceholder || 'Selecciona...'}
+          onFocus={alEnfocar}
+          onChange={alCambiarInput}
         />
         <button
           type="button"
           className="btn b-out b-sm"
-          disabled={!!disabled}
-          onClick={handleToggleOpen}
+          disabled={!!deshabilitado}
+          onClick={alternarDesplegable}
         >
           ▾
         </button>
       </div>
 
-      {open ? (
+      {desplegableAbierto ? (
         <div
           style={{
             position: 'absolute',
             zIndex: 50,
-            top: label ? 54 : 40,
+            top: etiqueta ? 54 : 40,
             left: 0,
             right: 0,
             background: 'var(--white)',
@@ -296,12 +299,12 @@ export default function SearchableSelect({
             overflow: 'auto',
           }}
         >
-          {onAdd ? (
+          {alAgregar ? (
             <div
               role="button"
               tabIndex={0}
               onMouseDown={(e) => e.preventDefault()}
-              onClick={handleAdd}
+              onClick={ejecutarAgregar}
               style={{
                 padding: '10px 12px',
                 cursor: 'pointer',
@@ -310,22 +313,22 @@ export default function SearchableSelect({
                 fontWeight: 800,
               }}
             >
-              {addLabel || 'Agregar...'}
+              {etiquetaAgregar || 'Agregar...'}
             </div>
           ) : null}
 
-          {filtered.length ? (
-            filtered.map((o) => (
+          {opcionesFiltradas.length ? (
+            opcionesFiltradas.map((o) => (
               <div
                 key={String(o.value)}
                 role="button"
                 tabIndex={0}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handlePickOption(o)}
+                onClick={() => seleccionarOpcion(o)}
                 style={{
                   padding: '9px 12px',
                   cursor: 'pointer',
-                  background: String(o.value) === String(value) ? 'var(--teal-lt)' : 'transparent',
+                  background: String(o.value) === String(valor) ? 'var(--teal-lt)' : 'transparent',
                 }}
               >
                 {o.label}

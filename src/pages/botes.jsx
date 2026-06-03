@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useDb } from '../context/dbContext.jsx'
-import { useUi } from '../context/uiContext.jsx'
+import { usarBaseDatos } from '../context/dbContext.jsx'
+import { usarInterfaz } from '../context/uiContext.jsx'
 
 /**
  * Página de administración de botes/embarcaciones (maestro) agrupados por región.
@@ -36,27 +36,27 @@ import { useUi } from '../context/uiContext.jsx'
  * - Mantener consistentes los campos del payload (`region_rom`, `nrpa`, etc.) con el backend.
  * - Si crece el maestro, considerar paginación/virtualización (hoy se limita a 2000 filas).
  */
-export default function BotesPage({ active }) {
-  const { db, ensureRegionesLoaded, ensureCaletasLoaded, ensureBotesMaestroLoaded, upsertBoteMaestro } = useDb()
-  const { openModal, closeModal, toast } = useUi()
+export default function PaginaBotes({ activo }) {
+  const { baseDatos, asegurarRegionesCargadas, asegurarCaletasCargadas, asegurarBotesMaestroCargados, insertarOActualizarBoteMaestro } = usarBaseDatos()
+  const { abrirModal, cerrarModal, mostrarToast } = usarInterfaz()
 
   useEffect(() => {
-    if (!active) return
-    ensureRegionesLoaded?.()
-    ensureCaletasLoaded?.()
-    ensureBotesMaestroLoaded?.()
-  }, [active, ensureRegionesLoaded, ensureCaletasLoaded, ensureBotesMaestroLoaded])
+    if (!activo) return
+    asegurarRegionesCargadas?.()
+    asegurarCaletasCargadas?.()
+    asegurarBotesMaestroCargados?.()
+  }, [activo, asegurarRegionesCargadas, asegurarCaletasCargadas, asegurarBotesMaestroCargados])
   const regiones = useMemo(() => {
-    const arr = db?.regionesChile
+    const arr = baseDatos?.regionesChile
     return Array.isArray(arr) ? arr : []
-  }, [db?.regionesChile])
+  }, [baseDatos?.regionesChile])
   const botes = useMemo(() => {
-    const arr = db?.botesMaestro
+    const arr = baseDatos?.botesMaestro
     return Array.isArray(arr) ? arr : []
-  }, [db?.botesMaestro])
+  }, [baseDatos?.botesMaestro])
   const caletasByRegion = useMemo(
-    () => db?.caletasByRegionRom || db?.caletasByRegionStatic || {},
-    [db?.caletasByRegionRom, db?.caletasByRegionStatic],
+    () => baseDatos?.caletasByRegionRom || baseDatos?.caletasByRegionStatic || {},
+    [baseDatos?.caletasByRegionRom, baseDatos?.caletasByRegionStatic],
   )
 
   const [regionRom, setRegionRom] = useState(regiones[0]?.rom || 'I')
@@ -178,11 +178,11 @@ export default function BotesPage({ active }) {
        */
       const onSave = async () => {
         if (!form.nombre.trim()) {
-          toast('Ingresa el nombre del bote', 'red')
+          mostrarToast('Ingresa el nombre del bote', 'red')
           return
         }
         if (!form.caleta) {
-          toast('Selecciona una caleta', 'red')
+          mostrarToast('Selecciona una caleta', 'red')
           return
         }
 
@@ -195,11 +195,11 @@ export default function BotesPage({ active }) {
         }
 
         try {
-          await upsertBoteMaestro(newBote)
-          toast('Bote agregado correctamente', 'green')
-          closeModal()
+          await insertarOActualizarBoteMaestro(newBote)
+          mostrarToast('Bote agregado correctamente', 'green')
+          cerrarModal()
         } catch (err) {
-          toast(String(err?.message || 'Error guardando bote'), 'red')
+          mostrarToast(String(err?.message || 'Error guardando bote'), 'red')
         }
       }
 
@@ -266,7 +266,7 @@ export default function BotesPage({ active }) {
             </select>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+            <button className="btn b-out" style={{ flex: 1 }} onClick={cerrarModal}>
               Cancelar
             </button>
             <button className="btn b-teal" style={{ flex: 1 }} onClick={onSave}>
@@ -277,11 +277,11 @@ export default function BotesPage({ active }) {
       )
     }
 
-    openModal('Agregar Nuevo Bote', <Body />, 'normal')
+    abrirModal('Agregar Nuevo Bote', <Body />, 'normal')
   }
 
   return (
-    <div className={`page${active ? ' active' : ''}`} id="pg-botes">
+    <div className={`page${activo ? ' active' : ''}`} id="pg-botes">
       <div className="ph">
         <div>
           <h2>Botes</h2>
@@ -339,9 +339,9 @@ export default function BotesPage({ active }) {
                             className="bote-name"
                             role="button"
                             tabIndex={0}
-                            onClick={() => toast(String(b.nombre || ''))}
+                            onClick={() => mostrarToast(String(b.nombre || ''))}
                             onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') toast(String(b.nombre || ''))
+                              if (e.key === 'Enter' || e.key === ' ') mostrarToast(String(b.nombre || ''))
                             }}
                           >
                             <strong>{b.nombre}</strong>

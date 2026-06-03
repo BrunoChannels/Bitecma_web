@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { addSample, ensureKind, removeEspecie, removeKind, removeSample, updateSample } from '../../services/lpMuestrasService.js'
-import SpeciesGrid from '../common/SpeciesGrid.jsx'
+import { actualizarMuestra, agregarMuestra, asegurarTipo, eliminarEspecie, eliminarMuestra, eliminarTipo } from '../../services/lpMuestrasService.js'
+import GrillaEspecies from '../common/SpeciesGrid.jsx'
 
 /**
  * Infere el tipo de muestreo a partir de un arreglo de muestras.
  *
- * @param {Array<{ l?: any, p?: any, d?: any }>} samples - Muestras (pueden venir parciales o con strings).
+ * @param {Array<{ l?: any, p?: any, d?: any }>} muestras - Muestras (pueden venir parciales o con strings).
  * @returns {'LP'|'L'|'D'} Tipo inferido: `D` si hay diámetros, `LP` si hay peso, si no `L`.
  *
  * Lógica:
@@ -24,24 +24,24 @@ import SpeciesGrid from '../common/SpeciesGrid.jsx'
  * - No aplica; usa checks defensivos.
  *
  * @example
- * typeForSamples([{ l: 120, p: 40 }]) // 'LP'
+ * tipoParaMuestras([{ l: 120, p: 40 }]) // 'LP'
  *
  * Notas de mantenimiento:
  * - Si el esquema de muestras cambia (por ejemplo, nuevas medidas), ajustar la prioridad.
  */
-function typeForSamples(samples) {
-  const arr = Array.isArray(samples) ? samples : []
-  const hasPeso = arr.some((x) => x && x.p !== undefined && x.p !== null && x.p !== '')
-  const hasD = arr.some((x) => x && x.d !== undefined && x.d !== null && x.d !== '')
-  if (hasD) return 'D'
-  if (hasPeso) return 'LP'
+function tipoParaMuestras(muestras) {
+  const arregloMuestras = Array.isArray(muestras) ? muestras : []
+  const tienePeso = arregloMuestras.some((x) => x && x.p !== undefined && x.p !== null && x.p !== '')
+  const tieneDiametro = arregloMuestras.some((x) => x && x.d !== undefined && x.d !== null && x.d !== '')
+  if (tieneDiametro) return 'D'
+  if (tienePeso) return 'LP'
   return 'L'
 }
 
 /**
- * Normaliza un "kind" de muestreo a una de las claves canónicas: `LP`, `L` o `D`.
+ * Normaliza un tipo de muestreo a una de las claves canónicas: `LP`, `L` o `D`.
  *
- * @param {unknown} kind - Identificador de tipo (ej.: "L-P", "lp", "D", etc.).
+ * @param {unknown} tipoCrudo - Identificador de tipo (ej.: "L-P", "lp", "D", etc.).
  * @returns {'LP'|'L'|'D'} Tipo canónico.
  *
  * Lógica:
@@ -58,15 +58,15 @@ function typeForSamples(samples) {
  * - No aplica.
  *
  * @example
- * normKind('l-p') // 'LP'
+ * normalizarTipo('l-p') // 'LP'
  *
  * Notas de mantenimiento:
  * - Mantener sincronía con `lpMuestrasService` si aparecen nuevos aliases.
  */
-function normKind(kind) {
-  const k = String(kind || '').trim().toUpperCase()
-  if (k === 'L-P' || k === 'LP') return 'LP'
-  if (k === 'D') return 'D'
+function normalizarTipo(tipoCrudo) {
+  const tipo = String(tipoCrudo || '').trim().toUpperCase()
+  if (tipo === 'L-P' || tipo === 'LP') return 'LP'
+  if (tipo === 'D') return 'D'
   return 'L'
 }
 
@@ -88,7 +88,7 @@ function normKind(kind) {
  * 4) Si no coincide, retorna objeto vacío.
  *
  * Dependencias externas:
- * - `typeForSamples` y `normKind`.
+ * - `tipoParaMuestras` y `normalizarTipo`.
  *
  * Efectos secundarios:
  * - Ninguno (retorna nueva estructura).
@@ -97,31 +97,31 @@ function normKind(kind) {
  * - Usa checks defensivos; no lanza.
  *
  * @example
- * normalizeEntry({ type: 'LP', ms: [{ l: 10, p: 2 }] }) // { LP: [...] }
+ * normalizarEntrada({ type: 'LP', ms: [{ l: 10, p: 2 }] }) // { LP: [...] }
  *
  * Notas de mantenimiento:
  * - Esta función es clave para compatibilidad retroactiva de datos.
  */
-function normalizeEntry(entry) {
-  if (Array.isArray(entry)) {
-    const out = {}
-    ;(entry || []).forEach((m) => {
-      const k = typeForSamples([m])
-      if (!out[k]) out[k] = []
-      out[k].push(m)
+function normalizarEntrada(entrada) {
+  if (Array.isArray(entrada)) {
+    const salida = {}
+    ;(entrada || []).forEach((muestra) => {
+      const tipo = tipoParaMuestras([muestra])
+      if (!salida[tipo]) salida[tipo] = []
+      salida[tipo].push(muestra)
     })
-    return out
+    return salida
   }
-  if (entry && typeof entry === 'object') {
-    if (Array.isArray(entry.ms)) {
-      const k = normKind(entry.type || 'LP')
-      return { [k]: Array.isArray(entry.ms) ? entry.ms : [] }
+  if (entrada && typeof entrada === 'object') {
+    if (Array.isArray(entrada.ms)) {
+      const tipo = normalizarTipo(entrada.type || 'LP')
+      return { [tipo]: Array.isArray(entrada.ms) ? entrada.ms : [] }
     }
-    const out = {}
-    ;['LP', 'L', 'D'].forEach((k) => {
-      if (Array.isArray(entry[k])) out[k] = entry[k]
+    const salida = {}
+    ;['LP', 'L', 'D'].forEach((tipo) => {
+      if (Array.isArray(entrada[tipo])) salida[tipo] = entrada[tipo]
     })
-    return out
+    return salida
   }
   return {}
 }
@@ -148,20 +148,20 @@ function normalizeEntry(entry) {
  * - No aplica.
  *
  * @example
- * normKey('Lessonia berteroana') // 'lessonia berteroana'
+ * normalizarClave('Lessonia berteroana') // 'lessonia berteroana'
  *
  * Notas de mantenimiento:
  * - Mantener consistente con otros normalizadores del proyecto.
  */
-function normKey(s) {
-  return String(s || '')
+function normalizarClave(texto) {
+  return String(texto || '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
 }
 
-const ALGA_COM = new Set(
+const algasComunes = new Set(
   [
     'Huiro negro',
     'Huiro palo',
@@ -171,9 +171,9 @@ const ALGA_COM = new Set(
     'Luga roja',
     'Luga negra',
     'Luga cuchara',
-  ].map(normKey),
+  ].map(normalizarClave),
 )
-const ALGA_SCI = new Set(
+const algasCientificas = new Set(
   [
     'Lessonia berteroana',
     'Lessonia trabeculata',
@@ -183,21 +183,21 @@ const ALGA_SCI = new Set(
     'Gigartina skottsbergii',
     'Sarcothalia crispata',
     'Mazzaella laminarioides',
-  ].map(normKey),
+  ].map(normalizarClave),
 )
 
 /**
  * Determina si una especie se considera "alga" para forzar el tipo de muestreo a diámetro (D).
  *
- * @param {object} sp - Especie (se espera que tenga `com` y/o `sci`).
+ * @param {object} especie - Especie (se espera que tenga `com` y/o `sci`).
  * @returns {boolean} `true` si el nombre común o científico coincide con listas de algas conocidas.
  *
  * Lógica:
- * 1) Normaliza `sp.com` y `sp.sci`.
- * 2) Busca en `ALGA_COM` y `ALGA_SCI`.
+ * 1) Normaliza `especie.com` y `especie.sci`.
+ * 2) Busca en `algasComunes` y `algasCientificas`.
  *
  * Dependencias externas:
- * - `ALGA_COM`, `ALGA_SCI`, `normKey`.
+ * - `algasComunes`, `algasCientificas`, `normalizarClave`.
  *
  * Efectos secundarios:
  * - Ninguno.
@@ -206,78 +206,78 @@ const ALGA_SCI = new Set(
  * - Tolerante a `null/undefined`.
  *
  * @example
- * isAlgaSpecies({ com: 'Cochayuyo' }) // true
+ * esEspecieAlga({ com: 'Cochayuyo' }) // true
  *
  * Notas de mantenimiento:
  * - Ajustar listas si se agregan nuevas algas o alias.
  */
-function isAlgaSpecies(sp) {
-  return ALGA_COM.has(normKey(sp?.com)) || ALGA_SCI.has(normKey(sp?.sci))
+function esEspecieAlga(especie) {
+  return algasComunes.has(normalizarClave(especie?.com)) || algasCientificas.has(normalizarClave(especie?.sci))
 }
 
 /**
  * Pestaña de ingreso de muestras Peso-Longitud (y variantes L o D) para un bote.
  *
  * @param {object} props - Props del componente.
- * @param {object} props.op - Operación actual (contiene `id`).
+ * @param {object} props.operacion - Operación actual (contiene `id`).
  * @param {object} props.bote - Bote actual (contiene `id`, `lpMuestras`, etc.).
  * @param {Array<object>} props.especies - Catálogo de especies para resolver labels.
- * @param {(opId: string, updater: (cur: any) => any) => void} props.updateOperacion - Actualiza la operación (inmutable).
- * @param {boolean} props.canWrite - Si `false`, bloquea modificaciones.
- * @param {(msg: string, color?: string) => void} props.toast - Notificaciones UI.
- * @param {(title: string, body: import('react').JSX.Element, size?: string) => void} props.openModal - Abre un modal.
- * @param {() => void} props.closeModal - Cierra el modal.
- * @param {object|null} [props.lpJump] - Señal opcional para abrir automáticamente una especie y hacer foco en una muestra.
+ * @param {(opId: string, updater: (cur: any) => any) => void} props.actualizarOperacion - Actualiza la operación (inmutable).
+ * @param {boolean} props.puedeEscribir - Si `false`, bloquea modificaciones.
+ * @param {(msg: string, color?: string) => void} props.mostrarToast - Notificaciones UI.
+ * @param {(title: string, body: import('react').JSX.Element, size?: string) => void} props.abrirModal - Abre un modal.
+ * @param {() => void} props.cerrarModal - Cierra el modal.
+ * @param {object|null} [props.saltoLp] - Señal opcional para abrir automáticamente una especie y hacer foco en una muestra.
  * @returns {import('react').JSX.Element} Elemento React de la pestaña.
  *
  * Lógica:
- * 1) Ordena especies y crea `byId` para lookup.
+ * 1) Ordena especies y crea `especiePorId` para lookup.
  * 2) Deriva especies habilitadas para muestreo desde `bote.lpMuestras`.
  * 3) Permite seleccionar especies (y tipo LP/L) mediante un modal.
  * 4) Permite ingresar/editar/eliminar muestras por especie y tipo (LP/L/D) en un modal.
- * 5) Consume `lpJump` para saltar a una especie/muestra específica (integración con previsualización EVADIR).
+ * 5) Consume `saltoLp` para saltar a una especie/muestra específica (integración con previsualización EVADIR).
  *
  * Dependencias externas:
  * - [lpMuestrasService](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/services/lpMuestrasService.js): `addSample`, `updateSample`, `removeSample`, `ensureKind`, `removeKind`, `removeEspecie`.
- * - [SpeciesGrid](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/components/common/SpeciesGrid.jsx).
+ * - [GrillaEspecies](file:///c:/Users/bruno/Documents/Trabajo/BITECMA/Proyecto%20Vite%20React%20Bootstrap/bitecma-web-amerb/src/components/common/SpeciesGrid.jsx).
  * - React hooks: `useMemo`, `useState`, `useEffect`, `useRef`.
  *
  * Efectos secundarios:
  * - Abre modales (UI).
  * - Actualiza operación/bote (estado global).
- * - Despacha eventos CustomEvent para confirmar consumo de `lpJump`.
+ * - Despacha eventos CustomEvent para confirmar consumo de `saltoLp`.
  *
  * Manejo de errores:
- * - Bloquea modificaciones si `canWrite` es false.
+ * - Bloquea modificaciones si `puedeEscribir` es false.
  * - Usa `try/catch` al despachar eventos (por seguridad en entornos restringidos).
  *
  * @example
- * <LpTab op={op} bote={b} especies={db.especies} updateOperacion={updateOperacion} canWrite={canWrite} toast={toast} openModal={openModal} closeModal={closeModal} />
+ * <PestanaLp operacion={operacion} bote={b} especies={db.especies} actualizarOperacion={actualizarOperacion} puedeEscribir={puedeEscribir} mostrarToast={mostrarToast} abrirModal={abrirModal} cerrarModal={cerrarModal} saltoLp={saltoLp} />
  *
  * Notas de mantenimiento:
- * - Mantener compatibilidad de `lpMuestras` vía `normalizeEntry`.
+ * - Mantener compatibilidad de `lpMuestras` vía `normalizarEntrada`.
  * - Mantener la detección de algas consistente con reglas de negocio.
  */
-export default function LpTab({ op, bote, especies, updateOperacion, canWrite, toast, openModal, closeModal, lpJump }) {
-  const especiesAll = useMemo(() => {
+export default function PestanaLp({ operacion, bote, especies, actualizarOperacion, puedeEscribir, mostrarToast, abrirModal, cerrarModal, saltoLp }) {
+  const especiesOrdenadas = useMemo(() => {
     const arr = Array.isArray(especies) ? especies : []
     return arr.slice().sort((a, b) => String(a?.com || '').localeCompare(String(b?.com || '')))
   }, [especies])
 
-  const byId = useMemo(() => {
+  const especiePorId = useMemo(() => {
     const m = new Map()
     ;(Array.isArray(especies) ? especies : []).forEach((e) => m.set(Number(e.id), e))
     return m
   }, [especies])
 
-  const lpMap = bote?.lpMuestras && typeof bote.lpMuestras === 'object' ? bote.lpMuestras : {}
-  const spIds = Object.keys(lpMap)
+  const mapaLpMuestras = bote?.lpMuestras && typeof bote.lpMuestras === 'object' ? bote.lpMuestras : {}
+  const idsEspecies = Object.keys(mapaLpMuestras)
     .map(Number)
     .filter((x) => Number.isFinite(x))
     .sort((a, b) => a - b)
-  const firstNonAlgaId = spIds.find((id) => {
-    const sp = byId.get(Number(id))
-    return !isAlgaSpecies(sp)
+  const primerIdNoAlga = idsEspecies.find((id) => {
+    const especie = especiePorId.get(Number(id))
+    return !esEspecieAlga(especie)
   })
 
   /**
@@ -287,14 +287,14 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
    *
    * Lógica:
    * 1) Si no hay permisos de escritura, muestra toast y sale.
-   * 2) Renderiza un Body interno con `SpeciesGrid` y configuraciones por especie.
+   * 2) Renderiza un Cuerpo interno con `GrillaEspecies` y configuraciones por especie.
    * 3) Al confirmar:
    *    - Elimina especies removidas (con confirmación).
    *    - Asegura/quita kinds (LP/L o D para algas) usando helpers del servicio.
-   *    - Actualiza `bote.lpMuestras` a través de `updateOperacion`.
+   *    - Actualiza `bote.lpMuestras` a través de `actualizarOperacion`.
    *
    * Dependencias externas:
-   * - `openModal/closeModal` (UI).
+   * - `abrirModal/cerrarModal` (UI).
    * - `ensureKind`, `removeKind`, `removeEspecie` (servicio).
    *
    * Efectos secundarios:
@@ -304,14 +304,14 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
    * - No captura errores del store; asume que el update es sincrónico y estable.
    *
    * @example
-   * <button onClick={openSeleccionarEspecies}>Seleccionar especies</button>
+   * <button onClick={abrirSeleccionarEspecies}>Seleccionar especies</button>
    *
    * Notas de mantenimiento:
    * - Si se agregan nuevos kinds, extender la UI de configuración.
    */
-  const openSeleccionarEspecies = () => {
-    if (!canWrite) {
-      toast('Modo solo lectura', 'blue')
+  const abrirSeleccionarEspecies = () => {
+    if (!puedeEscribir) {
+      mostrarToast('Modo solo lectura', 'blue')
       return
     }
     /**
@@ -320,54 +320,54 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
      * @returns {import('react').JSX.Element} UI del modal con selección de especies y configuración de kinds.
      *
      * Lógica:
-     * 1) Inicializa selección con especies actuales (`spIds`) y construye una config `kindsBySpId`.
-     * 2) Permite agregar/quitar especies con `SpeciesGrid`.
+     * 1) Inicializa selección con especies actuales (`idsEspecies`) y construye una config `tiposPorIdEspecie`.
+     * 2) Permite agregar/quitar especies con `GrillaEspecies`.
      * 3) Para no-algas, permite habilitar LP y/o L (deshabilita toggles si ya hay muestras).
      * 4) Al confirmar, aplica cambios a `bote.lpMuestras` (ensure/remove) y elimina especies removidas (con confirmación).
      *
      * Dependencias externas:
-     * - `SpeciesGrid` (UI).
+     * - `GrillaEspecies` (UI).
      * - Helpers de `lpMuestrasService`: `ensureKind`, `removeKind`, `removeEspecie`.
      *
      * Efectos secundarios:
-     * - Actualiza estado global de la operación/bote vía `updateOperacion`.
+     * - Actualiza estado global de la operación/bote vía `actualizarOperacion`.
      *
      * Manejo de errores:
      * - No captura errores del store; se asume actualización exitosa.
      *
      * @example
-     * openModal('Especies a muestrear...', <Body />, 'wide')
+     * abrirModal('Especies a muestrear...', <Cuerpo />, 'wide')
      *
      * Notas de mantenimiento:
-     * - Mantener reglas de algas (forzar D) consistentes con `isAlgaSpecies`.
+     * - Mantener reglas de algas (forzar D) consistentes con `esEspecieAlga`.
      */
-    const Body = () => {
-      const initial = spIds
-      const [sel, setSel] = useState(() => initial.slice())
-      const [kindsBySpId, setKindsBySpId] = useState(() => {
-        const out = {}
-        initial.forEach((id) => {
-          const sp = byId.get(Number(id))
-          const isAlga = isAlgaSpecies(sp)
-          const entry = normalizeEntry(lpMap?.[id])
-          if (isAlga) out[id] = { D: true }
+    const Cuerpo = () => {
+      const idsIniciales = idsEspecies
+      const [idsSeleccionados, establecerIdsSeleccionados] = useState(() => idsIniciales.slice())
+      const [tiposPorIdEspecie, establecerTiposPorIdEspecie] = useState(() => {
+        const salida = {}
+        idsIniciales.forEach((id) => {
+          const especie = especiePorId.get(Number(id))
+          const esAlga = esEspecieAlga(especie)
+          const entrada = normalizarEntrada(mapaLpMuestras?.[id])
+          if (esAlga) salida[id] = { D: true }
           else {
-            const hasLP = Object.prototype.hasOwnProperty.call(entry, 'LP')
-            const hasL = Object.prototype.hasOwnProperty.call(entry, 'L')
-            out[id] = { LP: hasLP || (!hasLP && !hasL), L: hasL }
+            const tieneLP = Object.prototype.hasOwnProperty.call(entrada, 'LP')
+            const tieneL = Object.prototype.hasOwnProperty.call(entrada, 'L')
+            salida[id] = { LP: tieneLP || (!tieneLP && !tieneL), L: tieneL }
           }
         })
-        return out
+        return salida
       })
 
-      const prevSet = new Set(initial.map(Number))
-      const nextSet = new Set((Array.isArray(sel) ? sel : []).map(Number).filter((x) => Number.isFinite(x)))
-      const removed = [...prevSet].filter((x) => !nextSet.has(x))
+      const conjuntoPrevio = new Set(idsIniciales.map(Number))
+      const conjuntoSiguiente = new Set((Array.isArray(idsSeleccionados) ? idsSeleccionados : []).map(Number).filter((x) => Number.isFinite(x)))
+      const idsQuitados = [...conjuntoPrevio].filter((x) => !conjuntoSiguiente.has(x))
 
-      const sortedSel = [...nextSet].sort((a, b) => a - b)
-      const firstNonAlgaId = sortedSel.find((id) => {
-        const sp = byId.get(Number(id))
-        return !isAlgaSpecies(sp)
+      const idsSeleccionadosOrdenados = [...conjuntoSiguiente].sort((a, b) => a - b)
+      const primerIdNoAlga = idsSeleccionadosOrdenados.find((id) => {
+        const especie = especiePorId.get(Number(id))
+        return !esEspecieAlga(especie)
       })
 
       return (
@@ -380,32 +380,32 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
           </div>
 
           <div data-tutorial-id="ops-lp-species-grid">
-            <SpeciesGrid
-              especies={especiesAll}
-              selectedIds={sel}
+            <GrillaEspecies
+              especies={especiesOrdenadas}
+              selectedIds={idsSeleccionados}
               onChange={(ids) => {
-              const next = (Array.isArray(ids) ? ids : []).map(Number).filter((x) => Number.isFinite(x))
-              setSel(next)
-              setKindsBySpId((prev) => {
-                const out = {}
-                next.forEach((id) => {
-                  const prevCfg = prev?.[id]
-                  if (prevCfg) {
-                    out[id] = prevCfg
+              const siguientes = (Array.isArray(ids) ? ids : []).map(Number).filter((x) => Number.isFinite(x))
+              establecerIdsSeleccionados(siguientes)
+              establecerTiposPorIdEspecie((prev) => {
+                const salida = {}
+                siguientes.forEach((id) => {
+                  const configuracionPrevia = prev?.[id]
+                  if (configuracionPrevia) {
+                    salida[id] = configuracionPrevia
                     return
                   }
-                  const sp = byId.get(Number(id))
-                  const isAlga = isAlgaSpecies(sp)
-                  const entry = normalizeEntry(lpMap?.[id])
-                  if (isAlga) {
-                    out[id] = { D: true }
+                  const especie = especiePorId.get(Number(id))
+                  const esAlga = esEspecieAlga(especie)
+                  const entrada = normalizarEntrada(mapaLpMuestras?.[id])
+                  if (esAlga) {
+                    salida[id] = { D: true }
                   } else {
-                    const hasLP = Object.prototype.hasOwnProperty.call(entry, 'LP')
-                    const hasL = Object.prototype.hasOwnProperty.call(entry, 'L')
-                    out[id] = { LP: hasLP || (!hasLP && !hasL), L: hasL }
+                    const tieneLP = Object.prototype.hasOwnProperty.call(entrada, 'LP')
+                    const tieneL = Object.prototype.hasOwnProperty.call(entrada, 'L')
+                    salida[id] = { LP: tieneLP || (!tieneLP && !tieneL), L: tieneL }
                   }
                 })
-                return out
+                return salida
               })
               }}
               multi
@@ -414,7 +414,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
             />
           </div>
 
-          {sortedSel.length ? (
+          {idsSeleccionadosOrdenados.length ? (
             <div data-tutorial-id="ops-lp-kinds" style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
               <div
                 data-tutorial-id="ops-lp-kinds-title"
@@ -423,64 +423,64 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                 Tipos de muestreo por especie
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {sortedSel.map((spId) => {
-                  const sp = byId.get(Number(spId))
-                  const isAlga = isAlgaSpecies(sp)
-                  const entry = normalizeEntry(lpMap?.[spId])
-                  const cntLP = Array.isArray(entry.LP) ? entry.LP.length : 0
-                  const cntL = Array.isArray(entry.L) ? entry.L.length : 0
-                  const cfg = kindsBySpId?.[spId] || (isAlga ? { D: true } : { LP: true, L: false })
+                {idsSeleccionadosOrdenados.map((idEspecie) => {
+                  const especie = especiePorId.get(Number(idEspecie))
+                  const esAlga = esEspecieAlga(especie)
+                  const entrada = normalizarEntrada(mapaLpMuestras?.[idEspecie])
+                  const cantidadLP = Array.isArray(entrada.LP) ? entrada.LP.length : 0
+                  const cantidadL = Array.isArray(entrada.L) ? entrada.L.length : 0
+                  const configuracion = tiposPorIdEspecie?.[idEspecie] || (esAlga ? { D: true } : { LP: true, L: false })
                   return (
-                    <div key={spId} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                    <div key={idEspecie} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
                       <div style={{ minWidth: 0 }}>
-                        <strong>{sp?.com || spId}</strong>
-                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{sp?.sci || ''}</div>
+                        <strong>{especie?.com || idEspecie}</strong>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{especie?.sci || ''}</div>
                       </div>
-                      {isAlga ? (
+                      {esAlga ? (
                         <div style={{ whiteSpace: 'nowrap', color: 'var(--text2)' }}>D</div>
                       ) : (
                         <div
-                          data-tutorial-id={Number(spId) === Number(firstNonAlgaId) ? 'ops-lp-kind-checkboxes' : undefined}
+                          data-tutorial-id={Number(idEspecie) === Number(primerIdNoAlga) ? 'ops-lp-kind-checkboxes' : undefined}
                           style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}
                         >
                           <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                             <input
                               type="checkbox"
-                              checked={!!cfg.LP}
-                              disabled={cntLP > 0}
+                              checked={!!configuracion.LP}
+                              disabled={cantidadLP > 0}
                               onChange={(e) => {
-                                const checked = e.target.checked
-                                setKindsBySpId((prev) => {
-                                  const cur = prev?.[spId] || { LP: true, L: false }
-                                  const nextCfg = { ...cur, LP: checked }
-                                  if (!nextCfg.LP && !nextCfg.L) nextCfg.LP = true
-                                  return { ...(prev || {}), [spId]: nextCfg }
+                                const estaMarcado = e.target.checked
+                                establecerTiposPorIdEspecie((prev) => {
+                                  const configuracionActual = prev?.[idEspecie] || { LP: true, L: false }
+                                  const configuracionSiguiente = { ...configuracionActual, LP: estaMarcado }
+                                  if (!configuracionSiguiente.LP && !configuracionSiguiente.L) configuracionSiguiente.LP = true
+                                  return { ...(prev || {}), [idEspecie]: configuracionSiguiente }
                                 })
                               }}
                             />
-                            L-P{cntLP ? ` (${cntLP})` : ''}
+                            L-P{cantidadLP ? ` (${cantidadLP})` : ''}
                           </label>
                           <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                             <input
                               type="checkbox"
-                              checked={!!cfg.L}
-                              disabled={cntL > 0}
-                              data-tutorial-id={Number(spId) === Number(firstNonAlgaId) ? 'ops-lp-kind-L' : undefined}
-                              data-tutorial-advance={Number(spId) === Number(firstNonAlgaId) ? 'true' : undefined}
+                              checked={!!configuracion.L}
+                              disabled={cantidadL > 0}
+                              data-tutorial-id={Number(idEspecie) === Number(primerIdNoAlga) ? 'ops-lp-kind-L' : undefined}
+                              data-tutorial-advance={Number(idEspecie) === Number(primerIdNoAlga) ? 'true' : undefined}
                               onChange={(e) => {
-                                const checked = e.target.checked
-                                if (Number(spId) === Number(firstNonAlgaId) && checked) {
+                                const estaMarcado = e.target.checked
+                                if (Number(idEspecie) === Number(primerIdNoAlga) && estaMarcado) {
                                   window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-lp-kind-L-checked' } }))
                                 }
-                                setKindsBySpId((prev) => {
-                                  const cur = prev?.[spId] || { LP: true, L: false }
-                                  const nextCfg = { ...cur, L: checked }
-                                  if (!nextCfg.LP && !nextCfg.L) nextCfg.LP = true
-                                  return { ...(prev || {}), [spId]: nextCfg }
+                                establecerTiposPorIdEspecie((prev) => {
+                                  const configuracionActual = prev?.[idEspecie] || { LP: true, L: false }
+                                  const configuracionSiguiente = { ...configuracionActual, L: estaMarcado }
+                                  if (!configuracionSiguiente.LP && !configuracionSiguiente.L) configuracionSiguiente.LP = true
+                                  return { ...(prev || {}), [idEspecie]: configuracionSiguiente }
                                 })
                               }}
                             />
-                            L{cntL ? ` (${cntL})` : ''}
+                            L{cantidadL ? ` (${cantidadL})` : ''}
                           </label>
                         </div>
                       )}
@@ -492,7 +492,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
           ) : null}
 
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn b-out" style={{ flex: 1 }} onClick={closeModal}>
+            <button className="btn b-out" style={{ flex: 1 }} onClick={cerrarModal}>
               Cancelar
             </button>
             <button
@@ -500,38 +500,38 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
               style={{ flex: 1 }}
               data-tutorial-id="ops-lp-confirm"
               onClick={() => {
-                if (removed.length) {
+                if (idsQuitados.length) {
                   const ok = confirm(
-                    `Vas a quitar ${removed.length} especie(s) del muestreo. Se eliminarán sus muestras L-P/D asociadas. ¿Continuar?`,
+                    `Vas a quitar ${idsQuitados.length} especie(s) del muestreo. Se eliminarán sus muestras L-P/D asociadas. ¿Continuar?`,
                   )
                   if (!ok) return
                 }
-                updateOperacion(op.id, (cur) => {
+                actualizarOperacion(operacion.id, (cur) => {
                   const nextBotes = (cur.botes || []).map((x) => {
                     if (x.id !== bote.id) return x
-                    let map = x.lpMuestras || {}
-                    removed.forEach((id) => {
-                      map = removeEspecie(map, id)
+                    let mapaLpMuestras = x.lpMuestras || {}
+                    idsQuitados.forEach((id) => {
+                      mapaLpMuestras = eliminarEspecie(mapaLpMuestras, id)
                     })
-                    ;[...nextSet].forEach((id) => {
-                      const sp = byId.get(Number(id))
-                      const isAlga = isAlgaSpecies(sp)
-                      if (isAlga) {
-                        map = ensureKind(map, id, 'D')
+                    ;[...conjuntoSiguiente].forEach((id) => {
+                      const especie = especiePorId.get(Number(id))
+                      const esAlga = esEspecieAlga(especie)
+                      if (esAlga) {
+                        mapaLpMuestras = asegurarTipo(mapaLpMuestras, id, 'D')
                         return
                       }
-                      const cfg = kindsBySpId?.[id] || { LP: true, L: false }
-                      if (cfg.LP) map = ensureKind(map, id, 'LP')
-                      else map = removeKind(map, id, 'LP')
-                      if (cfg.L) map = ensureKind(map, id, 'L')
-                      else map = removeKind(map, id, 'L')
+                      const configuracion = tiposPorIdEspecie?.[id] || { LP: true, L: false }
+                      if (configuracion.LP) mapaLpMuestras = asegurarTipo(mapaLpMuestras, id, 'LP')
+                      else mapaLpMuestras = eliminarTipo(mapaLpMuestras, id, 'LP')
+                      if (configuracion.L) mapaLpMuestras = asegurarTipo(mapaLpMuestras, id, 'L')
+                      else mapaLpMuestras = eliminarTipo(mapaLpMuestras, id, 'L')
                     })
-                    return { ...x, lpMuestras: map }
+                    return { ...x, lpMuestras: mapaLpMuestras }
                   })
                   return { ...cur, botes: nextBotes }
                 })
-                closeModal()
-                toast?.('Especies actualizadas', 'green')
+                cerrarModal()
+                mostrarToast?.('Especies actualizadas', 'green')
                 window.dispatchEvent(new CustomEvent('bitecma:tutorial:trigger', { detail: { id: 'ops-lp-confirmed' } }))
               }}
             >
@@ -541,29 +541,29 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
         </div>
       )
     }
-    openModal(`Especies a muestrear (L-P) — Bote ${bote?.nombre || bote?.id}`, <Body />, 'wide')
+    abrirModal(`Especies a muestrear (L-P) — Bote ${bote?.nombre || bote?.id}`, <Cuerpo />, 'wide')
   }
 
   /**
    * Abre un modal de ingreso/edición de muestras para una especie y tipo de muestreo.
    *
    * @param {string|number} especieId - ID de especie a editar.
-   * @param {unknown} forcedType - Tipo deseado (LP/L/D o alias).
-   * @param {object} [focus] - Datos opcionales para enfocar/resaltar una muestra específica (integración con `lpJump`).
+   * @param {unknown} tipoForzado - Tipo deseado (LP/L/D o alias).
+   * @param {object} [enfoque] - Datos opcionales para enfocar/resaltar una muestra específica (integración con `saltoLp`).
    * @returns {void} No retorna valor.
    *
    * Lógica:
-   * 1) Valida permisos y resuelve especie desde `byId`.
-   * 2) Normaliza el tipo (`kind0`).
-   * 3) Renderiza un Body interno:
-   *    - Carga muestras actuales (`normalizeEntry`).
+   * 1) Valida permisos y resuelve especie desde `especiePorId`.
+   * 2) Normaliza el tipo (`tipoMuestreo`).
+   * 3) Renderiza un Cuerpo interno:
+   *    - Carga muestras actuales (`normalizarEntrada`).
    *    - Permite agregar o editar una fila (draft + editIdx).
    *    - Permite eliminar una fila.
    *    - (Opcional) resalta/scroll a muestra si `focus` coincide.
-   * 4) Persiste cambios en `bote.lpMuestras` usando `updateOperacion` + helpers del servicio.
+   * 4) Persiste cambios en `bote.lpMuestras` usando `actualizarOperacion` + helpers del servicio.
    *
    * Dependencias externas:
-   * - `openModal`, `closeModal`, `toast`.
+   * - `abrirModal`, `cerrarModal`, `mostrarToast`.
    * - `addSample`, `updateSample`, `removeSample`, `removeEspecie`.
    *
    * Efectos secundarios:
@@ -575,19 +575,19 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
    * - En modo read-only, bloquea operación.
    *
    * @example
-   * openIngreso(12, 'LP')
+   * abrirIngreso(12, 'LP')
    *
    * Notas de mantenimiento:
    * - Mantener el matching de `focus` (tolerancia, índice) consistente con el emisor.
    */
-  const openIngreso = useCallback((especieId, forcedType, focus) => {
-    if (!canWrite) {
-      toast('Modo solo lectura', 'blue')
+  const abrirIngreso = useCallback((especieId, tipoForzado, enfoque) => {
+    if (!puedeEscribir) {
+      mostrarToast('Modo solo lectura', 'blue')
       return
     }
-    const spId = Number(especieId)
-    const sp = byId.get(spId)
-    const kind0 = normKind(forcedType)
+    const idEspecie = Number(especieId)
+    const especie = especiePorId.get(idEspecie)
+    const tipoMuestreo = normalizarTipo(tipoForzado)
 
     /**
      * Cuerpo del modal de ingreso de muestras para una especie y tipo.
@@ -597,11 +597,11 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
      * Lógica:
      * 1) Carga y mantiene en estado local las muestras de la especie (`samplesNow`) para feedback inmediato.
      * 2) Permite agregar/editar mediante un “draft” y un índice de edición (`editIdx`).
-     * 3) Al guardar, persiste en el store con `updateOperacion` y sincroniza `samplesNow`.
+     * 3) Al guardar, persiste en el store con `actualizarOperacion` y sincroniza `muestrasActuales`.
      * 4) Si llega `focus`, resalta y scrollea a una muestra (solo para LP).
      *
      * Dependencias externas:
-     * - `updateOperacion` y helpers de `lpMuestrasService` (`addSample`, `updateSample`, `removeSample`).
+     * - `actualizarOperacion` y helpers de `lpMuestrasService` (`agregarMuestra`, `actualizarMuestra`, `eliminarMuestra`).
      * - DOM: `document.querySelector` + `scrollIntoView` para resaltar.
      *
      * Efectos secundarios:
@@ -612,38 +612,40 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
      * - Valida token/tipo/valores numéricos antes de intentar resaltar.
      *
      * @example
-     * openModal('Especie', <Body />, 'wide')
+     * abrirModal('Especie', <Cuerpo />, 'wide')
      *
      * Notas de mantenimiento:
      * - Mantener tolerancia (`tol`) alineada con el emisor de `focus`.
      */
-    const Body = () => {
-      const entry = normalizeEntry((bote?.lpMuestras || {})[spId])
-      const initialSamples = entry?.[kind0] || []
-      const [samplesNow, setSamplesNow] = useState(() => (Array.isArray(initialSamples) ? initialSamples : []))
-      const kind = kind0
-      const [flashIdx, setFlashIdx] = useState(null)
+    const Cuerpo = () => {
+      const entrada = normalizarEntrada((bote?.lpMuestras || {})[idEspecie])
+      const muestrasIniciales = entrada?.[tipoMuestreo] || []
+      const [muestrasActuales, establecerMuestrasActuales] = useState(() => (Array.isArray(muestrasIniciales) ? muestrasIniciales : []))
+      const tipo = tipoMuestreo
+      const [indiceDestello, establecerIndiceDestello] = useState(null)
 
-      const [draft, setDraft] = useState(() => (kind === 'LP' ? { l: '', p: '' } : kind === 'D' ? { d: '' } : { l: '' }))
-      const [editIdx, setEditIdx] = useState(null)
-      const lRef = useRef(null)
-      const pRef = useRef(null)
-      const dRef = useRef(null)
-      const focusRef = useRef(focus)
+      const [borrador, establecerBorrador] = useState(() =>
+        tipo === 'LP' ? { l: '', p: '' } : tipo === 'D' ? { d: '' } : { l: '' },
+      )
+      const [indiceEdicion, establecerIndiceEdicion] = useState(null)
+      const referenciaLongitud = useRef(null)
+      const referenciaPeso = useRef(null)
+      const referenciaDiametro = useRef(null)
+      const enfoqueRef = useRef(enfoque)
 
       useEffect(() => {
-        const f = focusRef.current
+        const f = enfoqueRef.current
         const token = f?.token ?? null
         if (!token) return
-        if (kind !== 'LP') return
+        if (tipo !== 'LP') return
         const tl = Number(f?.l)
         const tp = Number(f?.p)
         if (!Number.isFinite(tl) || !Number.isFinite(tp)) return
         const tol = 1e-9
         let targetIdx = Number.isFinite(Number(f?.sampleIdx)) ? Number(f.sampleIdx) : null
         if (targetIdx == null) {
-          for (let i = 0; i < samplesNow.length; i++) {
-            const m = samplesNow[i]
+          for (let i = 0; i < muestrasActuales.length; i++) {
+            const m = muestrasActuales[i]
             const l = Number(m?.l)
             const p = Number(m?.p)
             if (!Number.isFinite(l) || !Number.isFinite(p)) continue
@@ -654,7 +656,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
           }
         }
         if (targetIdx == null) return
-        setFlashIdx(targetIdx)
+        establecerIndiceDestello(targetIdx)
         setTimeout(() => {
           const el = document.querySelector(`[data-lp-sample-idx="${targetIdx}"]`)
           if (!el) return
@@ -676,9 +678,9 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
             el.scrollIntoView?.({ block: 'center' })
           }
         }, 0)
-        const t = setTimeout(() => setFlashIdx(null), 2600)
+        const t = setTimeout(() => establecerIndiceDestello(null), 2600)
         return () => clearTimeout(t)
-      }, [kind, samplesNow])
+      }, [tipo, muestrasActuales])
 
       /**
        * Agrega una nueva muestra o actualiza la muestra en edición según `editIdx`.
@@ -692,7 +694,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
        * 4) Resetea draft, limpia `editIdx` y devuelve foco al input principal.
        *
        * Dependencias externas:
-       * - `updateOperacion` (store) y helpers `addSample/updateSample`.
+       * - `actualizarOperacion` (store) y helpers `agregarMuestra/actualizarMuestra`.
        * - Refs `lRef/pRef/dRef` para control de foco.
        *
        * Efectos secundarios:
@@ -707,72 +709,81 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
        * Notas de mantenimiento:
        * - Si se agrega validación (mínimos/máximos), incorporarla antes de persistir.
        */
-      const addOrUpdate = () => {
-        if (kind === 'LP') {
-          const l = draft.l
-          const p = draft.p
-          updateOperacion(op.id, (cur) => {
+      const agregarOActualizar = () => {
+        if (tipo === 'LP') {
+          const l = borrador.l
+          const p = borrador.p
+          actualizarOperacion(operacion.id, (cur) => {
             const nextBotes = (cur.botes || []).map((x) => {
               if (x.id !== bote.id) return x
-              const map = x.lpMuestras || {}
-              const next = editIdx == null ? addSample(map, spId, kind, { l, p }) : updateSample(map, spId, kind, editIdx, { l, p })
-              return { ...x, lpMuestras: next }
+              const mapaLpMuestras = x.lpMuestras || {}
+              const siguiente =
+                indiceEdicion == null
+                  ? agregarMuestra(mapaLpMuestras, idEspecie, tipo, { l, p })
+                  : actualizarMuestra(mapaLpMuestras, idEspecie, tipo, indiceEdicion, { l, p })
+              return { ...x, lpMuestras: siguiente }
             })
             return { ...cur, botes: nextBotes }
           })
-          setSamplesNow((prev) => {
-            const next = prev.slice()
-            if (editIdx == null) next.push({ l, p })
-            else next[editIdx] = { l, p }
-            return next
+          establecerMuestrasActuales((prev) => {
+            const siguiente = prev.slice()
+            if (indiceEdicion == null) siguiente.push({ l, p })
+            else siguiente[indiceEdicion] = { l, p }
+            return siguiente
           })
-        } else if (kind === 'D') {
-          const d = draft.d
-          updateOperacion(op.id, (cur) => {
+        } else if (tipo === 'D') {
+          const d = borrador.d
+          actualizarOperacion(operacion.id, (cur) => {
             const nextBotes = (cur.botes || []).map((x) => {
               if (x.id !== bote.id) return x
-              const map = x.lpMuestras || {}
-              const next = editIdx == null ? addSample(map, spId, kind, { d }) : updateSample(map, spId, kind, editIdx, { d })
-              return { ...x, lpMuestras: next }
+              const mapaLpMuestras = x.lpMuestras || {}
+              const siguiente =
+                indiceEdicion == null
+                  ? agregarMuestra(mapaLpMuestras, idEspecie, tipo, { d })
+                  : actualizarMuestra(mapaLpMuestras, idEspecie, tipo, indiceEdicion, { d })
+              return { ...x, lpMuestras: siguiente }
             })
             return { ...cur, botes: nextBotes }
           })
-          setSamplesNow((prev) => {
-            const next = prev.slice()
-            if (editIdx == null) next.push({ d })
-            else next[editIdx] = { d }
-            return next
+          establecerMuestrasActuales((prev) => {
+            const siguiente = prev.slice()
+            if (indiceEdicion == null) siguiente.push({ d })
+            else siguiente[indiceEdicion] = { d }
+            return siguiente
           })
         } else {
-          const l = draft.l
-          updateOperacion(op.id, (cur) => {
+          const l = borrador.l
+          actualizarOperacion(operacion.id, (cur) => {
             const nextBotes = (cur.botes || []).map((x) => {
               if (x.id !== bote.id) return x
-              const map = x.lpMuestras || {}
-              const next = editIdx == null ? addSample(map, spId, kind, { l }) : updateSample(map, spId, kind, editIdx, { l })
-              return { ...x, lpMuestras: next }
+              const mapaLpMuestras = x.lpMuestras || {}
+              const siguiente =
+                indiceEdicion == null
+                  ? agregarMuestra(mapaLpMuestras, idEspecie, tipo, { l })
+                  : actualizarMuestra(mapaLpMuestras, idEspecie, tipo, indiceEdicion, { l })
+              return { ...x, lpMuestras: siguiente }
             })
             return { ...cur, botes: nextBotes }
           })
-          setSamplesNow((prev) => {
-            const next = prev.slice()
-            if (editIdx == null) next.push({ l })
-            else next[editIdx] = { l }
-            return next
+          establecerMuestrasActuales((prev) => {
+            const siguiente = prev.slice()
+            if (indiceEdicion == null) siguiente.push({ l })
+            else siguiente[indiceEdicion] = { l }
+            return siguiente
           })
         }
-        setDraft(kind === 'LP' ? { l: '', p: '' } : kind === 'D' ? { d: '' } : { l: '' })
-        setEditIdx(null)
+        establecerBorrador(tipo === 'LP' ? { l: '', p: '' } : tipo === 'D' ? { d: '' } : { l: '' })
+        establecerIndiceEdicion(null)
         setTimeout(() => {
-          if (kind === 'LP') {
-            lRef.current?.focus?.()
-            lRef.current?.select?.()
-          } else if (kind === 'D') {
-            dRef.current?.focus?.()
-            dRef.current?.select?.()
+          if (tipo === 'LP') {
+            referenciaLongitud.current?.focus?.()
+            referenciaLongitud.current?.select?.()
+          } else if (tipo === 'D') {
+            referenciaDiametro.current?.focus?.()
+            referenciaDiametro.current?.select?.()
           } else {
-            lRef.current?.focus?.()
-            lRef.current?.select?.()
+            referenciaLongitud.current?.focus?.()
+            referenciaLongitud.current?.select?.()
           }
         }, 0)
       }
@@ -782,28 +793,29 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
           <div className="info-box blue">
             <span>i</span>
             <div>
-              <strong>{sp?.com || spId}</strong> · {kind === 'LP' ? 'Peso-Longitud' : kind === 'D' ? 'Diámetro disco' : 'Longitud'}
+              <strong>{especie?.com || idEspecie}</strong> ·{' '}
+              {tipo === 'LP' ? 'Peso-Longitud' : tipo === 'D' ? 'Diámetro disco' : 'Longitud'}
             </div>
           </div>
 
           <div className="lp-input-row" data-tutorial-id="ops-lp-input-row">
-            {kind === 'LP' ? (
+            {tipo === 'LP' ? (
               <>
                 <div className="ig">
                   <label className="il">Longitud (mm)</label>
                   <input
                     className="ii lp-num-inp"
-                    ref={lRef}
+                    ref={referenciaLongitud}
                     type="number"
                     step="any"
-                    value={draft.l}
+                    value={borrador.l}
                     data-tutorial-id="ops-lp-inp-l"
-                    onChange={(e) => setDraft((s) => ({ ...s, l: e.target.value }))}
+                    onChange={(e) => establecerBorrador((s) => ({ ...s, l: e.target.value }))}
                     onKeyDown={(e) => {
                       if (e.key !== 'Enter') return
                       e.preventDefault()
-                      pRef.current?.focus?.()
-                      pRef.current?.select?.()
+                      referenciaPeso.current?.focus?.()
+                      referenciaPeso.current?.select?.()
                     }}
                   />
                 </div>
@@ -811,34 +823,34 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                   <label className="il">Peso (g)</label>
                   <input
                     className="ii lp-num-inp"
-                    ref={pRef}
+                    ref={referenciaPeso}
                     type="number"
                     step="any"
-                    value={draft.p}
+                    value={borrador.p}
                     data-tutorial-id="ops-lp-inp-p"
-                    onChange={(e) => setDraft((s) => ({ ...s, p: e.target.value }))}
+                    onChange={(e) => establecerBorrador((s) => ({ ...s, p: e.target.value }))}
                     onKeyDown={(e) => {
                       if (e.key !== 'Enter') return
                       e.preventDefault()
-                      addOrUpdate()
+                      agregarOActualizar()
                     }}
                   />
                 </div>
               </>
-            ) : kind === 'D' ? (
+            ) : tipo === 'D' ? (
               <div className="ig">
                 <label className="il">Diámetro disco (cm)</label>
                 <input
                   className="ii lp-num-inp"
-                  ref={dRef}
+                  ref={referenciaDiametro}
                   type="number"
                   step="any"
-                  value={draft.d}
-                  onChange={(e) => setDraft((s) => ({ ...s, d: e.target.value }))}
+                  value={borrador.d}
+                  onChange={(e) => establecerBorrador((s) => ({ ...s, d: e.target.value }))}
                   onKeyDown={(e) => {
                     if (e.key !== 'Enter') return
                     e.preventDefault()
-                    addOrUpdate()
+                    agregarOActualizar()
                   }}
                 />
               </div>
@@ -847,24 +859,29 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                 <label className="il">Longitud (mm)</label>
                 <input
                   className="ii lp-num-inp"
-                  ref={lRef}
+                  ref={referenciaLongitud}
                   type="number"
                   step="any"
-                  value={draft.l}
+                  value={borrador.l}
                   data-tutorial-id="ops-lp-inp-l-only"
-                  onChange={(e) => setDraft((s) => ({ ...s, l: e.target.value }))}
+                  onChange={(e) => establecerBorrador((s) => ({ ...s, l: e.target.value }))}
                   onKeyDown={(e) => {
                     if (e.key !== 'Enter') return
                     e.preventDefault()
-                    addOrUpdate()
+                    agregarOActualizar()
                   }}
                 />
               </div>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-              <div className="lp-counter">{samplesNow.length} muestra(s)</div>
-              <button className="btn b-teal b-sm" data-tutorial-id="ops-lp-sample-save" data-tutorial-advance="true" onClick={addOrUpdate}>
-                {editIdx == null ? 'Agregar' : 'Guardar'}
+              <div className="lp-counter">{muestrasActuales.length} muestra(s)</div>
+              <button
+                className="btn b-teal b-sm"
+                data-tutorial-id="ops-lp-sample-save"
+                data-tutorial-advance="true"
+                onClick={agregarOActualizar}
+              >
+                {indiceEdicion == null ? 'Agregar' : 'Guardar'}
               </button>
             </div>
           </div>
@@ -874,14 +891,14 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>{kind === 'D' ? 'D (cm)' : 'L (mm)'}</th>
-                  {kind === 'LP' ? <th>P (g)</th> : null}
+                  <th>{tipo === 'D' ? 'D (cm)' : 'L (mm)'}</th>
+                  {tipo === 'LP' ? <th>P (g)</th> : null}
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {samplesNow.length ? (
-                  samplesNow
+                {muestrasActuales.length ? (
+                  muestrasActuales
                     .map((m, idx) => ({ m, idx }))
                     .reverse()
                     .map(({ m, idx }, displayIdx) => (
@@ -889,30 +906,30 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                       key={idx}
                       data-lp-sample-idx={idx}
                       data-tutorial-id={displayIdx === 0 ? 'ops-lp-sample-row' : undefined}
-                      className={idx === flashIdx ? 'lp-flash' : ''}
+                      className={idx === indiceDestello ? 'lp-flash' : ''}
                     >
-                      <td>{samplesNow.length - displayIdx}</td>
-                      <td>{kind === 'D' ? m?.d ?? '' : m?.l ?? ''}</td>
-                      {kind === 'LP' ? <td>{m?.p ?? ''}</td> : null}
+                      <td>{muestrasActuales.length - displayIdx}</td>
+                      <td>{tipo === 'D' ? m?.d ?? '' : m?.l ?? ''}</td>
+                      {tipo === 'LP' ? <td>{m?.p ?? ''}</td> : null}
                       <td style={{ textAlign: 'right' }}>
                         <div className="lp-samples-actions">
                           <button
                             className="btn b-out b-sm"
                             onClick={() => {
-                              setEditIdx(idx)
-                              setDraft(
-                                kind === 'LP' ? { l: m?.l ?? '', p: m?.p ?? '' } : kind === 'D' ? { d: m?.d ?? '' } : { l: m?.l ?? '' },
+                              establecerIndiceEdicion(idx)
+                              establecerBorrador(
+                                tipo === 'LP' ? { l: m?.l ?? '', p: m?.p ?? '' } : tipo === 'D' ? { d: m?.d ?? '' } : { l: m?.l ?? '' },
                               )
                               setTimeout(() => {
-                                if (kind === 'LP') {
-                                  lRef.current?.focus?.()
-                                  lRef.current?.select?.()
-                                } else if (kind === 'D') {
-                                  dRef.current?.focus?.()
-                                  dRef.current?.select?.()
+                                if (tipo === 'LP') {
+                                  referenciaLongitud.current?.focus?.()
+                                  referenciaLongitud.current?.select?.()
+                                } else if (tipo === 'D') {
+                                  referenciaDiametro.current?.focus?.()
+                                  referenciaDiametro.current?.select?.()
                                 } else {
-                                  lRef.current?.focus?.()
-                                  lRef.current?.select?.()
+                                  referenciaLongitud.current?.focus?.()
+                                  referenciaLongitud.current?.select?.()
                                 }
                               }, 0)
                             }}
@@ -923,25 +940,25 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                             className="btn b-out b-sm"
                             onClick={() => {
                               const label =
-                                kind === 'LP'
+                                tipo === 'LP'
                                   ? `L=${String(m?.l ?? '—')} mm, P=${String(m?.p ?? '—')} g`
-                                  : kind === 'D'
+                                  : tipo === 'D'
                                     ? `D=${String(m?.d ?? '—')} cm`
                                     : `L=${String(m?.l ?? '—')} mm`
                               if (!confirm(`¿Eliminar esta muestra (${label})?`)) return
-                              updateOperacion(op.id, (cur) => {
+                              actualizarOperacion(operacion.id, (cur) => {
                                 const nextBotes = (cur.botes || []).map((x) => {
                                   if (x.id !== bote.id) return x
-                                  const map = x.lpMuestras || {}
-                                  const next = removeSample(map, spId, kind, idx)
-                                  return { ...x, lpMuestras: next }
+                                  const mapaLpMuestras = x.lpMuestras || {}
+                                  const siguiente = eliminarMuestra(mapaLpMuestras, idEspecie, tipo, idx)
+                                  return { ...x, lpMuestras: siguiente }
                                 })
                                 return { ...cur, botes: nextBotes }
                               })
-                              setSamplesNow((prev) => prev.filter((_, i) => i !== idx))
-                              if (editIdx === idx) {
-                                setEditIdx(null)
-                                setDraft(kind === 'LP' ? { l: '', p: '' } : kind === 'D' ? { d: '' } : { l: '' })
+                              establecerMuestrasActuales((prev) => prev.filter((_, i) => i !== idx))
+                              if (indiceEdicion === idx) {
+                                establecerIndiceEdicion(null)
+                                establecerBorrador(tipo === 'LP' ? { l: '', p: '' } : tipo === 'D' ? { d: '' } : { l: '' })
                               }
                             }}
                           >
@@ -953,7 +970,7 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={kind === 'LP' ? 4 : 3} style={{ textAlign: 'center', color: 'var(--text3)' }}>
+                    <td colSpan={tipo === 'LP' ? 4 : 3} style={{ textAlign: 'center', color: 'var(--text3)' }}>
                       Sin muestras
                     </td>
                   </tr>
@@ -963,24 +980,24 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
           </div>
 
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn b-out" style={{ flex: 1 }} data-tutorial-id="ops-lp-sample-close" onClick={closeModal}>
+            <button className="btn b-out" style={{ flex: 1 }} data-tutorial-id="ops-lp-sample-close" onClick={cerrarModal}>
               Cerrar
             </button>
             <button
               className="btn b-out"
               style={{ flex: 1, color: 'var(--red)' }}
               onClick={() => {
-                if (!confirm(`Quitar especie ${sp?.com || spId}?`)) return
-                updateOperacion(op.id, (cur) => {
+                if (!confirm(`Quitar especie ${especie?.com || idEspecie}?`)) return
+                actualizarOperacion(operacion.id, (cur) => {
                   const nextBotes = (cur.botes || []).map((x) => {
                     if (x.id !== bote.id) return x
-                    const next = removeEspecie(x.lpMuestras, spId)
-                    return { ...x, lpMuestras: next }
+                    const siguiente = eliminarEspecie(x.lpMuestras, idEspecie)
+                    return { ...x, lpMuestras: siguiente }
                   })
                   return { ...cur, botes: nextBotes }
                 })
-                closeModal()
-                toast?.('Especie removida', 'green')
+                cerrarModal()
+                mostrarToast?.('Especie removida', 'green')
               }}
             >
               Quitar especie
@@ -990,40 +1007,40 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
       )
     }
 
-    openModal(`${sp?.com || spId}`, <Body />, 'wide')
-  }, [bote, byId, canWrite, closeModal, openModal, op.id, toast, updateOperacion])
+    abrirModal(`${especie?.com || idEspecie}`, <Cuerpo />, 'wide')
+  }, [actualizarOperacion, abrirModal, bote, cerrarModal, especiePorId, mostrarToast, operacion?.id, puedeEscribir])
 
   useEffect(() => {
-    const token = lpJump?.token ?? null
+    const token = saltoLp?.token ?? null
     if (!token) return
-    const opId = String(lpJump?.opId ?? '')
-    if (!opId || String(op?.id ?? '') !== opId) return
-    const boteId = lpJump?.boteId != null && String(lpJump.boteId) !== '' ? String(lpJump.boteId) : null
-    const matchBote = boteId ? String(bote?.id ?? '') === boteId : true
-    if (!matchBote) return
-    const spId = Number(lpJump?.especieId)
-    const l = lpJump?.l
-    const p = lpJump?.p
-    if (!Number.isFinite(spId)) return
+    const idOperacion = String(saltoLp?.opId ?? '')
+    if (!idOperacion || String(operacion?.id ?? '') !== idOperacion) return
+    const idBote = saltoLp?.boteId != null && String(saltoLp.boteId) !== '' ? String(saltoLp.boteId) : null
+    const coincideBote = idBote ? String(bote?.id ?? '') === idBote : true
+    if (!coincideBote) return
+    const idEspecie = Number(saltoLp?.especieId)
+    const l = saltoLp?.l
+    const p = saltoLp?.p
+    if (!Number.isFinite(idEspecie)) return
     if (l == null || p == null) return
-    openIngreso(spId, 'LP', lpJump)
+    abrirIngreso(idEspecie, 'LP', saltoLp)
     try {
       window.dispatchEvent(new CustomEvent('bitecma:lp-jump-consumed', { detail: { token } }))
     } catch {
       return
     }
-  }, [lpJump, op?.id, bote?.id, openIngreso])
+  }, [saltoLp, operacion?.id, bote?.id, abrirIngreso])
 
   return (
     <div data-tutorial-id="ops-lp-panel">
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 10 }}>
         <div style={{ fontFamily: 'var(--ff-d)', fontSize: 14, fontWeight: 800, color: 'var(--navy)' }}>Peso-Longitud</div>
-        <button className="btn b-teal b-sm" data-tutorial-id="ops-lp-select-btn" onClick={openSeleccionarEspecies}>
+        <button className="btn b-teal b-sm" data-tutorial-id="ops-lp-select-btn" onClick={abrirSeleccionarEspecies}>
           Seleccionar especies
         </button>
       </div>
 
-      {spIds.length === 0 ? (
+      {idsEspecies.length === 0 ? (
         <div className="info-box amber">
           <span>i</span>
           <div>Sin especies para muestreo. Agrega una especie para ingresar muestras.</div>
@@ -1040,52 +1057,48 @@ export default function LpTab({ op, bote, especies, updateOperacion, canWrite, t
               </tr>
             </thead>
             <tbody>
-              {spIds.flatMap((spId) => {
-                const sp = byId.get(Number(spId))
-                const entry = normalizeEntry(lpMap?.[spId])
-                const isAlga = isAlgaSpecies(sp)
-                const kinds = isAlga ? ['D'] : ['LP', 'L']
-                const visibleKinds = kinds.filter((k) => Object.prototype.hasOwnProperty.call(entry, k))
-                return visibleKinds.map((kind) => {
-                  const samples = entry?.[kind] || []
-                  const cnt = Array.isArray(samples) ? samples.length : 0
-                  const cntLP = Array.isArray(entry?.LP) ? entry.LP.length : 0
-                  const muestrasText =
-                    kind === 'L' && cntLP > 0
-                      ? cnt > 0
-                        ? `${cnt} + ${cntLP}`
-                        : String(cntLP)
-                      : String(cnt)
+              {idsEspecies.flatMap((idEspecie) => {
+                const especie = especiePorId.get(Number(idEspecie))
+                const entrada = normalizarEntrada(mapaLpMuestras?.[idEspecie])
+                const esAlga = esEspecieAlga(especie)
+                const tiposMuestreo = esAlga ? ['D'] : ['LP', 'L']
+                const tiposVisibles = tiposMuestreo.filter((tipo) => Object.prototype.hasOwnProperty.call(entrada, tipo))
+                return tiposVisibles.map((tipo) => {
+                  const muestras = entrada?.[tipo] || []
+                  const cantidad = Array.isArray(muestras) ? muestras.length : 0
+                  const cantidadLP = Array.isArray(entrada?.LP) ? entrada.LP.length : 0
+                  const textoMuestras =
+                    tipo === 'L' && cantidadLP > 0 ? (cantidad > 0 ? `${cantidad} + ${cantidadLP}` : String(cantidadLP)) : String(cantidad)
                   return (
                     <tr
-                      key={`${spId}-${kind}`}
-                      data-tutorial-id={Number(spId) === Number(firstNonAlgaId) && kind === 'L' ? 'ops-lp-row-L' : undefined}
+                      key={`${idEspecie}-${tipo}`}
+                      data-tutorial-id={Number(idEspecie) === Number(primerIdNoAlga) && tipo === 'L' ? 'ops-lp-row-L' : undefined}
                     >
                       <td style={{ textAlign: 'left' }}>
-                        <strong>{sp?.com || spId}</strong>
-                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{sp?.sci || ''}</div>
+                        <strong>{especie?.com || idEspecie}</strong>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{especie?.sci || ''}</div>
                       </td>
-                      <td>{muestrasText}</td>
-                      <td>{kind === 'LP' ? 'L-P' : kind}</td>
+                      <td>{textoMuestras}</td>
+                      <td>{tipo === 'LP' ? 'L-P' : tipo}</td>
                       <td style={{ textAlign: 'right' }}>
                         <div className="lp-species-action">
                           <button
                             className="btn b-teal b-sm"
                             data-tutorial-id={
-                              Number(spId) === Number(firstNonAlgaId) && kind === 'LP'
+                              Number(idEspecie) === Number(primerIdNoAlga) && tipo === 'LP'
                                 ? 'ops-lp-ingresar'
-                                : Number(spId) === Number(firstNonAlgaId) && kind === 'L'
+                                : Number(idEspecie) === Number(primerIdNoAlga) && tipo === 'L'
                                   ? 'ops-lp-ingresar-L'
                                   : undefined
                             }
                             data-tutorial-advance={
-                              Number(spId) === Number(firstNonAlgaId) && kind === 'LP'
+                              Number(idEspecie) === Number(primerIdNoAlga) && tipo === 'LP'
                                 ? 'true'
-                                : Number(spId) === Number(firstNonAlgaId) && kind === 'L'
+                                : Number(idEspecie) === Number(primerIdNoAlga) && tipo === 'L'
                                   ? 'true'
                                   : undefined
                             }
-                            onClick={() => openIngreso(spId, kind)}
+                            onClick={() => abrirIngreso(idEspecie, tipo)}
                           >
                             Ingresar
                           </button>

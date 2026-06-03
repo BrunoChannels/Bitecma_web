@@ -4,12 +4,12 @@
  */
 import { useState } from 'react'
 import logoUrl from '../img/logo.png'
-import SvgIcon from './svgIcon.jsx'
-import NotificationHistoryPanel from './notifications/NotificationHistoryPanel.jsx'
-import { useApp } from '../context/appContext.jsx'
-import { useUi } from '../context/uiContext.jsx'
-import { useDb } from '../context/dbContext.jsx'
-import { mergeOperacionesById, parseOperacionesPayload, serializeOperaciones } from '../services/operacionesTransferService.js'
+import IconoSvg from './svgIcon.jsx'
+import PanelHistorialNotificaciones from './notifications/NotificationHistoryPanel.jsx'
+import { usarAplicacion } from '../context/appContext.jsx'
+import { usarInterfaz } from '../context/uiContext.jsx'
+import { usarBaseDatos } from '../context/dbContext.jsx'
+import { combinarOperacionesPorId, parsearPayloadOperaciones, serializarOperaciones } from '../services/operacionesTransferService.js'
 
 /**
  * Cuerpo del modal de configuración accesible desde la barra superior.
@@ -45,11 +45,11 @@ import { mergeOperacionesById, parseOperacionesPayload, serializeOperaciones } f
  * - Mantener compatibilidad del formato exportado/importado con `operacionesTransferService`.
  * - Evitar loguear contenido de operaciones (puede contener datos sensibles).
  */
-function ConfigModalBody() {
-  const { navigate, isAdmin } = useApp()
-  const { db, setDb } = useDb()
-  const { closeModal, toast, theme, setTheme } = useUi()
-  const [mode, setMode] = useState('merge')
+function CuerpoModalConfiguracion() {
+  const { navegar, esAdmin } = usarAplicacion()
+  const { baseDatos, establecerBaseDatos } = usarBaseDatos()
+  const { cerrarModal, mostrarToast, tema, establecerTema } = usarInterfaz()
+  const [modoImportacion, establecerModoImportacion] = useState('merge')
 
   /**
    * Exporta operaciones actuales a un archivo JSON descargable.
@@ -78,25 +78,25 @@ function ConfigModalBody() {
    * Notas de mantenimiento:
    * - El nombre del archivo incluye fecha (YYYYMMDD) para evitar colisiones.
    */
-  const exportOps = () => {
+  const exportarOperaciones = () => {
     try {
-      const json = serializeOperaciones(db?.operaciones || [])
-      const blob = new Blob([json], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const d = new Date()
-      const y = d.getFullYear()
-      const m = String(d.getMonth() + 1).padStart(2, '0')
-      const day = String(d.getDate()).padStart(2, '0')
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `operaciones-${y}${m}${day}.json`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      setTimeout(() => URL.revokeObjectURL(url), 1200)
-      toast('Operaciones exportadas', 'green')
+      const jsonOperaciones = serializarOperaciones(baseDatos?.operaciones || [])
+      const archivoBlob = new Blob([jsonOperaciones], { type: 'application/json' })
+      const urlDescarga = URL.createObjectURL(archivoBlob)
+      const fecha = new Date()
+      const ano = fecha.getFullYear()
+      const mes = String(fecha.getMonth() + 1).padStart(2, '0')
+      const dia = String(fecha.getDate()).padStart(2, '0')
+      const enlaceDescarga = document.createElement('a')
+      enlaceDescarga.href = urlDescarga
+      enlaceDescarga.download = `operaciones-${ano}${mes}${dia}.json`
+      document.body.appendChild(enlaceDescarga)
+      enlaceDescarga.click()
+      enlaceDescarga.remove()
+      setTimeout(() => URL.revokeObjectURL(urlDescarga), 1200)
+      mostrarToast('Operaciones exportadas', 'green')
     } catch {
-      toast('No se pudo exportar', 'red')
+      mostrarToast('No se pudo exportar', 'red')
     }
   }
 
@@ -130,10 +130,10 @@ function ConfigModalBody() {
    * Notas de mantenimiento:
    * - Mantener tolerancia a cambios de esquema dentro de `parseOperacionesPayload`.
    */
-  const importOps = (file) => {
-    if (!file) return
-    const fr = new FileReader()
-    fr.onload = () => {
+  const importarOperaciones = (archivo) => {
+    if (!archivo) return
+    const lectorArchivo = new FileReader()
+    lectorArchivo.onload = () => {
       try {
         const normalizarSubmareal = (v) => {
           if (v == null) return true
@@ -143,7 +143,7 @@ function ConfigModalBody() {
           if (v === 0 || v === '0') return false
           return Boolean(v)
         }
-        const incoming = parseOperacionesPayload(String(fr.result || '')).map((op) => {
+        const operacionesEntrantes = parsearPayloadOperaciones(String(lectorArchivo.result || '')).map((op) => {
           const raw = op && typeof op === 'object' ? op : {}
           const botes = Array.isArray(raw?.botes) ? raw.botes : []
           const botesNormalizados = botes.map((b) => ({
@@ -152,17 +152,18 @@ function ConfigModalBody() {
           }))
           return { ...raw, botes: botesNormalizados }
         })
-        setDb((prev) => {
-          const cur = prev?.operaciones || []
-          const nextOps = mode === 'replace' ? incoming : mergeOperacionesById(cur, incoming)
-          return { ...prev, operaciones: nextOps }
+        establecerBaseDatos((prev) => {
+          const operacionesActuales = prev?.operaciones || []
+          const operacionesSiguientes =
+            modoImportacion === 'replace' ? operacionesEntrantes : combinarOperacionesPorId(operacionesActuales, operacionesEntrantes)
+          return { ...prev, operaciones: operacionesSiguientes }
         })
-        toast('Operaciones importadas', 'green')
+        mostrarToast('Operaciones importadas', 'green')
       } catch {
-        toast('Archivo inválido', 'red')
+        mostrarToast('Archivo inválido', 'red')
       }
     }
-    fr.readAsText(file)
+    lectorArchivo.readAsText(archivo)
   }
 
   return (
@@ -177,7 +178,7 @@ function ConfigModalBody() {
             type="checkbox"
             role="switch"
             id="cfg-theme"
-            checked={theme === 'dark'}
+            checked={tema === 'dark'}
             onChange={(e) => {
               /**
                * Actualiza el tema global según el estado del switch.
@@ -204,7 +205,7 @@ function ConfigModalBody() {
                * Notas de mantenimiento:
                * - Mantener sincronía con el valor `theme` para que el switch sea controlado.
                */
-              setTheme(e.target.checked ? 'dark' : 'light')
+              establecerTema(e.target.checked ? 'dark' : 'light')
             }}
             style={{ width: '3.2em', height: '1.7em', cursor: 'pointer' }}
           />
@@ -246,8 +247,8 @@ function ConfigModalBody() {
                  * Notas de mantenimiento:
                  * - Mantener la ruta `'admin'` sincronizada con el router/estado de app.
                  */
-                closeModal()
-                navigate('admin')
+                cerrarModal()
+                navegar('admin')
               }}
             >
               Abrir
@@ -259,7 +260,7 @@ function ConfigModalBody() {
               <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Exportar operaciones</div>
               <div style={{ fontSize: 12, color: 'var(--text3)' }}>Descarga un JSON para migrar a otra PC</div>
             </div>
-            <button className="btn b-teal b-sm" onClick={exportOps}>
+            <button className="btn b-teal b-sm" onClick={exportarOperaciones}>
               Exportar
             </button>
           </div>
@@ -269,7 +270,7 @@ function ConfigModalBody() {
               <div style={{ fontWeight: 800, color: 'var(--navy)' }}>Importar operaciones</div>
               <div style={{ fontSize: 12, color: 'var(--text3)' }}>Carga un JSON exportado previamente</div>
               <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                <select className="is" style={{ maxWidth: 220 }} value={mode} onChange={(e) => setMode(e.target.value)}>
+                <select className="is" style={{ maxWidth: 220 }} value={modoImportacion} onChange={(e) => establecerModoImportacion(e.target.value)}>
                   <option value="merge">Combinar por ID</option>
                   <option value="replace">Reemplazar todo</option>
                 </select>
@@ -303,7 +304,7 @@ function ConfigModalBody() {
                      * Notas de mantenimiento:
                      * - Mantener `accept` para evitar tipos no deseados.
                      */
-                    importOps(e?.target?.files?.[0])
+                    importarOperaciones(e?.target?.files?.[0])
                   }}
                 />
               </div>
@@ -317,15 +318,15 @@ function ConfigModalBody() {
         </div>
       )}
 
-      <button className="btn b-teal" onClick={closeModal}>
+      <button className="btn b-teal" onClick={cerrarModal}>
         Cerrar
       </button>
     </div>
   )
 }
 
-function TutorialModalBody() {
-  const { closeModal } = useUi()
+function CuerpoModalTutoriales() {
+  const { cerrarModal } = usarInterfaz()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -337,7 +338,7 @@ function TutorialModalBody() {
         <button
           className="btn b-teal b-sm"
           onClick={() => {
-            closeModal()
+            cerrarModal()
             window.dispatchEvent(new CustomEvent('bitecma:tutorial', { detail: { action: 'start', tour: 'dashboard' } }))
           }}
         >
@@ -353,7 +354,7 @@ function TutorialModalBody() {
         <button
           className="btn b-teal b-sm"
           onClick={() => {
-            closeModal()
+            cerrarModal()
             window.dispatchEvent(new CustomEvent('bitecma:tutorial', { detail: { action: 'start', tour: 'ops' } }))
           }}
         >
@@ -361,7 +362,7 @@ function TutorialModalBody() {
         </button>
       </div>
 
-      <button className="btn b-teal" onClick={closeModal}>
+      <button className="btn b-teal" onClick={cerrarModal}>
         Cerrar
       </button>
     </div>
@@ -403,10 +404,10 @@ function TutorialModalBody() {
  * - Mantener el mapping de `page -> label` en sincronía con las páginas reales.
  * - Evitar lógica compleja en render; mover a helpers si crece.
  */
-export default function Topbar() {
-  const { navigate, user, page, role } = useApp()
-  const { openModal, toggleSidebar, toastHistory, vaciarHistorialToast, toast } = useUi()
-  const currentLabel =
+export default function BarraSuperior() {
+  const { navegar, usuario, pagina, rol } = usarAplicacion()
+  const { abrirModal, alternarBarraLateral, historialToast, vaciarHistorialToast, mostrarToast } = usarInterfaz()
+  const etiquetaActual =
     {
       dashboard: 'Dashboard',
       ops: 'Operaciones',
@@ -420,20 +421,20 @@ export default function Topbar() {
       botes: 'Botes',
       perfil: 'Perfil',
       admin: 'Admin',
-    }[String(page || 'dashboard')] || 'Dashboard'
+    }[String(pagina || 'dashboard')] || 'Dashboard'
 
-  const apiUrl = String(import.meta.env?.VITE_API_URL || '').trim().replace(/\/+$/, '')
-  const rawAvatar = String(user?.avatar_url || user?.logo || '').trim()
-  const avatarSrc =
-    rawAvatar && (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:') || rawAvatar.startsWith('blob:'))
-      ? rawAvatar
-      : rawAvatar && rawAvatar.startsWith('/')
-        ? `${apiUrl}${rawAvatar}`
-        : rawAvatar && apiUrl
-          ? `${apiUrl}/${rawAvatar.replace(/^\/+/, '')}`
+  const urlApi = String(import.meta.env?.VITE_API_URL || '').trim().replace(/\/+$/, '')
+  const avatarBruto = String(usuario?.avatar_url || usuario?.logo || '').trim()
+  const srcAvatar =
+    avatarBruto && (avatarBruto.startsWith('http') || avatarBruto.startsWith('data:') || avatarBruto.startsWith('blob:'))
+      ? avatarBruto
+      : avatarBruto && avatarBruto.startsWith('/')
+        ? `${urlApi}${avatarBruto}`
+        : avatarBruto && urlApi
+          ? `${urlApi}/${avatarBruto.replace(/^\/+/, '')}`
           : ''
 
-  const initials = String(user?.nombre || 'US')
+  const iniciales = String(usuario?.nombre || 'US')
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
@@ -443,7 +444,7 @@ export default function Topbar() {
 
   return (
     <div className="topbar">
-      <button className="tb-btn tb-menu d-md-none" onClick={toggleSidebar} aria-label="Abrir menú">
+      <button className="tb-btn tb-menu d-md-none" onClick={alternarBarraLateral} aria-label="Abrir menú">
         ≡
       </button>
       <div
@@ -472,7 +473,7 @@ export default function Topbar() {
            * Notas de mantenimiento:
            * - Mantener la ruta `'dashboard'` consistente con el estado de app.
            */
-          navigate('dashboard')
+          navegar('dashboard')
         }}
       >
         <div className="tb-logo-icon">
@@ -483,11 +484,11 @@ export default function Topbar() {
         </div>
       </div>
       <div className="tb-sep"></div>
-      <div className="tb-mob-loc">{currentLabel}</div>
+      <div className="tb-mob-loc">{etiquetaActual}</div>
       <div className="tb-bc" id="topbc">
         <span>Inicio</span>
         <span>/</span>
-        <span className="cur">{currentLabel}</span>
+        <span className="cur">{etiquetaActual}</span>
       </div>
       <div className="tb-spacer"></div>
       <div className="tb-actions">
@@ -496,7 +497,7 @@ export default function Topbar() {
           title="Tutoriales"
           aria-label="Tutoriales"
           onClick={() => {
-            openModal('Tutoriales', <TutorialModalBody />)
+            abrirModal('Tutoriales', <CuerpoModalTutoriales />)
           }}
         >
           ?
@@ -506,17 +507,17 @@ export default function Topbar() {
           title="Notificaciones"
           aria-label="Notificaciones"
           onClick={() =>
-            openModal(
+            abrirModal(
               'Notificaciones',
-              <NotificationHistoryPanel />,
+              <PanelHistorialNotificaciones />,
               'slim',
               <button
                 type="button"
                 className="btn b-out b-sm"
-                disabled={!Array.isArray(toastHistory) || !toastHistory.length}
+                disabled={!Array.isArray(historialToast) || !historialToast.length}
                 onClick={() => {
                   vaciarHistorialToast?.()
-                  toast?.('Notificaciones vaciadas', 'blue')
+                  mostrarToast?.('Notificaciones vaciadas', 'blue')
                 }}
               >
                 Vaciar notificaciones
@@ -525,10 +526,10 @@ export default function Topbar() {
           }
           style={{ position: 'relative' }}
         >
-          <SvgIcon name="bell" aria-hidden="true" />
-          {Array.isArray(toastHistory) && toastHistory.length ? (
+          <IconoSvg name="bell" aria-hidden="true" />
+          {Array.isArray(historialToast) && historialToast.length ? (
             <div className="tb-badge" aria-hidden="true">
-              {toastHistory.length > 9 ? '9+' : toastHistory.length}
+              {historialToast.length > 9 ? '9+' : historialToast.length}
             </div>
           ) : null}
         </button>
@@ -559,10 +560,10 @@ export default function Topbar() {
              * Notas de mantenimiento:
              * - Mantener el tamaño `'wide'` alineado a estilos disponibles del modal.
              */
-            openModal('Configuración', <ConfigModalBody />, 'wide')
+            abrirModal('Configuración', <CuerpoModalConfiguracion />, 'wide')
           }}
         >
-          <SvgIcon name="gear" aria-hidden="true" />
+          <IconoSvg name="gear" aria-hidden="true" />
         </button>
         <div
           className="user-chip"
@@ -590,27 +591,27 @@ export default function Topbar() {
              * Notas de mantenimiento:
              * - Mantener `'perfil'` consistente con el routing interno.
              */
-            navigate('perfil')
+            navegar('perfil')
           }}
         >
           <div
             className="user-av"
             id="tb-user-av"
             style={{
-              backgroundImage: avatarSrc ? `url('${avatarSrc}')` : '',
-              backgroundSize: avatarSrc ? 'cover' : '',
-              backgroundPosition: avatarSrc ? 'center' : '',
-              backgroundRepeat: avatarSrc ? 'no-repeat' : '',
+              backgroundImage: srcAvatar ? `url('${srcAvatar}')` : '',
+              backgroundSize: srcAvatar ? 'cover' : '',
+              backgroundPosition: srcAvatar ? 'center' : '',
+              backgroundRepeat: srcAvatar ? 'no-repeat' : '',
             }}
           >
-            {avatarSrc ? null : initials}
+            {srcAvatar ? null : iniciales}
           </div>
           <div>
             <div className="user-name" id="tb-user-name">
-              {user?.nombre || 'Usuario'}
+              {usuario?.nombre || 'Usuario'}
             </div>
             <div className="user-role" id="tb-user-role">
-              {role || user?.rol || '—'}
+              {rol || usuario?.rol || '—'}
             </div>
           </div>
         </div>

@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useDb } from '../context/dbContext.jsx'
-import { useUi } from '../context/uiContext.jsx'
-import { useApp } from '../context/appContext.jsx'
-import SvgIcon from '../components/svgIcon.jsx'
+import { usarBaseDatos } from '../context/dbContext.jsx'
+import { usarInterfaz } from '../context/uiContext.jsx'
+import { usarAplicacion } from '../context/appContext.jsx'
+import IconoSvg from '../components/svgIcon.jsx'
 
 /**
  * Página de organizaciones (OPA): listado por región con búsqueda.
  *
  * @param {object} props - Props del componente.
- * @param {boolean} props.active - Indica si la página está activa (habilita carga inicial).
+ * @param {boolean} props.activo - Indica si la página está activa (habilita carga inicial).
  * @returns {import('react').JSX.Element} Tabla de organizaciones filtrada por región y texto.
  *
  * Lógica:
@@ -31,20 +31,28 @@ import SvgIcon from '../components/svgIcon.jsx'
  * - No gestiona errores explícitos; se asume que el contexto DB maneja fallas y expone arreglos seguros.
  *
  * @example
- * <OrgsPage active={page === 'orgs'} />
+ * <OrgsPage activo={page === 'orgs'} />
  *
  * Notas de mantenimiento:
  * - Si el dataset crece, considerar paginación/virtualización. Hoy se limita a 2000 filas.
  */
-export default function OrgsPage({ active }) {
-  const { db, apiEnabled, ensureRegionesLoaded, ensureOpaLoaded, createOpa, updateOpa, deleteOpa } = useDb()
-  const { toast } = useUi()
-  const { isAdmin } = useApp()
+export default function OrgsPage({ activo }) {
+  const {
+    baseDatos: db,
+    apiHabilitada: apiEnabled,
+    asegurarRegionesCargadas: ensureRegionesLoaded,
+    asegurarOpaCargada: ensureOpaLoaded,
+    crearOpa: createOpa,
+    actualizarOpa: updateOpa,
+    eliminarOpa: deleteOpa,
+  } = usarBaseDatos()
+  const { mostrarToast: toast } = usarInterfaz()
+  const { esAdmin: isAdmin } = usarAplicacion()
   useEffect(() => {
-    if (!active) return
+    if (!activo) return
     ensureRegionesLoaded?.()
     ensureOpaLoaded?.()
-  }, [active, ensureRegionesLoaded, ensureOpaLoaded])
+  }, [activo, ensureRegionesLoaded, ensureOpaLoaded])
 
   const regiones = useMemo(() => {
     const arr = db?.regionesChile
@@ -95,7 +103,7 @@ export default function OrgsPage({ active }) {
   }, [orgs, regionId, q])
 
   return (
-    <div className={`page${active ? ' active' : ''}`} id="pg-orgs">
+    <div className={`page${activo ? ' active' : ''}`} id="pg-orgs">
       <div className="ph">
         <div>
           <h2>Organizaciones</h2>
@@ -320,7 +328,7 @@ export default function OrgsPage({ active }) {
                                 })
                               }}
                             >
-                              <SvgIcon name="edit" aria-hidden="true" />
+                              <IconoSvg name="edit" aria-hidden="true" />
                             </button>
 
                             <button
@@ -361,7 +369,7 @@ export default function OrgsPage({ active }) {
                                 }
                               }}
                             >
-                              <SvgIcon name="trash" aria-hidden="true" style={{ fill: 'var(--red)' }} />
+                              <IconoSvg name="trash" aria-hidden="true" style={{ fill: 'var(--red)' }} />
                             </button>
                           </div>
                         </td>

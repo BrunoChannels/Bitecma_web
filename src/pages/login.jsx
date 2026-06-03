@@ -1,6 +1,6 @@
 import logoUrl from '../img/logo.png'
 import { useState } from 'react'
-import { useApp } from '../context/appContext.jsx'
+import { usarAplicacion } from '../context/appContext.jsx'
 
 /**
  * Pantalla de inicio de sesión (overlay) para usuarios no autenticados.
@@ -29,13 +29,13 @@ import { useApp } from '../context/appContext.jsx'
  * Notas de mantenimiento:
  * - Evitar loguear credenciales.
  */
-export default function LoginScreen({ active }) {
-  const { login } = useApp()
-  const [email, setEmail] = useState('')
-  const [pass, setPass] = useState('')
+export default function PantallaLogin({ activo }) {
+  const { iniciarSesion } = usarAplicacion()
+  const [correo, establecerCorreo] = useState('')
+  const [contrasena, establecerContrasena] = useState('')
 
   return (
-    <div id="scr-login" className={`screen${active ? ' active' : ''}`}>
+    <div id="scr-login" className={`screen${activo ? ' active' : ''}`}>
       <div className="lcard">
         <div className="lc-logo">
           <div className="lc-icon">
@@ -57,8 +57,8 @@ export default function LoginScreen({ active }) {
             id="login-email"
             type="email"
             placeholder="bitecma@bitecma.cl"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            value={correo}
+            onChange={(e) => establecerCorreo(e.target.value)}
           />
         </div>
         <div className="lf-g">
@@ -68,14 +68,14 @@ export default function LoginScreen({ active }) {
             id="login-pass"
             type="password"
             placeholder="12345678"
-            value={pass}
-            onChange={(e) => setPass(e.target.value)}
+            value={contrasena}
+            onChange={(e) => establecerContrasena(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') login(email, pass)
+              if (e.key === 'Enter') iniciarSesion(correo, contrasena)
             }}
           />
         </div>
-        <button className="btn-login" onClick={() => login(email, pass)}>
+        <button className="btn-login" onClick={() => iniciarSesion(correo, contrasena)}>
           Ingresar
         </button>
 

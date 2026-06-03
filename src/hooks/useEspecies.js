@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useDb } from '../context/dbContext.jsx'
+import { usarBaseDatos } from '../context/dbContext.jsx'
 
 /**
  * Hook selector para el catálogo de especies.
@@ -17,7 +17,7 @@ import { useDb } from '../context/dbContext.jsx'
  * - Ninguno.
  */
 export function useEspecies() {
-  const { db } = useDb()
+  const { baseDatos: db } = usarBaseDatos()
   const especies = useMemo(() => {
     const arr = db?.especies
     return Array.isArray(arr) ? arr : []

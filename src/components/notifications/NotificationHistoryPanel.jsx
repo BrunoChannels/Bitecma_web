@@ -1,21 +1,21 @@
 import { useMemo } from 'react'
-import { useUi } from '../../context/uiContext.jsx'
-import NotificationItem from './NotificationItem.jsx'
+import { usarInterfaz } from '../../context/uiContext.jsx'
+import ItemNotificacion from './NotificationItem.jsx'
 
-export default function NotificationHistoryPanel() {
-  const { toastHistory, removeToastHistory } = useUi()
+export default function PanelHistorialNotificaciones() {
+  const { historialToast, eliminarHistorialToast } = usarInterfaz()
 
-  const items = useMemo(() => {
-    const arr = Array.isArray(toastHistory) ? toastHistory : []
-    return [...arr].reverse()
-  }, [toastHistory])
+  const notificaciones = useMemo(() => {
+    const arreglo = Array.isArray(historialToast) ? historialToast : []
+    return [...arreglo].reverse()
+  }, [historialToast])
 
   return (
     <div className="notif-panel">
-      {items.length ? (
+      {notificaciones.length ? (
         <div className="notif-panel-inner">
-          {items.map((n) => (
-            <NotificationItem key={String(n?.id || '')} notification={n} onRemove={removeToastHistory} />
+          {notificaciones.map((notificacion) => (
+            <ItemNotificacion key={String(notificacion?.id || '')} notificacion={notificacion} alEliminar={eliminarHistorialToast} />
           ))}
         </div>
       ) : (

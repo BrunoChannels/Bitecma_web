@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
-import { useApp } from '../context/appContext.jsx'
-import { useUi } from '../context/uiContext.jsx'
+import { usarAplicacion } from '../context/appContext.jsx'
+import { usarInterfaz } from '../context/uiContext.jsx'
 
 /**
  * Página de perfil: edición de datos personales y cambio de contraseña.
  *
  * @param {object} props - Props del componente.
- * @param {boolean} props.active - Indica si la página está activa (se usa para estilos).
+ * @param {boolean} props.activo - Indica si la página está activa (se usa para estilos).
  * @returns {import('react').JSX.Element} UI de perfil con avatar, formulario y sección de contraseña.
  *
  * Lógica (alto nivel):
@@ -33,15 +33,15 @@ import { useUi } from '../context/uiContext.jsx'
  * - La validación/errores finales se delegan al contexto (`updateProfile`/`changePassword`).
  *
  * @example
- * <PerfilPage active={page === 'perfil'} />
+ * <PerfilPage activo={page === 'perfil'} />
  *
  * Notas de mantenimiento:
  * - Guardar avatar como DataURL puede aumentar el tamaño del estado/localStorage; considerar upload a backend si se requiere.
  * - Mantener `editsByUser` para soportar cambios de usuario sin mezclar formularios.
  */
-export default function PerfilPage({ active }) {
-  const { user, navigate, updateProfile, uploadAvatar, changePassword } = useApp()
-  const { toast } = useUi()
+export default function PerfilPage({ activo }) {
+  const { usuario: user, navegar: navigate, actualizarPerfil: updateProfile, subirAvatar: uploadAvatar, cambiarContrasena: changePassword } = usarAplicacion()
+  const { mostrarToast: toast } = usarInterfaz()
   const fileRef = useRef(null)
 
   const apiUrl = String(import.meta.env?.VITE_API_URL || '').trim().replace(/\/+$/, '')
@@ -115,7 +115,7 @@ export default function PerfilPage({ active }) {
     String(form.logo || '') !== String(baseForm.logo || '')
 
   return (
-    <div className={`page${active ? ' active' : ''}`} id="pg-perfil">
+    <div className={`page${activo ? ' active' : ''}`} id="pg-perfil">
       <div className="ph">
         <div>
           <h2>Perfil</h2>

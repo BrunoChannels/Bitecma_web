@@ -1,12 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { useDb } from './dbContext.jsx'
-import { useUi } from './uiContext.jsx'
+import { usarBaseDatos } from './dbContext.jsx'
+import { usarInterfaz } from './uiContext.jsx'
 
-const AppContext = createContext(null)
+const ContextoAplicacion = createContext(null)
 
-const ACTIVE_PROFILE_KEY = 'bitecma_active_profile'
-const PROFILE_DATA_KEY = 'bitecma_profile_data'
-const TOKEN_KEY = 'bitecma_token'
+const clavePerfilActivo = 'bitecma_active_profile'
+const claveDatosPerfil = 'bitecma_profile_data'
+const claveToken = 'bitecma_token'
 
 /**
  * Normaliza texto para comparaciones (minúsculas, sin diacríticos).
@@ -20,7 +20,7 @@ const TOKEN_KEY = 'bitecma_token'
  * Efectos secundarios:
  * - Ninguno.
  */
-function normKey(s) {
+function normalizarClave(s) {
   return String(s || '')
     .toLowerCase()
     .normalize('NFD')
@@ -43,8 +43,8 @@ function normKey(s) {
  * Efectos secundarios:
  * - Ninguno.
  */
-function normalizeRole(rol) {
-  const r = normKey(rol)
+function normalizarRol(rol) {
+  const r = normalizarClave(rol)
   if (r === 'admin') return 'Admin'
   if (r === 'usuario' || r === 'biologo' || r === 'biologa') return 'Usuario'
   if (r === 'visualizador' || r === 'viewer' || r === 'readonly' || r === 'read-only') return 'Visualizador'
@@ -62,9 +62,9 @@ function normalizeRole(rol) {
  * Manejo de errores:
  * - Si falla el acceso a storage, retorna `null`.
  */
-function readActiveProfileId() {
+function leerIdPerfilActivo() {
   try {
-    return localStorage.getItem(ACTIVE_PROFILE_KEY)
+    return localStorage.getItem(clavePerfilActivo)
   } catch {
     return null
   }
@@ -79,10 +79,10 @@ function readActiveProfileId() {
  * Efectos secundarios:
  * - Escribe/elimina en storage.
  */
-function writeActiveProfileId(id) {
+function guardarIdPerfilActivo(id) {
   try {
-    if (!id) localStorage.removeItem(ACTIVE_PROFILE_KEY)
-    else localStorage.setItem(ACTIVE_PROFILE_KEY, String(id))
+    if (!id) localStorage.removeItem(clavePerfilActivo)
+    else localStorage.setItem(clavePerfilActivo, String(id))
   } catch {
     return
   }
@@ -99,11 +99,11 @@ function writeActiveProfileId(id) {
  * Manejo de errores:
  * - Si falla parseo o acceso, retorna `{}`.
  */
-function readProfileMap() {
+function leerMapaPerfiles() {
   try {
-    const raw = localStorage.getItem(PROFILE_DATA_KEY)
-    const map = raw ? JSON.parse(raw) : {}
-    return map && typeof map === 'object' ? map : {}
+    const bruto = localStorage.getItem(claveDatosPerfil)
+    const mapa = bruto ? JSON.parse(bruto) : {}
+    return mapa && typeof mapa === 'object' ? mapa : {}
   } catch {
     return {}
   }
@@ -118,9 +118,9 @@ function readProfileMap() {
  * Efectos secundarios:
  * - Escribe en storage.
  */
-function writeProfileMap(map) {
+function guardarMapaPerfiles(mapa) {
   try {
-    localStorage.setItem(PROFILE_DATA_KEY, JSON.stringify(map || {}))
+    localStorage.setItem(claveDatosPerfil, JSON.stringify(mapa || {}))
   } catch {
     return
   }
@@ -131,9 +131,9 @@ function writeProfileMap(map) {
  *
  * @returns {string|null} Token o `null`.
  */
-function readToken() {
+function leerToken() {
   try {
-    return localStorage.getItem(TOKEN_KEY)
+    return localStorage.getItem(claveToken)
   } catch {
     return null
   }
@@ -145,10 +145,10 @@ function readToken() {
  * @param {unknown} token - Token; si es falsy se elimina.
  * @returns {void}
  */
-function writeToken(token) {
+function guardarToken(token) {
   try {
-    if (!token) localStorage.removeItem(TOKEN_KEY)
-    else localStorage.setItem(TOKEN_KEY, String(token))
+    if (!token) localStorage.removeItem(claveToken)
+    else localStorage.setItem(claveToken, String(token))
   } catch {
     return
   }
@@ -184,293 +184,295 @@ function writeToken(token) {
  * - Si se agregan nuevas páginas, mantener el contrato de `navigate(pageKey)` alineado con `App.jsx`.
  * - En modo offline, la contraseña default '12345678' es solo para demo/local.
  */
-export function AppProvider({ children }) {
-  const { db } = useDb()
-  const { toast } = useUi()
-  const apiUrl = String(import.meta.env?.VITE_API_URL || '').trim().replace(/\/+$/, '')
-  const apiEnabled = !!apiUrl
+export function ProveedorAplicacion({ children }) {
+  const { baseDatos } = usarBaseDatos()
+  const { mostrarToast } = usarInterfaz()
+  const urlApi = String(import.meta.env?.VITE_API_URL || '')
+    .trim()
+    .replace(/\/+$/, '')
+  const apiHabilitada = !!urlApi
 
-  const [page, setPage] = useState('dashboard')
-  const [userId, setUserId] = useState(() => readActiveProfileId())
-  const [profileMap, setProfileMap] = useState(() => readProfileMap())
-  const [apiToken, setApiToken] = useState(() => readToken())
-  const [apiUser, setApiUser] = useState(null)
+  const [pagina, establecerPagina] = useState('dashboard')
+  const [idPerfilActivo, establecerIdPerfilActivo] = useState(() => leerIdPerfilActivo())
+  const [mapaPerfiles, establecerMapaPerfiles] = useState(() => leerMapaPerfiles())
+  const [tokenApi, establecerTokenApi] = useState(() => leerToken())
+  const [usuarioApi, establecerUsuarioApi] = useState(null)
 
-  const apiFetch = useCallback(
-    async (path, opts) => {
-      const url = `${apiUrl}/${String(path || '').replace(/^\/+/, '')}`
-      const token = apiToken || readToken()
-      const headers = { ...(opts?.headers || {}) }
-      if (!headers.Authorization && token) headers.Authorization = `Bearer ${token}`
-      if (!headers['Content-Type'] && opts?.body && !(opts?.body instanceof FormData)) headers['Content-Type'] = 'application/json'
-      const res = await fetch(url, { ...(opts || {}), headers })
-      const json = await res.json().catch(() => null)
-      if (!res.ok || !json?.ok) {
-        const msg = String(json?.error || res.statusText || 'Error')
-        throw new Error(msg)
+  const solicitarApi = useCallback(
+    async (ruta, opciones) => {
+      const url = `${urlApi}/${String(ruta || '').replace(/^\/+/, '')}`
+      const token = tokenApi || leerToken()
+      const encabezados = { ...(opciones?.headers || {}) }
+      if (!encabezados.Authorization && token) encabezados.Authorization = `Bearer ${token}`
+      if (!encabezados['Content-Type'] && opciones?.body && !(opciones?.body instanceof FormData)) encabezados['Content-Type'] = 'application/json'
+      const respuesta = await fetch(url, { ...(opciones || {}), headers: encabezados })
+      const json = await respuesta.json().catch(() => null)
+      if (!respuesta.ok || !json?.ok) {
+        const mensaje = String(json?.error || respuesta.statusText || 'Error')
+        throw new Error(mensaje)
       }
       return json
     },
-    [apiUrl, apiToken],
+    [urlApi, tokenApi],
   )
 
-  const user = useMemo(() => {
-    if (apiEnabled) return apiUser
-    const perfiles = db.perfiles || []
-    const base = perfiles.find((p) => String(p.id) === String(userId)) || null
-    if (!base) return null
-    const saved = profileMap?.[String(base.id)]
-    return saved && typeof saved === 'object' ? { ...base, ...saved } : base
-  }, [apiEnabled, apiUser, db.perfiles, userId, profileMap])
+  const usuario = useMemo(() => {
+    if (apiHabilitada) return usuarioApi
+    const perfiles = baseDatos.perfiles || []
+    const perfilBase = perfiles.find((p) => String(p.id) === String(idPerfilActivo)) || null
+    if (!perfilBase) return null
+    const perfilGuardado = mapaPerfiles?.[String(perfilBase.id)]
+    return perfilGuardado && typeof perfilGuardado === 'object' ? { ...perfilBase, ...perfilGuardado } : perfilBase
+  }, [apiHabilitada, usuarioApi, baseDatos.perfiles, idPerfilActivo, mapaPerfiles])
 
-  const role = useMemo(() => normalizeRole(user?.rol), [user?.rol])
-  const isAdmin = role === 'Admin'
-  const isViewer = role === 'Visualizador'
-  const canWrite = !isViewer
+  const rol = useMemo(() => normalizarRol(usuario?.rol), [usuario?.rol])
+  const esAdmin = rol === 'Admin'
+  const esVisualizador = rol === 'Visualizador'
+  const puedeEscribir = !esVisualizador
 
-  const isAuthed = !!user
+  const estaAutenticado = !!usuario
 
-  const navigate = useCallback((next) => {
-    const p = String(next)
-    setPage(p)
+  const navegar = useCallback((siguientePagina) => {
+    const paginaNormalizada = String(siguientePagina)
+    establecerPagina(paginaNormalizada)
   }, [])
 
-  const login = useCallback(
-    async (email, pass) => {
-      const e = String(email || '').trim().toLowerCase()
-      const p = String(pass || '').trim()
-      if (!e || !p) {
-        toast('Completa correo y contraseña', 'red')
+  const iniciarSesion = useCallback(
+    async (correo, contrasena) => {
+      const correoNormalizado = String(correo || '').trim().toLowerCase()
+      const contrasenaNormalizada = String(contrasena || '').trim()
+      if (!correoNormalizado || !contrasenaNormalizada) {
+        mostrarToast('Completa correo y contraseña', 'red')
         return false
       }
 
-      if (apiEnabled) {
+      if (apiHabilitada) {
         try {
-          const res = await fetch(`${apiUrl}/auth/login`, {
+          const respuesta = await fetch(`${urlApi}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ correo: e, password: p }),
+            body: JSON.stringify({ correo: correoNormalizado, password: contrasenaNormalizada }),
           })
-          const json = await res.json().catch(() => null)
-          if (!res.ok || !json?.ok) {
-            toast(String(json?.error || 'Credenciales inválidas'), 'red')
+          const json = await respuesta.json().catch(() => null)
+          if (!respuesta.ok || !json?.ok) {
+            mostrarToast(String(json?.error || 'Credenciales inválidas'), 'red')
             return false
           }
-          const t = String(json?.token || '')
-          if (!t) {
-            toast('No se recibió token', 'red')
+          const tokenRecibido = String(json?.token || '')
+          if (!tokenRecibido) {
+            mostrarToast('No se recibió token', 'red')
             return false
           }
-          setApiToken(t)
-          writeToken(t)
-          setApiUser(json?.user || null)
-          toast('Bienvenido', 'green')
-          navigate('dashboard')
+          establecerTokenApi(tokenRecibido)
+          guardarToken(tokenRecibido)
+          establecerUsuarioApi(json?.user || null)
+          mostrarToast('Bienvenido', 'green')
+          navegar('dashboard')
           return true
         } catch (err) {
-          toast(String(err?.message || 'Error de conexión'), 'red')
+          mostrarToast(String(err?.message || 'Error de conexión'), 'red')
           return false
         }
       }
 
-      const perfiles = db.perfiles || []
-      const found = perfiles.find((x) => String(x.correo || '').toLowerCase() === e)
-      if (!found) {
-        toast('Usuario no encontrado', 'red')
+      const perfiles = baseDatos.perfiles || []
+      const perfilEncontrado = perfiles.find((x) => String(x.correo || '').toLowerCase() === correoNormalizado)
+      if (!perfilEncontrado) {
+        mostrarToast('Usuario no encontrado', 'red')
         return false
       }
-      if (p !== '12345678') {
-        toast('Contraseña incorrecta', 'red')
+      if (contrasenaNormalizada !== '12345678') {
+        mostrarToast('Contraseña incorrecta', 'red')
         return false
       }
-      setUserId(String(found.id))
-      writeActiveProfileId(found.id)
-      toast('Bienvenido', 'green')
-      navigate('dashboard')
+      establecerIdPerfilActivo(String(perfilEncontrado.id))
+      guardarIdPerfilActivo(perfilEncontrado.id)
+      mostrarToast('Bienvenido', 'green')
+      navegar('dashboard')
       return true
     },
-    [apiEnabled, apiUrl, db.perfiles, toast, navigate],
+    [apiHabilitada, urlApi, baseDatos.perfiles, mostrarToast, navegar],
   )
 
-  const logout = useCallback(() => {
-    if (apiEnabled) {
-      setApiUser(null)
-      setApiToken(null)
-      writeToken(null)
-      toast('Sesión cerrada', 'green')
-      setPage('dashboard')
+  const cerrarSesion = useCallback(() => {
+    if (apiHabilitada) {
+      establecerUsuarioApi(null)
+      establecerTokenApi(null)
+      guardarToken(null)
+      mostrarToast('Sesión cerrada', 'green')
+      establecerPagina('dashboard')
       return
     }
-    setUserId(null)
-    writeActiveProfileId(null)
-    toast('Sesión cerrada', 'green')
-    setPage('dashboard')
-  }, [apiEnabled, toast])
+    establecerIdPerfilActivo(null)
+    guardarIdPerfilActivo(null)
+    mostrarToast('Sesión cerrada', 'green')
+    establecerPagina('dashboard')
+  }, [apiHabilitada, mostrarToast])
 
   useEffect(() => {
-    if (!apiEnabled) return
-    const t = apiToken || readToken()
-    if (!t) return
+    if (!apiHabilitada) return
+    const token = tokenApi || leerToken()
+    if (!token) return
 
-    let cancelled = false
-    apiFetch('/auth/me', { headers: { Authorization: `Bearer ${t}` } })
+    let cancelado = false
+    solicitarApi('/auth/me', { headers: { Authorization: `Bearer ${token}` } })
       .then((json) => {
-        if (cancelled) return
-        setApiUser(json?.user || null)
+        if (cancelado) return
+        establecerUsuarioApi(json?.user || null)
       })
       .catch((err) => {
-        if (cancelled) return
-        const msg = String(err?.message || '')
-        const mustLogout = msg === 'Token inválido' || msg === 'No autorizado'
-        if (mustLogout) {
-          setApiUser(null)
-          setApiToken(null)
-          writeToken(null)
+        if (cancelado) return
+        const mensaje = String(err?.message || '')
+        const debeCerrarSesion = mensaje === 'Token inválido' || mensaje === 'No autorizado'
+        if (debeCerrarSesion) {
+          establecerUsuarioApi(null)
+          establecerTokenApi(null)
+          guardarToken(null)
         }
       })
 
     return () => {
-      cancelled = true
+      cancelado = true
     }
-  }, [apiEnabled, apiToken, apiFetch])
+  }, [apiHabilitada, tokenApi, solicitarApi])
 
-  const updateProfile = useCallback(
-    async ({ nombre, correo, numero, avatar_url, logo }) => {
-      if (!user) return false
-      if (apiEnabled) {
+  const actualizarPerfil = useCallback(
+    async ({ nombre, correo, numero, avatar_url: urlAvatar, logo }) => {
+      if (!usuario) return false
+      if (apiHabilitada) {
         try {
-          const n = String(nombre ?? user.nombre ?? '').trim()
-          const c = String(correo ?? user.correo ?? '').trim()
-          const num = String(numero ?? user.numero ?? '').trim()
-          const json = await apiFetch('/auth/profile', {
+          const nombreActualizado = String(nombre ?? usuario.nombre ?? '').trim()
+          const correoActualizado = String(correo ?? usuario.correo ?? '').trim()
+          const numeroActualizado = String(numero ?? usuario.numero ?? '').trim()
+          const json = await solicitarApi('/auth/profile', {
             method: 'PUT',
-            body: JSON.stringify({ nombre: n, correo: c, numero: num }),
+            body: JSON.stringify({ nombre: nombreActualizado, correo: correoActualizado, numero: numeroActualizado }),
           })
-          setApiUser(json?.user || null)
-          toast('Perfil actualizado', 'green')
+          establecerUsuarioApi(json?.user || null)
+          mostrarToast('Perfil actualizado', 'green')
           return true
         } catch (err) {
-          toast(String(err?.message || 'No se pudo actualizar perfil'), 'red')
+          mostrarToast(String(err?.message || 'No se pudo actualizar perfil'), 'red')
           return false
         }
       }
-      const next = {
-        ...user,
-        nombre: String(nombre ?? user.nombre ?? '').trim(),
-        correo: String(correo ?? user.correo ?? '').trim(),
-        numero: String(numero ?? user.numero ?? '').trim(),
-        logo: String(logo ?? user.logo ?? ''),
-        avatar_url: String(avatar_url ?? user.avatar_url ?? ''),
+      const perfilActualizado = {
+        ...usuario,
+        nombre: String(nombre ?? usuario.nombre ?? '').trim(),
+        correo: String(correo ?? usuario.correo ?? '').trim(),
+        numero: String(numero ?? usuario.numero ?? '').trim(),
+        logo: String(logo ?? usuario.logo ?? ''),
+        avatar_url: String(urlAvatar ?? usuario.avatar_url ?? ''),
       }
-      const map = { ...profileMap, [String(user.id)]: next }
-      setProfileMap(map)
-      writeProfileMap(map)
-      toast('Perfil actualizado', 'green')
+      const mapaActualizado = { ...mapaPerfiles, [String(usuario.id)]: perfilActualizado }
+      establecerMapaPerfiles(mapaActualizado)
+      guardarMapaPerfiles(mapaActualizado)
+      mostrarToast('Perfil actualizado', 'green')
       return true
     },
-    [apiEnabled, user, profileMap, toast, apiFetch],
+    [apiHabilitada, usuario, mapaPerfiles, mostrarToast, solicitarApi],
   )
 
-  const changePassword = useCallback(
-    ({ oldPass, newPass, confirmPass }) => {
-      if (!user) return false
-      if (apiEnabled) {
-        const np = String(newPass || '')
-        const cp = String(confirmPass || '')
-        if (np.length < 8) {
-          toast('La nueva contraseña debe tener al menos 8 caracteres', 'red')
+  const cambiarContrasena = useCallback(
+    ({ oldPass: contrasenaActual, newPass: nuevaContrasena, confirmPass: confirmarContrasena }) => {
+      if (!usuario) return false
+      if (apiHabilitada) {
+        const nuevaContrasenaNormalizada = String(nuevaContrasena || '')
+        const confirmarContrasenaNormalizada = String(confirmarContrasena || '')
+        if (nuevaContrasenaNormalizada.length < 8) {
+          mostrarToast('La nueva contraseña debe tener al menos 8 caracteres', 'red')
           return false
         }
-        if (np !== cp) {
-          toast('Las contraseñas no coinciden', 'red')
+        if (nuevaContrasenaNormalizada !== confirmarContrasenaNormalizada) {
+          mostrarToast('Las contraseñas no coinciden', 'red')
           return false
         }
-        toast('Contraseña actualizada', 'green')
+        mostrarToast('Contraseña actualizada', 'green')
         return true
       }
-      if (String(oldPass || '') !== String(user.contraseña || '')) {
-        toast('Contraseña actual incorrecta', 'red')
+      if (String(contrasenaActual || '') !== String(usuario.contraseña || '')) {
+        mostrarToast('Contraseña actual incorrecta', 'red')
         return false
       }
-      const np = String(newPass || '')
-      const cp = String(confirmPass || '')
-      if (np.length < 8) {
-        toast('La nueva contraseña debe tener al menos 8 caracteres', 'red')
+      const nuevaContrasenaNormalizada = String(nuevaContrasena || '')
+      const confirmarContrasenaNormalizada = String(confirmarContrasena || '')
+      if (nuevaContrasenaNormalizada.length < 8) {
+        mostrarToast('La nueva contraseña debe tener al menos 8 caracteres', 'red')
         return false
       }
-      if (np !== cp) {
-        toast('Las contraseñas no coinciden', 'red')
+      if (nuevaContrasenaNormalizada !== confirmarContrasenaNormalizada) {
+        mostrarToast('Las contraseñas no coinciden', 'red')
         return false
       }
-      const map = {
-        ...profileMap,
-        [String(user.id)]: { ...(profileMap[String(user.id)] || user), contraseña: np },
+      const mapaActualizado = {
+        ...mapaPerfiles,
+        [String(usuario.id)]: { ...(mapaPerfiles[String(usuario.id)] || usuario), contraseña: nuevaContrasenaNormalizada },
       }
-      setProfileMap(map)
-      writeProfileMap(map)
-      toast('Contraseña actualizada', 'green')
+      establecerMapaPerfiles(mapaActualizado)
+      guardarMapaPerfiles(mapaActualizado)
+      mostrarToast('Contraseña actualizada', 'green')
       return true
     },
-    [apiEnabled, user, profileMap, toast],
+    [apiHabilitada, usuario, mapaPerfiles, mostrarToast],
   )
 
-  const uploadAvatar = useCallback(
-    async (file) => {
-      if (!apiEnabled) return null
-      if (!user) return null
-      const f = file instanceof File ? file : null
-      if (!f) return null
+  const subirAvatar = useCallback(
+    async (archivo) => {
+      if (!apiHabilitada) return null
+      if (!usuario) return null
+      const archivoAvatar = archivo instanceof File ? archivo : null
+      if (!archivoAvatar) return null
 
       try {
-        const form = new FormData()
-        form.append('avatar', f)
-        const json = await apiFetch('/auth/avatar', { method: 'POST', body: form })
-        const next = { ...(user || {}), avatar_url: String(json?.avatar_url || '') || null }
-        setApiUser(next)
-        toast('Foto actualizada', 'green')
-        return next.avatar_url
+        const formulario = new FormData()
+        formulario.append('avatar', archivoAvatar)
+        const json = await solicitarApi('/auth/avatar', { method: 'POST', body: formulario })
+        const usuarioActualizado = { ...(usuario || {}), avatar_url: String(json?.avatar_url || '') || null }
+        establecerUsuarioApi(usuarioActualizado)
+        mostrarToast('Foto actualizada', 'green')
+        return usuarioActualizado.avatar_url
       } catch (err) {
-        toast(String(err?.message || 'No se pudo actualizar foto'), 'red')
+        mostrarToast(String(err?.message || 'No se pudo actualizar foto'), 'red')
         return null
       }
     },
-    [apiEnabled, user, apiFetch, toast],
+    [apiHabilitada, usuario, solicitarApi, mostrarToast],
   )
 
-  const value = useMemo(
+  const valorContexto = useMemo(
     () => ({
-      page,
-      navigate,
-      isAuthed,
-      user,
-      role,
-      isAdmin,
-      isViewer,
-      canWrite,
-      login,
-      logout,
-      updateProfile,
-      uploadAvatar,
-      changePassword,
+      pagina,
+      navegar,
+      estaAutenticado,
+      usuario,
+      rol,
+      esAdmin,
+      esVisualizador,
+      puedeEscribir,
+      iniciarSesion,
+      cerrarSesion,
+      actualizarPerfil,
+      subirAvatar,
+      cambiarContrasena,
     }),
     [
-      page,
-      navigate,
-      isAuthed,
-      user,
-      role,
-      isAdmin,
-      isViewer,
-      canWrite,
-      login,
-      logout,
-      updateProfile,
-      uploadAvatar,
-      changePassword,
+      pagina,
+      navegar,
+      estaAutenticado,
+      usuario,
+      rol,
+      esAdmin,
+      esVisualizador,
+      puedeEscribir,
+      iniciarSesion,
+      cerrarSesion,
+      actualizarPerfil,
+      subirAvatar,
+      cambiarContrasena,
     ],
   )
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>
+  return <ContextoAplicacion.Provider value={valorContexto}>{children}</ContextoAplicacion.Provider>
 }
 
 /**
@@ -495,8 +497,8 @@ export function AppProvider({ children }) {
  * Manejo de errores:
  * - Lanza si se usa fuera de `AppProvider`.
  */
-export function useApp() {
-  const ctx = useContext(AppContext)
-  if (!ctx) throw new Error('AppProvider missing')
-  return ctx
+export function usarAplicacion() {
+  const contexto = useContext(ContextoAplicacion)
+  if (!contexto) throw new Error('AppProvider missing')
+  return contexto
 }

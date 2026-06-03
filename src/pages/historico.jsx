@@ -1,4 +1,4 @@
-import { useUi } from '../context/uiContext.jsx'
+import { usarInterfaz } from '../context/uiContext.jsx'
 
 /**
  * Página de Registro Histórico (placeholder/UI inicial).
@@ -29,17 +29,17 @@ import { useUi } from '../context/uiContext.jsx'
  * Notas de mantenimiento:
  * - Cuando se implemente la vista completa, reemplazar placeholders por consultas reales y poblar la tabla.
  */
-export default function HistoricoPage({ active }) {
-  const { toast } = useUi()
+export default function PaginaHistorico({ activo }) {
+  const { mostrarToast } = usarInterfaz()
   return (
-    <div className={`page${active ? ' active' : ''}`} id="pg-historico">
+    <div className={`page${activo ? ' active' : ''}`} id="pg-historico">
       <div className="ph">
         <div>
           <h2>Registro Histórico</h2>
           <p>36.127 transectos · 1999–2026</p>
         </div>
         <div className="ph-a">
-          <button className="btn b-teal b-sm" onClick={() => toast('Vista completa (pendiente)', 'blue')}>
+          <button className="btn b-teal b-sm" onClick={() => mostrarToast('Vista completa (pendiente)', 'blue')}>
             Vista completa
           </button>
         </div>
@@ -63,7 +63,7 @@ export default function HistoricoPage({ active }) {
       <div className="card mb">
         <div className="ct">
           Continuidad de seguimientos
-          <button className="btn b-out b-sm" onClick={() => toast('Abrir (pendiente)', 'blue')}>
+          <button className="btn b-out b-sm" onClick={() => mostrarToast('Abrir (pendiente)', 'blue')}>
             Abrir
           </button>
         </div>

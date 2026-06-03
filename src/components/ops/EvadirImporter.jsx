@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import EvadirPreview from '../evadir/EvadirPreview.jsx'
 import ManualColumnMapper from '../evadir/ManualColumnMapper.jsx'
-import { addSample } from '../../services/lpMuestrasService.js'
-import { useApp } from '../../context/appContext.jsx'
+import { agregarMuestra } from '../../services/lpMuestrasService.js'
+import { usarAplicacion } from '../../context/appContext.jsx'
 import { ErrorImportacionEvadir, mensajeAmigableImportacion, validarArchivoExcelBasico } from '../../services/evadirImportValidation.js'
 import { compararZonaMuestreo, normalizarZonaMuestreo } from '../../services/operacionesService.js'
 
@@ -412,7 +412,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
   const evadirInputRef = useRef(null)
   const cancelImportRef = useRef(false)
   const [isImportingEvadir, setIsImportingEvadir] = useState(false)
-  const { user } = useApp()
+  const { usuario: user } = usarAplicacion()
   const dbActualRef = useRef(db)
 
   useEffect(() => {
@@ -2159,18 +2159,18 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
           if (parsed.kind === 'D') {
             const d = String(r[parsed.id] ?? '').trim()
             if (!d) continue
-            map = addSample(map, spId, 'D', { d })
+            map = agregarMuestra(map, spId, 'D', { d })
             b.lpMuestras = map
           } else if (parsed.kind === 'LP') {
             const l = String(r[parsed.il] ?? '').trim()
             const p = String(r[parsed.ip] ?? '').trim()
-            map = addSample(map, spId, 'LP', { l, p })
+            map = agregarMuestra(map, spId, 'LP', { l, p })
             b.lpMuestras = map
           } else {
             const l = String(r[parsed.il] ?? '').trim()
             if (!l) continue
-            if (forceD) map = addSample(map, spId, 'D', { d: l })
-            else map = addSample(map, spId, 'L', { l })
+            if (forceD) map = agregarMuestra(map, spId, 'D', { d: l })
+            else map = agregarMuestra(map, spId, 'L', { l })
             b.lpMuestras = map
           }
           if (!useAltAsBoat) {
@@ -2282,15 +2282,15 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
           const forceD = it.kind === 'L' && isAlga
           if (it.kind === 'D') {
             if (!it.d) continue
-            map = addSample(map, spId, 'D', { d: it.d })
+            map = agregarMuestra(map, spId, 'D', { d: it.d })
             b.lpMuestras = map
           } else if (it.kind === 'LP') {
-            map = addSample(map, spId, 'LP', { l: it.l || '', p: it.p || '' })
+            map = agregarMuestra(map, spId, 'LP', { l: it.l || '', p: it.p || '' })
             b.lpMuestras = map
           } else {
             if (!it.l) continue
-            if (forceD) map = addSample(map, spId, 'D', { d: it.l })
-            else map = addSample(map, spId, 'L', { l: it.l })
+            if (forceD) map = agregarMuestra(map, spId, 'D', { d: it.l })
+            else map = agregarMuestra(map, spId, 'L', { l: it.l })
             b.lpMuestras = map
           }
         }

@@ -18,7 +18,7 @@
  * Notas de mantenimiento:
  * - Mantener consistente con inputs numéricos de UI (algunos ingresan coma decimal).
  */
-function normInt(v) {
+function normalizarEntero(v) {
   if (v === null || v === undefined || v === '') return 0
   const n = typeof v === 'number' ? v : Number(String(v).trim().replace(',', '.'))
   if (!Number.isFinite(n)) return 0
@@ -42,7 +42,7 @@ function normInt(v) {
  * Efectos secundarios:
  * - Ninguno.
  */
-function normNum(v) {
+function normalizarNumero(v) {
   if (v === null || v === undefined || v === '') return null
   if (typeof v === 'number') return Number.isFinite(v) ? v : null
   const n = Number(String(v).trim().replace(',', '.'))
@@ -67,8 +67,8 @@ function normNum(v) {
  * Efectos secundarios:
  * - Ninguno.
  */
-export function calcDensidad(count, area) {
-  const c = normInt(count)
+export function calcularDensidad(count, area) {
+  const c = normalizarEntero(count)
   const a = Number(area) || 0
   if (!(a > 0)) return 0
   return c / a
@@ -89,7 +89,7 @@ export function calcDensidad(count, area) {
  * Notas de mantenimiento:
  * - La unicidad de `num` se asume a nivel UI; si hay duplicados, tomará el máximo.
  */
-export function nextUnidadNum(unidades) {
+export function siguienteNumeroUnidad(unidades) {
   const arr = Array.isArray(unidades) ? unidades : []
   const nums = arr.map((u) => Number(u?.num)).filter((n) => Number.isFinite(n))
   return (nums.length ? Math.max(...nums) : 0) + 1
@@ -143,7 +143,7 @@ export function crearUnidades({
   const t = tipo === 'cuadrante' ? 'cuadrante' : 'transecto'
   const n = Math.max(0, Math.trunc(Number(cantidad) || 0))
   if (!n) return base
-  const start = nextUnidadNum(base)
+  const start = siguienteNumeroUnidad(base)
   const a = Number(area) || 0
   const f = String(fecha || '').trim()
   const sus = String(sustrato || '').trim()
@@ -211,7 +211,7 @@ export function eliminarUnidad(unidades, num) {
  * Efectos secundarios:
  * - Ninguno.
  */
-export function updateUnidad(unidades, num, patch) {
+export function actualizarUnidad(unidades, num, patch) {
   const base = Array.isArray(unidades) ? unidades : []
   const n = Number(num)
   return base.map((u) => {
@@ -251,10 +251,10 @@ export function updateUnidad(unidades, num, patch) {
  * Notas de mantenimiento:
  * - Mapea a campos: `coordX`, `coordY`, `coordLong`, `coordLat`.
  */
-export function setUnidadCoord(unidades, num, key, value) {
+export function establecerCoordenadaUnidad(unidades, num, key, value) {
   const base = Array.isArray(unidades) ? unidades : []
   const n = Number(num)
-  const v = normNum(value)
+  const v = normalizarNumero(value)
   const field =
     key === 'x' ? 'coordX' : key === 'y' ? 'coordY' : key === 'lon' ? 'coordLong' : key === 'lat' ? 'coordLat' : null
   if (!field) return base
@@ -280,7 +280,7 @@ export function setUnidadCoord(unidades, num, key, value) {
  * Efectos secundarios:
  * - Ninguno.
  */
-export function addEspecieToUnidad(unidades, num, especieId) {
+export function agregarEspecieAUnidad(unidades, num, especieId) {
   const base = Array.isArray(unidades) ? unidades : []
   const n = Number(num)
   const sp = Number(especieId)
@@ -308,7 +308,7 @@ export function addEspecieToUnidad(unidades, num, especieId) {
  * Efectos secundarios:
  * - Ninguno.
  */
-export function removeEspecieFromUnidad(unidades, num, especieId) {
+export function quitarEspecieDeUnidad(unidades, num, especieId) {
   const base = Array.isArray(unidades) ? unidades : []
   const n = Number(num)
   const sp = Number(especieId)
@@ -339,12 +339,12 @@ export function removeEspecieFromUnidad(unidades, num, especieId) {
  * Efectos secundarios:
  * - Ninguno.
  */
-export function setUnidadCount(unidades, num, especieId, value) {
+export function establecerConteoUnidad(unidades, num, especieId, value) {
   const base = Array.isArray(unidades) ? unidades : []
   const n = Number(num)
   const sp = Number(especieId)
   if (!Number.isFinite(sp)) return base
-  const cnt = normInt(value)
+  const cnt = normalizarEntero(value)
   return base.map((u) => {
     if (Number(u?.num) !== n) return u
     const counts = u?.counts && typeof u.counts === 'object' ? u.counts : {}
@@ -371,7 +371,7 @@ export function setUnidadCount(unidades, num, especieId, value) {
  * Efectos secundarios:
  * - Ninguno.
  */
-export function setCuadranteEspecie(unidades, num, especieId) {
+export function establecerEspecieCuadrante(unidades, num, especieId) {
   const base = Array.isArray(unidades) ? unidades : []
   const n = Number(num)
   const sp = Number(especieId)
@@ -382,6 +382,6 @@ export function setCuadranteEspecie(unidades, num, especieId) {
     const curCounts = u?.counts && typeof u.counts === 'object' ? u.counts : {}
     const curSp = u?.especieId == null ? null : Number(u.especieId)
     const curVal = curSp != null && Number.isFinite(curSp) ? Number(curCounts[curSp] ?? 0) : 0
-    return { ...u, especieId: sp, counts: { [sp]: normInt(curVal) } }
+    return { ...u, especieId: sp, counts: { [sp]: normalizarEntero(curVal) } }
   })
 }

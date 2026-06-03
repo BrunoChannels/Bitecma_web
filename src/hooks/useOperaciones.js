@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { useDb } from '../context/dbContext.jsx'
-import { filterOperaciones } from '../services/operacionesService.js'
+import { usarBaseDatos } from '../context/dbContext.jsx'
+import { filtrarOperaciones } from '../services/operacionesService.js'
 
 /**
  * Hook de estado/selector para el listado de operaciones.
@@ -38,7 +38,7 @@ import { filterOperaciones } from '../services/operacionesService.js'
  * - Este hook no pagina ni ordena; la UI decide orden/segmentación por región.
  */
 export function useOperaciones() {
-  const { db } = useDb()
+  const { baseDatos: db } = usarBaseDatos()
   const ops = useMemo(() => (Array.isArray(db?.operaciones) ? db.operaciones : []), [db])
 
   const [sector, setSector] = useState('')
@@ -63,7 +63,7 @@ export function useOperaciones() {
   }, [ops])
 
   const filtered = useMemo(
-    () => filterOperaciones(ops, { sector, mes, texto }),
+    () => filtrarOperaciones(ops, { sector, mes, texto }),
     [ops, sector, mes, texto],
   )
 

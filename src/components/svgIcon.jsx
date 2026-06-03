@@ -28,17 +28,17 @@
  * - Para agregar nuevos íconos, sumar una entrada en `ICONS` con la clave deseada y el `d` del `<path>`.
  * - Mantener consistente el `viewBox` (24x24) para escalado uniforme.
  */
-export default function SvgIcon({ name, className, ...rest }) {
-  const p = ICONS[name]
-  if (!p) return null
+export default function IconoSvg({ name: nombreIcono, className: claseCss, ...restoProps }) {
+  const ruta = ICONOS[nombreIcono]
+  if (!ruta) return null
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className={className} {...rest}>
-      <path d={p} />
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={claseCss} {...restoProps}>
+      <path d={ruta} />
     </svg>
   )
 }
 
-const ICONS = {
+const ICONOS = {
   bell:
     'M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22ZM20 17h-1V11a7 7 0 1 0-14 0v6H4a1 1 0 0 0 0 2h16a1 1 0 0 0 0-2Z',
   gear:

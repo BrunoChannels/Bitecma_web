@@ -1,4 +1,4 @@
-import { useUi } from '../context/uiContext.jsx'
+import { usarInterfaz } from '../context/uiContext.jsx'
 
 /**
  * Página de generación de informe DOCX (placeholder/UI inicial).
@@ -30,17 +30,17 @@ import { useUi } from '../context/uiContext.jsx'
  * - Al implementar DOCX real, mover la lógica de generación a un servicio y mantener esta página como orquestador UI.
  * - Evitar renderizar documentos completos en el DOM si crece el contenido; considerar paginación/preview parcial.
  */
-export default function InformePage({ active }) {
-  const { toast } = useUi()
+export default function PaginaInforme({ activo }) {
+  const { mostrarToast } = usarInterfaz()
   return (
-    <div className={`page${active ? ' active' : ''}`} id="pg-informe">
+    <div className={`page${activo ? ' active' : ''}`} id="pg-informe">
       <div className="ph">
         <div>
           <h2>Generar Informe</h2>
           <p>Plantilla DOCX autorrellenable · Formato SUBPESCA</p>
         </div>
         <div className="ph-a">
-          <button className="btn b-teal b-sm" onClick={() => toast('Generación DOCX (pendiente)', 'blue')}>
+          <button className="btn b-teal b-sm" onClick={() => mostrarToast('Generación DOCX (pendiente)', 'blue')}>
             Generar DOCX
           </button>
         </div>
@@ -93,7 +93,7 @@ export default function InformePage({ active }) {
             <button
               className="btn b-teal"
               style={{ width: '100%', marginTop: 4 }}
-              onClick={() => toast('Generación DOCX (pendiente)', 'blue')}
+              onClick={() => mostrarToast('Generación DOCX (pendiente)', 'blue')}
             >
               Generar informe DOCX
             </button>
@@ -125,7 +125,7 @@ export default function InformePage({ active }) {
               <span className="pill p-amb" id="inf-status">
                 Borrador
               </span>
-              <button className="btn b-out b-sm" onClick={() => toast('Abrir (pendiente)', 'blue')}>
+              <button className="btn b-out b-sm" onClick={() => mostrarToast('Abrir (pendiente)', 'blue')}>
                 Abrir
               </button>
             </div>
@@ -221,13 +221,13 @@ export default function InformePage({ active }) {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 7, marginTop: 12 }}>
-              <button className="btn b-teal" style={{ flex: 1 }} onClick={() => toast('Descarga DOCX (pendiente)', 'blue')}>
+              <button className="btn b-teal" style={{ flex: 1 }} onClick={() => mostrarToast('Descarga DOCX (pendiente)', 'blue')}>
                 Descargar .DOCX
               </button>
               <button
                 className="btn b-out"
                 style={{ flex: 1 }}
-                onClick={() => toast('Enviado a SUBPESCA', 'green')}
+                onClick={() => mostrarToast('Enviado a SUBPESCA', 'green')}
               >
                 Enviar SUBPESCA
               </button>

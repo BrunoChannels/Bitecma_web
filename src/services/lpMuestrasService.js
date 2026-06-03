@@ -15,7 +15,7 @@
  * Efectos secundarios:
  * - Ninguno.
  */
-function normNum(v) {
+function normalizarNumero(v) {
   if (v === null || v === undefined || v === '') return null
   if (typeof v === 'number') return Number.isFinite(v) ? v : null
   const n = Number(String(v).trim().replace(',', '.'))
@@ -31,7 +31,7 @@ function normNum(v) {
  * Notas de mantenimiento:
  * - La estructura histórica varía entre: array de muestras, `{ ms: [] }` o `{ LP: [], L: [], D: [] }`.
  */
-function ensureMap(lpMuestras) {
+function asegurarMapa(lpMuestras) {
   return lpMuestras && typeof lpMuestras === 'object' ? lpMuestras : {}
 }
 
@@ -41,7 +41,7 @@ function ensureMap(lpMuestras) {
  * @param {unknown} v - Valor a normalizar.
  * @returns {Array<any>} Arreglo (o `[]` si no lo es).
  */
-function ensureArr(v) {
+function asegurarArreglo(v) {
   return Array.isArray(v) ? v : []
 }
 
@@ -56,10 +56,10 @@ function ensureArr(v) {
  * - 'L' representa solo longitud (`{ l }`).
  * - 'D' representa diámetro (`{ d }`).
  */
-function normKind(kind) {
-  const k = String(kind || '').trim().toUpperCase()
-  if (k === 'L-P' || k === 'LP') return 'LP'
-  if (k === 'D') return 'D'
+function normalizarTipo(kind) {
+  const tipo = String(kind || '').trim().toUpperCase()
+  if (tipo === 'L-P' || tipo === 'LP') return 'LP'
+  if (tipo === 'D') return 'D'
   return 'L'
 }
 
@@ -77,10 +77,10 @@ function normKind(kind) {
  * Notas de mantenimiento:
  * - Esta heurística permite compatibilidad con formatos antiguos importados.
  */
-function kindFromSample(sample) {
-  const s = sample && typeof sample === 'object' ? sample : {}
-  if (Object.prototype.hasOwnProperty.call(s, 'd')) return 'D'
-  if (Object.prototype.hasOwnProperty.call(s, 'p')) return 'LP'
+function tipoDesdeMuestra(sample) {
+  const muestra = sample && typeof sample === 'object' ? sample : {}
+  if (Object.prototype.hasOwnProperty.call(muestra, 'd')) return 'D'
+  if (Object.prototype.hasOwnProperty.call(muestra, 'p')) return 'LP'
   return 'L'
 }
 
@@ -101,11 +101,11 @@ function kindFromSample(sample) {
  * Efectos secundarios:
  * - Ninguno.
  */
-function normalizeEntry(entry) {
+function normalizarEntrada(entry) {
   if (Array.isArray(entry)) {
     const out = {}
     entry.forEach((m) => {
-      const k = kindFromSample(m)
+      const k = tipoDesdeMuestra(m)
       if (!out[k]) out[k] = []
       out[k].push(m)
     })
@@ -113,8 +113,8 @@ function normalizeEntry(entry) {
   }
   if (entry && typeof entry === 'object') {
     if (Array.isArray(entry.ms)) {
-      const k = normKind(entry.type || 'LP')
-      return { [k]: ensureArr(entry.ms) }
+      const k = normalizarTipo(entry.type || 'LP')
+      return { [k]: asegurarArreglo(entry.ms) }
     }
     const out = {}
     ;['LP', 'L', 'D'].forEach((k) => {
@@ -143,21 +143,21 @@ function normalizeEntry(entry) {
  * Efectos secundarios:
  * - Ninguno.
  */
-function normalizeSample(kind, sample) {
-  const s = sample && typeof sample === 'object' ? sample : {}
-  const k = normKind(kind)
+function normalizarMuestra(kind, sample) {
+  const muestra = sample && typeof sample === 'object' ? sample : {}
+  const k = normalizarTipo(kind)
   if (k === 'LP') {
-    const l = normNum(s.l)
-    const p = normNum(s.p)
+    const l = normalizarNumero(muestra.l)
+    const p = normalizarNumero(muestra.p)
     if (l === null || p === null) return null
     return { l, p }
   }
   if (k === 'D') {
-    const d = normNum(s.d)
+    const d = normalizarNumero(muestra.d)
     if (d === null) return null
     return { d }
   }
-  const l = normNum(s.l)
+  const l = normalizarNumero(muestra.l)
   if (l === null) return null
   return { l }
 }
@@ -181,12 +181,12 @@ function normalizeSample(kind, sample) {
  * Efectos secundarios:
  * - Ninguno (retorna un nuevo objeto).
  */
-export function ensureKind(lpMuestras, especieId, kind = 'LP') {
-  const map = ensureMap(lpMuestras)
+export function asegurarTipo(lpMuestras, especieId, kind = 'LP') {
+  const map = asegurarMapa(lpMuestras)
   const sp = Number(especieId)
   if (!Number.isFinite(sp)) return map
-  const k = normKind(kind)
-  const cur = normalizeEntry(map[sp])
+  const k = normalizarTipo(kind)
+  const cur = normalizarEntrada(map[sp])
   if (Object.prototype.hasOwnProperty.call(cur, k)) return { ...map, [sp]: cur }
   return { ...map, [sp]: { ...cur, [k]: [] } }
 }
@@ -205,13 +205,13 @@ export function ensureKind(lpMuestras, especieId, kind = 'LP') {
  * Efectos secundarios:
  * - Ninguno.
  */
-export function removeKind(lpMuestras, especieId, kind) {
-  const map = ensureMap(lpMuestras)
+export function eliminarTipo(lpMuestras, especieId, kind) {
+  const map = asegurarMapa(lpMuestras)
   const sp = Number(especieId)
   if (!Number.isFinite(sp)) return map
-  const k = normKind(kind)
+  const k = normalizarTipo(kind)
   if (!Object.prototype.hasOwnProperty.call(map, sp)) return map
-  const cur = normalizeEntry(map[sp])
+  const cur = normalizarEntrada(map[sp])
   if (!Object.prototype.hasOwnProperty.call(cur, k)) return { ...map, [sp]: cur }
   const nextEntry = { ...cur }
   delete nextEntry[k]
@@ -235,8 +235,8 @@ export function removeKind(lpMuestras, especieId, kind) {
  * Notas de mantenimiento:
  * - Se mantiene para legibilidad en UI (agregar especie vs agregar tipo).
  */
-export function ensureEspecie(lpMuestras, especieId, kind = 'LP') {
-  return ensureKind(lpMuestras, especieId, kind)
+export function asegurarEspecie(lpMuestras, especieId, kind = 'LP') {
+  return asegurarTipo(lpMuestras, especieId, kind)
 }
 
 /**
@@ -252,8 +252,8 @@ export function ensureEspecie(lpMuestras, especieId, kind = 'LP') {
  * Efectos secundarios:
  * - Ninguno.
  */
-export function removeEspecie(lpMuestras, especieId) {
-  const map = ensureMap(lpMuestras)
+export function eliminarEspecie(lpMuestras, especieId) {
+  const map = asegurarMapa(lpMuestras)
   const sp = Number(especieId)
   if (!Number.isFinite(sp)) return map
   if (!Object.prototype.hasOwnProperty.call(map, sp)) return map
@@ -282,17 +282,17 @@ export function removeEspecie(lpMuestras, especieId) {
  * Efectos secundarios:
  * - Ninguno.
  */
-export function addSample(lpMuestras, especieId, kindOrSample, sampleMaybe) {
-  const map = ensureMap(lpMuestras)
+export function agregarMuestra(lpMuestras, especieId, kindOrSample, sampleMaybe) {
+  const map = asegurarMapa(lpMuestras)
   const sp = Number(especieId)
   if (!Number.isFinite(sp)) return map
-  const kind = sampleMaybe === undefined ? kindFromSample(kindOrSample) : normKind(kindOrSample)
+  const kind = sampleMaybe === undefined ? tipoDesdeMuestra(kindOrSample) : normalizarTipo(kindOrSample)
   const sample = sampleMaybe === undefined ? kindOrSample : sampleMaybe
-  const nextSample = normalizeSample(kind, sample)
+  const nextSample = normalizarMuestra(kind, sample)
   if (!nextSample) return map
 
-  const curEntry = normalizeEntry(map[sp])
-  const curArr = ensureArr(curEntry[kind])
+  const curEntry = normalizarEntrada(map[sp])
+  const curArr = asegurarArreglo(curEntry[kind])
   const nextEntry = { ...curEntry, [kind]: [...curArr, nextSample] }
   return { ...map, [sp]: nextEntry }
 }
@@ -317,27 +317,27 @@ export function addSample(lpMuestras, especieId, kindOrSample, sampleMaybe) {
  * Efectos secundarios:
  * - Ninguno.
  */
-export function updateSample(lpMuestras, especieId, kindOrIndex, indexOrSample, sampleMaybe) {
-  const map = ensureMap(lpMuestras)
+export function actualizarMuestra(lpMuestras, especieId, kindOrIndex, indexOrSample, sampleMaybe) {
+  const map = asegurarMapa(lpMuestras)
   const sp = Number(especieId)
   if (!Number.isFinite(sp)) return map
   if (typeof kindOrIndex === 'number') {
-    const cur = ensureArr(map[sp])
+    const cur = asegurarArreglo(map[sp])
     const idx = Number(kindOrIndex)
     if (!Number.isFinite(idx) || idx < 0 || idx >= cur.length) return map
-    const nextSample = normalizeSample(kindFromSample(indexOrSample), indexOrSample)
+    const nextSample = normalizarMuestra(tipoDesdeMuestra(indexOrSample), indexOrSample)
     if (!nextSample) return map
     return { ...map, [sp]: cur.map((x, i) => (i === idx ? nextSample : x)) }
   }
 
-  const kind = normKind(kindOrIndex)
+  const kind = normalizarTipo(kindOrIndex)
   const idx = Number(indexOrSample)
   if (!Number.isFinite(idx)) return map
-  const nextSample = normalizeSample(kind, sampleMaybe)
+  const nextSample = normalizarMuestra(kind, sampleMaybe)
   if (!nextSample) return map
 
-  const curEntry = normalizeEntry(map[sp])
-  const curArr = ensureArr(curEntry[kind])
+  const curEntry = normalizarEntrada(map[sp])
+  const curArr = asegurarArreglo(curEntry[kind])
   if (idx < 0 || idx >= curArr.length) return { ...map, [sp]: curEntry }
   const nextEntry = { ...curEntry, [kind]: curArr.map((x, i) => (i === idx ? nextSample : x)) }
   return { ...map, [sp]: nextEntry }
@@ -358,22 +358,22 @@ export function updateSample(lpMuestras, especieId, kindOrIndex, indexOrSample, 
  * Efectos secundarios:
  * - Ninguno.
  */
-export function removeSample(lpMuestras, especieId, kindOrIndex, indexMaybe) {
-  const map = ensureMap(lpMuestras)
+export function eliminarMuestra(lpMuestras, especieId, kindOrIndex, indexMaybe) {
+  const map = asegurarMapa(lpMuestras)
   const sp = Number(especieId)
   if (!Number.isFinite(sp)) return map
   if (typeof kindOrIndex === 'number') {
-    const cur = ensureArr(map[sp])
+    const cur = asegurarArreglo(map[sp])
     const idx = Number(kindOrIndex)
     if (!Number.isFinite(idx) || idx < 0 || idx >= cur.length) return map
     return { ...map, [sp]: cur.filter((_, i) => i !== idx) }
   }
 
-  const kind = normKind(kindOrIndex)
+  const kind = normalizarTipo(kindOrIndex)
   const idx = Number(indexMaybe)
   if (!Number.isFinite(idx)) return map
-  const curEntry = normalizeEntry(map[sp])
-  const curArr = ensureArr(curEntry[kind])
+  const curEntry = normalizarEntrada(map[sp])
+  const curArr = asegurarArreglo(curEntry[kind])
   if (idx < 0 || idx >= curArr.length) return { ...map, [sp]: curEntry }
   const nextEntry = { ...curEntry, [kind]: curArr.filter((_, i) => i !== idx) }
   return { ...map, [sp]: nextEntry }

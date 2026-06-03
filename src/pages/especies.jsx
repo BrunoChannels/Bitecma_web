@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
 import { useEspecies } from '../hooks/useEspecies.js'
-import { useDb } from '../context/dbContext.jsx'
-import { useUi } from '../context/uiContext.jsx'
-import { useApp } from '../context/appContext.jsx'
-import SvgIcon from '../components/svgIcon.jsx'
+import { usarBaseDatos } from '../context/dbContext.jsx'
+import { usarInterfaz } from '../context/uiContext.jsx'
+import { usarAplicacion } from '../context/appContext.jsx'
+import IconoSvg from '../components/svgIcon.jsx'
 
 /**
  * Página de maestro de especies: lista especies bentónicas disponibles en el sistema.
@@ -31,11 +31,11 @@ import SvgIcon from '../components/svgIcon.jsx'
  * Notas de mantenimiento:
  * - Si se agregan columnas (tallas mínimas, códigos), extender encabezado y filas manteniendo accesibilidad.
  */
-export default function EspeciesPage({ active }) {
+export default function PaginaEspecies({ activo }) {
   const { especies } = useEspecies()
-  const { createEspecie, updateEspecie, deleteEspecie, apiEnabled } = useDb()
-  const { toast } = useUi()
-  const { isAdmin } = useApp()
+  const { crearEspecie, actualizarEspecie, eliminarEspecie, apiHabilitada } = usarBaseDatos()
+  const { mostrarToast } = usarInterfaz()
+  const { esAdmin } = usarAplicacion()
   const refTope = useRef(null)
 
   const suggestedNextId = useMemo(() => {
@@ -62,7 +62,7 @@ export default function EspeciesPage({ active }) {
   }))
 
   return (
-    <div className={`page${active ? ' active' : ''}`} id="pg-especies">
+    <div className={`page${activo ? ' active' : ''}`} id="pg-especies">
       <div ref={refTope} />
       <div className="ph">
         <div>
@@ -70,7 +70,7 @@ export default function EspeciesPage({ active }) {
           <p>Bentónicas de Chile</p>
         </div>
         <div className="ph-a">
-          {isAdmin ? (
+          {esAdmin ? (
             <>
               <button
                 className="btn b-out b-sm"
@@ -83,8 +83,8 @@ export default function EspeciesPage({ active }) {
               <button
                 className="btn b-teal b-sm"
                 onClick={() => {
-                  if (!apiEnabled) {
-                    toast('API no configurada (VITE_API_URL)', 'red')
+                  if (!apiHabilitada) {
+                    mostrarToast('API no configurada (VITE_API_URL)', 'red')
                     return
                   }
                   setMode('create')
@@ -108,7 +108,7 @@ export default function EspeciesPage({ active }) {
         </div>
       </div>
 
-      {showAdd && isAdmin ? (
+      {showAdd && esAdmin ? (
         <div className="card" style={{ maxWidth: 1100, width: '100%', margin: '0 auto 14px', padding: 14 }}>
           <div style={{ fontFamily: 'var(--ff-d)', fontSize: 14, fontWeight: 800, color: 'var(--navy)', marginBottom: 10 }}>
             {mode === 'edit' ? 'Editar especie' : 'Nueva especie'}
@@ -200,7 +200,7 @@ export default function EspeciesPage({ active }) {
 
                   if (mode === 'edit') {
                     if (!editId) throw new Error('ID inválido')
-                    await updateEspecie(editId, {
+                    await actualizarEspecie(editId, {
                       com,
                       sci: sci || null,
                       lp: !!form.lp,
@@ -208,9 +208,9 @@ export default function EspeciesPage({ active }) {
                       is_alga: !!form.is_alga,
                       activo: !!form.activo,
                     })
-                    toast('Especie actualizada', 'green')
+                    mostrarToast('Especie actualizada', 'green')
                   } else {
-                    await createEspecie({
+                    await crearEspecie({
                       id: idNum,
                       com,
                       sci: sci || null,
@@ -219,7 +219,7 @@ export default function EspeciesPage({ active }) {
                       is_alga: !!form.is_alga,
                       activo: !!form.activo,
                     })
-                    toast('Especie creada', 'green')
+                    mostrarToast('Especie creada', 'green')
                   }
 
                   setShowAdd(false)
@@ -235,7 +235,7 @@ export default function EspeciesPage({ active }) {
                     activo: true,
                   })
                 } catch (e) {
-                  toast(String(e?.message || 'Error'), 'red')
+                  mostrarToast(String(e?.message || 'Error'), 'red')
                 } finally {
                   setSaving(false)
                 }
@@ -254,7 +254,7 @@ export default function EspeciesPage({ active }) {
               <th>#</th>
               <th>Nombre común</th>
               <th>Nombre científico</th>
-              {isAdmin && adminMode ? <th style={{ textAlign: 'right' }}>Acciones</th> : null}
+              {esAdmin && adminMode ? <th style={{ textAlign: 'right' }}>Acciones</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -267,15 +267,15 @@ export default function EspeciesPage({ active }) {
                 <td>
                   <em>{e.sci}</em>
                 </td>
-                {isAdmin && adminMode ? (
+                {esAdmin && adminMode ? (
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                       <button
                         className="tb-btn"
                         title="Editar"
                         onClick={() => {
-                          if (!apiEnabled) {
-                            toast('API no configurada (VITE_API_URL)', 'red')
+                          if (!apiHabilitada) {
+                            mostrarToast('API no configurada (VITE_API_URL)', 'red')
                             return
                           }
                           refTope.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -293,7 +293,7 @@ export default function EspeciesPage({ active }) {
                           })
                         }}
                       >
-                        <SvgIcon name="edit" aria-hidden="true" />
+                        <IconoSvg name="edit" aria-hidden="true" />
                       </button>
 
                       <button
@@ -307,13 +307,13 @@ export default function EspeciesPage({ active }) {
                         }}
                         onClick={async () => {
                           try {
-                            if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+                            if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
                             const id = e?.id
                             if (id == null || String(id) === '') throw new Error('ID inválido')
-                            await updateEspecie(id, { activo: !e?.activo })
-                            toast(!e?.activo ? 'Especie activada' : 'Especie desactivada', 'green')
+                            await actualizarEspecie(id, { activo: !e?.activo })
+                            mostrarToast(!e?.activo ? 'Especie activada' : 'Especie desactivada', 'green')
                           } catch (err) {
-                            toast(String(err?.message || 'Error'), 'red')
+                            mostrarToast(String(err?.message || 'Error'), 'red')
                           }
                         }}
                       >
@@ -326,19 +326,19 @@ export default function EspeciesPage({ active }) {
                         style={{ borderColor: 'rgba(220,38,38,.35)' }}
                         onClick={async () => {
                           try {
-                            if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+                            if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
                             const id = e?.id
                             if (id == null || String(id) === '') throw new Error('ID inválido')
                             const ok = confirm(`¿Eliminar especie "${String(e?.com || id)}" (ID ${id})?`)
                             if (!ok) return
-                            await deleteEspecie(id)
-                            toast('Especie eliminada', 'green')
+                            await eliminarEspecie(id)
+                            mostrarToast('Especie eliminada', 'green')
                           } catch (err) {
-                            toast(String(err?.message || 'Error'), 'red')
+                            mostrarToast(String(err?.message || 'Error'), 'red')
                           }
                         }}
                       >
-                        <SvgIcon name="trash" aria-hidden="true" style={{ fill: 'var(--red)' }} />
+                        <IconoSvg name="trash" aria-hidden="true" style={{ fill: 'var(--red)' }} />
                       </button>
                     </div>
                   </td>

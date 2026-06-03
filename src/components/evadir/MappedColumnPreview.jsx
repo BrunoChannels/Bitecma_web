@@ -1,9 +1,9 @@
-import SvgIcon from '../svgIcon.jsx'
+import IconoSvg from '../svgIcon.jsx'
 
-export default function MappedColumnPreview({ excelColumnName, systemFieldName, sampleData, onRemoveMapping }) {
-  const nombreColumnaExcel = String(excelColumnName || '').trim()
-  const nombreCampoSistema = String(systemFieldName || '').trim()
-  const valoresMuestra = Array.isArray(sampleData) ? sampleData : []
+export default function VistaPreviaColumnaMapeada({ nombreColumnaExcel, nombreCampoSistema, datosMuestra, alEliminarMapeo }) {
+  const nombreColumnaExcelNormalizado = String(nombreColumnaExcel || '').trim()
+  const nombreCampoSistemaNormalizado = String(nombreCampoSistema || '').trim()
+  const valoresMuestra = Array.isArray(datosMuestra) ? datosMuestra : []
 
   return (
     <div
@@ -20,10 +20,10 @@ export default function MappedColumnPreview({ excelColumnName, systemFieldName, 
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 900, color: 'var(--navy)', overflowWrap: 'anywhere' }}>
-            {nombreColumnaExcel || '—'}
+            {nombreColumnaExcelNormalizado || '—'}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2, overflowWrap: 'anywhere' }}>
-            {nombreCampoSistema || 'Sin asignación'}
+            {nombreCampoSistemaNormalizado || 'Sin asignación'}
           </div>
         </div>
         <button
@@ -31,10 +31,10 @@ export default function MappedColumnPreview({ excelColumnName, systemFieldName, 
           className="btn b-out b-xs"
           title="Eliminar mapeo"
           aria-label="Eliminar mapeo"
-          onClick={() => onRemoveMapping?.(nombreColumnaExcel)}
+          onClick={() => alEliminarMapeo?.(nombreColumnaExcelNormalizado)}
           style={{ padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--red)', borderColor: 'var(--red)' }}
         >
-          <SvgIcon name="trash" aria-hidden="true" style={{ width: 16, height: 16, fill: 'currentColor' }} />
+          <IconoSvg name="trash" aria-hidden="true" style={{ width: 16, height: 16, fill: 'currentColor' }} />
         </button>
       </div>
 

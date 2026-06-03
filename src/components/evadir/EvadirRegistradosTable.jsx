@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useEvadirRegistrados } from '../../hooks/useEvadirRegistrados.js'
-import { fmtDMY } from '../../services/evadirService.js'
-import { useDb } from '../../context/dbContext.jsx'
-import { useUi } from '../../context/uiContext.jsx'
+import { formatearDMY } from '../../services/evadirService.js'
+import { usarBaseDatos } from '../../context/dbContext.jsx'
+import { usarInterfaz } from '../../context/uiContext.jsx'
 import EvadirPreview from './EvadirPreview.jsx'
 
 /**
@@ -39,8 +39,8 @@ import EvadirPreview from './EvadirPreview.jsx'
  * - Si crece el listado, considerar paginación o virtualización.
  */
 export default function EvadirRegistradosTable() {
-  const { db, apiEnabled, ensurePerfilesLoaded } = useDb()
-  const { toast, openModal, closeModal } = useUi()
+  const { baseDatos: db, apiHabilitada: apiEnabled, asegurarPerfilesCargados: ensurePerfilesLoaded } = usarBaseDatos()
+  const { mostrarToast: toast, abrirModal: openModal, cerrarModal: closeModal } = usarInterfaz()
   const { rows } = useEvadirRegistrados()
   const regiones = Array.isArray(db?.regionesChile) ? db.regionesChile : []
   const [q, setQ] = useState('')
@@ -269,7 +269,7 @@ export default function EvadirRegistradosTable() {
                   <td className="evadir-rt-sector">{r.sector}</td>
                   <td>SEG-{r.numSeg}</td>
                   <td className="evadir-rt-hide-mobile">{creador}</td>
-                  <td>{fmtDMY(r.fechaInicio)}</td>
+                  <td>{formatearDMY(r.fechaInicio)}</td>
                   <td className="evadir-rt-hide-mobile">{txCqUI}</td>
                   <td className="evadir-rt-hide-mobile">{r.totalBotes}</td>
                   <td className="evadir-rt-action">

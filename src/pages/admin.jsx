@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useDb } from '../context/dbContext.jsx'
-import { useUi } from '../context/uiContext.jsx'
-import { useApp } from '../context/appContext.jsx'
+import { usarBaseDatos } from '../context/dbContext.jsx'
+import { usarInterfaz } from '../context/uiContext.jsx'
+import { usarAplicacion } from '../context/appContext.jsx'
 
 /**
  * Página Admin: gestión de usuarios y visualización de matriz de permisos por rol.
@@ -41,29 +41,29 @@ import { useApp } from '../context/appContext.jsx'
  * - Mantener sincronía de rutas API (`/usuarios`) con backend.
  * - Evitar exponer tokens en logs/errores; actualmente solo se usa en header Authorization.
  */
-export default function AdminPage({ active }) {
-  const { db } = useDb()
-  const { toast, openModal, closeModal } = useUi()
-  const { navigate, isAdmin } = useApp()
-  const [tab, setTab] = useState('usuarios')
-  const apiUrl = String(import.meta.env?.VITE_API_URL || '').trim().replace(/\/+$/, '')
-  const apiEnabled = !!apiUrl
-  const [backupLoading, setBackupLoading] = useState(false)
+export default function PaginaAdmin({ activo }) {
+  const { baseDatos } = usarBaseDatos()
+  const { mostrarToast, abrirModal, cerrarModal } = usarInterfaz()
+  const { navegar, esAdmin } = usarAplicacion()
+  const [pestana, establecerPestana] = useState('usuarios')
+  const urlApi = String(import.meta.env?.VITE_API_URL || '').trim().replace(/\/+$/, '')
+  const apiHabilitada = !!urlApi
+  const [cargandoRespaldo, establecerCargandoRespaldo] = useState(false)
 
   const perfiles = useMemo(() => {
-    const arr = db?.perfiles
+    const arr = baseDatos?.perfiles
     return Array.isArray(arr) ? arr : []
-  }, [db?.perfiles])
+  }, [baseDatos?.perfiles])
 
-  const [apiUsers, setApiUsers] = useState([])
-  const [usersLoading, setUsersLoading] = useState(false)
+  const [usuariosApi, establecerUsuariosApi] = useState([])
+  const [cargandoUsuarios, establecerCargandoUsuarios] = useState(false)
 
   useEffect(() => {
-    if (!active) return
-    if (isAdmin) return
-    toast('Acceso restringido: solo Admin', 'red')
-    navigate('dashboard')
-  }, [active, isAdmin, navigate, toast])
+    if (!activo) return
+    if (esAdmin) return
+    mostrarToast('Acceso restringido: solo Admin', 'red')
+    navegar('dashboard')
+  }, [activo, esAdmin, navegar, mostrarToast])
 
   /**
    * Wrapper de fetch hacia la API configurada, agregando headers y validación de respuesta.
@@ -95,9 +95,9 @@ export default function AdminPage({ active }) {
    * Notas de mantenimiento:
    * - Mantener formato esperado de respuesta `{ ok, data, error }` alineado al backend.
    */
-  const apiFetch = useCallback(
+  const solicitarApi = useCallback(
     async (path, opts) => {
-      const url = `${apiUrl}/${String(path || '').replace(/^\/+/, '')}`
+      const url = `${urlApi}/${String(path || '').replace(/^\/+/, '')}`
       const token = (() => {
         try {
           return localStorage.getItem('bitecma_token')
@@ -116,7 +116,7 @@ export default function AdminPage({ active }) {
       }
       return json
     },
-    [apiUrl],
+    [urlApi],
   )
 
   /**
@@ -146,25 +146,25 @@ export default function AdminPage({ active }) {
    * Notas de mantenimiento:
    * - Mantener shape `json.data` alineado al backend.
    */
-  const loadUsers = useCallback(async () => {
-    if (!apiEnabled) return
-    setUsersLoading(true)
+  const cargarUsuarios = useCallback(async () => {
+    if (!apiHabilitada) return
+    establecerCargandoUsuarios(true)
     try {
-      const json = await apiFetch('/usuarios')
+      const json = await solicitarApi('/usuarios')
       const arr = json?.data
-      setApiUsers(Array.isArray(arr) ? arr : [])
+      establecerUsuariosApi(Array.isArray(arr) ? arr : [])
     } catch (err) {
-      toast(String(err?.message || 'Error cargando usuarios'), 'red')
+      mostrarToast(String(err?.message || 'Error cargando usuarios'), 'red')
     } finally {
-      setUsersLoading(false)
+      establecerCargandoUsuarios(false)
     }
-  }, [apiEnabled, apiFetch, toast])
+  }, [apiHabilitada, solicitarApi, mostrarToast])
 
   useEffect(() => {
-    if (!active) return
-    if (!apiEnabled) return
-    loadUsers()
-  }, [active, apiEnabled, loadUsers])
+    if (!activo) return
+    if (!apiHabilitada) return
+    cargarUsuarios()
+  }, [activo, apiHabilitada, cargarUsuarios])
 
   /**
    * Determina la clase CSS de la pill de rol para el listado de usuarios.
@@ -192,7 +192,7 @@ export default function AdminPage({ active }) {
    * Notas de mantenimiento:
    * - Si se agregan roles, extender el mapping.
    */
-  const rolePillClass = (rol) => {
+  const clasePildoraRol = (rol) => {
     const r = String(rol || '').toLowerCase()
     if (r === 'admin') return 'p-red'
     if (r === 'usuario') return 'p-grn'
@@ -201,7 +201,7 @@ export default function AdminPage({ active }) {
     return 'p-slt'
   }
 
-  const users = apiEnabled ? apiUsers : perfiles
+  const usuarios = apiHabilitada ? usuariosApi : perfiles
 
   /**
    * Abre el modal de creación/edición de usuario.
@@ -231,37 +231,37 @@ export default function AdminPage({ active }) {
    * Notas de mantenimiento:
    * - Mantener consistencia de tamaños del modal (`slim`) con estilos globales.
    */
-  const openUserEditor = useCallback(
-    ({ mode, user }) => {
-      const isEdit = mode === 'edit'
-      const initial = user || {}
-      openModal(
-        isEdit ? 'Editar usuario' : 'Nuevo usuario',
-        <UserEditor
-          mode={mode}
-          initial={initial}
-          onCancel={closeModal}
-          onSaved={async () => {
-            closeModal()
-            if (apiEnabled) await loadUsers()
+  const abrirEditorUsuario = useCallback(
+    ({ modo, usuario }) => {
+      const esEdicion = modo === 'edit'
+      const usuarioInicial = usuario || {}
+      abrirModal(
+        esEdicion ? 'Editar usuario' : 'Nuevo usuario',
+        <EditorUsuario
+          modo={modo}
+          inicial={usuarioInicial}
+          alCancelar={cerrarModal}
+          alGuardar={async () => {
+            cerrarModal()
+            if (apiHabilitada) await cargarUsuarios()
           }}
-          apiEnabled={apiEnabled}
-          apiFetch={apiFetch}
-          toast={toast}
+          apiHabilitada={apiHabilitada}
+          solicitarApi={solicitarApi}
+          mostrarToast={mostrarToast}
         />,
         'slim',
       )
     },
-    [apiEnabled, apiFetch, closeModal, loadUsers, openModal, toast],
+    [apiHabilitada, solicitarApi, cerrarModal, cargarUsuarios, abrirModal, mostrarToast],
   )
 
-  const downloadSqlBackup = useCallback(async ({ auto } = {}) => {
-    if (!apiEnabled) {
-      toast('API no configurada', 'red')
+  const descargarRespaldoSql = useCallback(async ({ auto } = {}) => {
+    if (!apiHabilitada) {
+      mostrarToast('API no configurada', 'red')
       return
     }
-    if (backupLoading) return
-    setBackupLoading(true)
+    if (cargandoRespaldo) return
+    establecerCargandoRespaldo(true)
     try {
       const token = (() => {
         try {
@@ -272,7 +272,7 @@ export default function AdminPage({ active }) {
       })()
       if (!token) throw new Error('No autorizado')
 
-      const url = `${apiUrl}/backup/sql`
+      const url = `${urlApi}/backup/sql`
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
 
       if (!res.ok) {
@@ -283,18 +283,18 @@ export default function AdminPage({ active }) {
 
       const blob = await res.blob()
       const cd = res.headers.get('content-disposition') || ''
-      const m = cd.match(/filename="([^"]+)"/i)
-      const now = new Date()
-      const pad2 = (n) => String(n).padStart(2, '0')
-      const ts = `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}_${pad2(now.getHours())}${pad2(
-        now.getMinutes(),
-      )}${pad2(now.getSeconds())}`
-      const filename = m?.[1] || `backup_${ts}.sql`
+      const coincidenciaNombre = cd.match(/filename="([^"]+)"/i)
+      const ahora = new Date()
+      const rellenar2 = (n) => String(n).padStart(2, '0')
+      const marcaTiempo = `${ahora.getFullYear()}${rellenar2(ahora.getMonth() + 1)}${rellenar2(ahora.getDate())}_${rellenar2(ahora.getHours())}${rellenar2(
+        ahora.getMinutes(),
+      )}${rellenar2(ahora.getSeconds())}`
+      const nombreArchivo = coincidenciaNombre?.[1] || `backup_${marcaTiempo}.sql`
 
       const objUrl = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = objUrl
-      a.download = filename
+      a.download = nombreArchivo
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -305,20 +305,20 @@ export default function AdminPage({ active }) {
       } catch {
         ;
       }
-      toast('Respaldo descargado', 'green')
+      mostrarToast('Respaldo descargado', 'green')
     } catch (err) {
-      toast(String(err?.message || 'Error descargando respaldo'), 'red')
+      mostrarToast(String(err?.message || 'Error descargando respaldo'), 'red')
     } finally {
-      setBackupLoading(false)
+      establecerCargandoRespaldo(false)
     }
-  }, [apiEnabled, apiUrl, backupLoading, toast])
+  }, [apiHabilitada, urlApi, cargandoRespaldo, mostrarToast])
 
   useEffect(() => {
-    if (!active) return
-    if (!apiEnabled) return
-    if (!isAdmin) return
-    if (tab !== 'usuarios') return
-    if (backupLoading) return
+    if (!activo) return
+    if (!apiHabilitada) return
+    if (!esAdmin) return
+    if (pestana !== 'usuarios') return
+    if (cargandoRespaldo) return
 
     const key = 'bitecma_last_backup_download_at'
     const weekMs = 7 * 24 * 60 * 60 * 1000
@@ -334,10 +334,10 @@ export default function AdminPage({ active }) {
     })()
     if (last > 0 && now - last < weekMs) return
 
-    downloadSqlBackup({ auto: true })
-  }, [active, apiEnabled, backupLoading, downloadSqlBackup, isAdmin, tab])
+    descargarRespaldoSql({ auto: true })
+  }, [activo, apiHabilitada, cargandoRespaldo, descargarRespaldoSql, esAdmin, pestana])
 
-  const usuariosRows = users
+  const filasUsuarios = usuarios
     .map((u) => {
       const rol = u?.rol || '—'
       return (
@@ -348,7 +348,7 @@ export default function AdminPage({ active }) {
           </td>
           <td>{u?.correo || '—'}</td>
           <td>
-            <span className={`pill ${rolePillClass(rol)}`}>{rol}</span>
+            <span className={`pill ${clasePildoraRol(rol)}`}>{rol}</span>
           </td>
           <td>
             <span className={`pill ${u?.activo === false ? 'p-amb' : 'p-grn'}`}>
@@ -356,7 +356,7 @@ export default function AdminPage({ active }) {
             </span>
           </td>
           <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-            <button className="btn b-out b-xs" onClick={() => openUserEditor({ mode: 'edit', user: u })}>
+            <button className="btn b-out b-xs" onClick={() => abrirEditorUsuario({ modo: 'edit', usuario: u })}>
               Editar
             </button>{' '}
           </td>
@@ -366,32 +366,32 @@ export default function AdminPage({ active }) {
     .filter(Boolean)
 
   return (
-    <div className={`page${active ? ' active' : ''}`} id="pg-admin">
+    <div className={`page${activo ? ' active' : ''}`} id="pg-admin">
       <div className="ph">
         <div>
           <h2>Panel Admin</h2>
           <p>Gestión de usuarios y roles</p>
         </div>
         <div className="ph-a">
-          <button className="btn b-out" onClick={() => navigate('dashboard')}>
+          <button className="btn b-out" onClick={() => navegar('dashboard')}>
             Volver
           </button>
         </div>
       </div>
       <div className="admin-layout">
         <div className="admin-menu card">
-          <div className={`admin-item ${tab === 'usuarios' ? 'on' : ''}`} onClick={() => setTab('usuarios')}>
+          <div className={`admin-item ${pestana === 'usuarios' ? 'on' : ''}`} onClick={() => establecerPestana('usuarios')}>
             Usuarios
           </div>
-          <div className={`admin-item ${tab === 'roles' ? 'on' : ''}`} onClick={() => setTab('roles')}>
+          <div className={`admin-item ${pestana === 'roles' ? 'on' : ''}`} onClick={() => establecerPestana('roles')}>
             Roles y Accesos
           </div>
-          <div className={`admin-item ${tab === 'respaldo' ? 'on' : ''}`} onClick={() => setTab('respaldo')}>
+          <div className={`admin-item ${pestana === 'respaldo' ? 'on' : ''}`} onClick={() => establecerPestana('respaldo')}>
             Respaldo de Datos
           </div>
         </div>
         <div className="admin-content card">
-          {tab === 'usuarios' ? (
+          {pestana === 'usuarios' ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div>
@@ -402,7 +402,7 @@ export default function AdminPage({ active }) {
                     Crear, editar, desactivar y asignar roles
                   </div>
                 </div>
-                <button className="btn b-teal" onClick={() => openUserEditor({ mode: 'create', user: null })}>
+                <button className="btn b-teal" onClick={() => abrirEditorUsuario({ modo: 'create', usuario: null })}>
                   + Nuevo usuario
                 </button>
               </div>
@@ -419,9 +419,9 @@ export default function AdminPage({ active }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {usuariosRows.length ? (
-                      usuariosRows
-                    ) : usersLoading ? (
+                    {filasUsuarios.length ? (
+                      filasUsuarios
+                    ) : cargandoUsuarios ? (
                       <tr>
                         <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text3)', padding: 14 }}>
                           Cargando…
@@ -440,7 +440,7 @@ export default function AdminPage({ active }) {
             </>
           ) : null}
 
-          {tab === 'roles' ? (
+          {pestana === 'roles' ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div>
@@ -499,7 +499,7 @@ export default function AdminPage({ active }) {
             </>
           ) : null}
 
-          {tab === 'respaldo' ? (
+          {pestana === 'respaldo' ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div>
@@ -512,16 +512,16 @@ export default function AdminPage({ active }) {
                   <div>
                     <button
                     className="btn b-out"
-                    onClick={() => downloadSqlBackup()}
-                    disabled={!apiEnabled || backupLoading}
+                    onClick={() => descargarRespaldoSql()}
+                    disabled={!apiHabilitada || cargandoRespaldo}
                   >
-                    {backupLoading ? 'Generando…' : 'Descargar respaldo SQL'}
+                    {cargandoRespaldo ? 'Generando…' : 'Descargar respaldo SQL'}
                   </button>
                   </div>
                 </div>
                   
               </div>
-              {!apiEnabled ? (
+              {!apiHabilitada ? (
                 <div style={{ fontSize: 12, color: 'var(--text3)' }}>API no configurada</div>
               ) : null}
             </>
@@ -668,15 +668,15 @@ function isValidEmail(email) {
  * Notas de mantenimiento:
  * - Mantener el mínimo de contraseña (8) alineado con políticas del backend.
  */
-function UserEditor({ mode, initial, onCancel, onSaved, apiEnabled, apiFetch, toast }) {
-  const isEdit = mode === 'edit'
-  const [nombre, setNombre] = useState(String(initial?.nombre || ''))
-  const [correo, setCorreo] = useState(String(initial?.correo || ''))
-  const [rol, setRol] = useState(normalizeRole(initial?.rol || 'Usuario'))
-  const [activo, setActivo] = useState(initial?.activo === false ? false : true)
-  const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [saving, setSaving] = useState(false)
+function EditorUsuario({ modo, inicial, alCancelar, alGuardar, apiHabilitada, solicitarApi, mostrarToast }) {
+  const esEdicion = modo === 'edit'
+  const [nombre, establecerNombre] = useState(String(inicial?.nombre || ''))
+  const [correo, establecerCorreo] = useState(String(inicial?.correo || ''))
+  const [rol, establecerRol] = useState(normalizeRole(inicial?.rol || 'Usuario'))
+  const [activo, establecerActivo] = useState(inicial?.activo === false ? false : true)
+  const [contrasena, establecerContrasena] = useState('')
+  const [confirmarContrasena, establecerConfirmarContrasena] = useState('')
+  const [guardando, establecerGuardando] = useState(false)
 
   /**
    * Valida el formulario y persiste el usuario vía API.
@@ -709,56 +709,56 @@ function UserEditor({ mode, initial, onCancel, onSaved, apiEnabled, apiFetch, to
    * Notas de mantenimiento:
    * - Mantener rutas/contratos de API consistentes con backend.
    */
-  const submit = useCallback(async () => {
-    const n = String(nombre || '').trim()
-    const c = String(correo || '').trim().toLowerCase()
-    const r = normalizeRole(rol)
-    if (!n) return toast('Nombre requerido', 'red')
-    if (!isValidEmail(c)) return toast('Correo inválido', 'red')
-    if (!r) return toast('Rol requerido', 'red')
-    if (!apiEnabled) return toast('API no configurada (VITE_API_URL)', 'red')
+  const guardarUsuario = useCallback(async () => {
+    const nombreNormalizado = String(nombre || '').trim()
+    const correoNormalizado = String(correo || '').trim().toLowerCase()
+    const rolNormalizado = normalizeRole(rol)
+    if (!nombreNormalizado) return mostrarToast('Nombre requerido', 'red')
+    if (!isValidEmail(correoNormalizado)) return mostrarToast('Correo inválido', 'red')
+    if (!rolNormalizado) return mostrarToast('Rol requerido', 'red')
+    if (!apiHabilitada) return mostrarToast('API no configurada (VITE_API_URL)', 'red')
 
-    const payload = { nombre: n, correo: c, rol: r, activo: !!activo }
-    if (!isEdit || String(password || '').trim()) {
-      const p = String(password || '')
-      const cp = String(confirm || '')
-      if (p.length < 8) return toast('La contraseña debe tener al menos 8 caracteres', 'red')
-      if (p !== cp) return toast('Las contraseñas no coinciden', 'red')
-      payload.password = p
+    const payload = { nombre: nombreNormalizado, correo: correoNormalizado, rol: rolNormalizado, activo: !!activo }
+    if (!esEdicion || String(contrasena || '').trim()) {
+      const contrasenaNormalizada = String(contrasena || '')
+      const confirmarContrasenaNormalizada = String(confirmarContrasena || '')
+      if (contrasenaNormalizada.length < 8) return mostrarToast('La contraseña debe tener al menos 8 caracteres', 'red')
+      if (contrasenaNormalizada !== confirmarContrasenaNormalizada) return mostrarToast('Las contraseñas no coinciden', 'red')
+      payload.password = contrasenaNormalizada
     }
 
-    setSaving(true)
+    establecerGuardando(true)
     try {
-      if (isEdit) {
-        await apiFetch(`/usuarios/${initial?.id}`, { method: 'PUT', body: JSON.stringify(payload) })
-        toast('Usuario actualizado', 'green')
+      if (esEdicion) {
+        await solicitarApi(`/usuarios/${inicial?.id}`, { method: 'PUT', body: JSON.stringify(payload) })
+        mostrarToast('Usuario actualizado', 'green')
       } else {
-        await apiFetch('/usuarios', { method: 'POST', body: JSON.stringify(payload) })
-        toast('Usuario creado', 'green')
+        await solicitarApi('/usuarios', { method: 'POST', body: JSON.stringify(payload) })
+        mostrarToast('Usuario creado', 'green')
       }
-      await onSaved?.()
+      await alGuardar?.()
     } catch (err) {
-      toast(String(err?.message || 'Error guardando usuario'), 'red')
+      mostrarToast(String(err?.message || 'Error guardando usuario'), 'red')
     } finally {
-      setSaving(false)
+      establecerGuardando(false)
     }
-  }, [activo, apiEnabled, apiFetch, confirm, correo, initial?.id, isEdit, nombre, onSaved, password, rol, toast])
+  }, [activo, alGuardar, apiHabilitada, confirmarContrasena, contrasena, correo, inicial?.id, esEdicion, mostrarToast, nombre, rol, solicitarApi])
 
   return (
     <div>
       <div className="ig">
         <label className="il">Nombre</label>
-        <input className="ii" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre y apellido" />
+        <input className="ii" value={nombre} onChange={(e) => establecerNombre(e.target.value)} placeholder="Nombre y apellido" />
       </div>
 
       <div className="ig">
         <label className="il">Correo</label>
-        <input className="ii" value={correo} onChange={(e) => setCorreo(e.target.value)} placeholder="correo@dominio.cl" />
+        <input className="ii" value={correo} onChange={(e) => establecerCorreo(e.target.value)} placeholder="correo@dominio.cl" />
       </div>
 
       <div className="ig">
         <label className="il">Rol</label>
-        <select className="is" value={rol} onChange={(e) => setRol(e.target.value)}>
+        <select className="is" value={rol} onChange={(e) => establecerRol(e.target.value)}>
           <option value="Admin">Admin</option>
           <option value="Usuario">Usuario</option>
           <option value="Visualizador">Visualizador</option>
@@ -771,28 +771,28 @@ function UserEditor({ mode, initial, onCancel, onSaved, apiEnabled, apiFetch, to
           <div className="cfg-sub">{activo ? 'Activo' : 'Inactivo'}</div>
         </div>
         <label className="sw">
-          <input type="checkbox" checked={activo} onChange={(e) => setActivo(e.target.checked)} />
+          <input type="checkbox" checked={activo} onChange={(e) => establecerActivo(e.target.checked)} />
           <span className="sw-track"></span>
           <span className="sw-thumb"></span>
         </label>
       </div>
 
       <div className="ig">
-        <label className="il">{isEdit ? 'Nueva contraseña (opcional)' : 'Contraseña'}</label>
-        <input className="ii" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <label className="il">{esEdicion ? 'Nueva contraseña (opcional)' : 'Contraseña'}</label>
+        <input className="ii" type="password" value={contrasena} onChange={(e) => establecerContrasena(e.target.value)} />
       </div>
 
       <div className="ig">
         <label className="il">Confirmar contraseña</label>
-        <input className="ii" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        <input className="ii" type="password" value={confirmarContrasena} onChange={(e) => establecerConfirmarContrasena(e.target.value)} />
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
-        <button className="btn b-out" onClick={onCancel} disabled={saving}>
+        <button className="btn b-out" onClick={alCancelar} disabled={guardando}>
           Cancelar
         </button>
-        <button className="btn b-teal" onClick={submit} disabled={saving}>
-          {saving ? 'Guardando…' : 'Guardar'}
+        <button className="btn b-teal" onClick={guardarUsuario} disabled={guardando}>
+          {guardando ? 'Guardando…' : 'Guardar'}
         </button>
       </div>
     </div>

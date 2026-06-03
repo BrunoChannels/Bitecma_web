@@ -1,6 +1,6 @@
-import SvgIcon from './svgIcon.jsx'
-import { useApp } from '../context/appContext.jsx'
-import { useUi } from '../context/uiContext.jsx'
+import IconoSvg from './svgIcon.jsx'
+import { usarAplicacion } from '../context/appContext.jsx'
+import { usarInterfaz } from '../context/uiContext.jsx'
 
 /**
  * Menú lateral de navegación (sidebar).
@@ -31,9 +31,9 @@ import { useUi } from '../context/uiContext.jsx'
  * - Mantener ids (`nav-*`) consistentes si se usan para QA/tests.
  * - Si se agrega una nueva página, sumar aquí y en el router interno de `App.jsx`.
  */
-export default function Sidebar() {
-  const { page, navigate, logout } = useApp()
-  const { closeSidebar } = useUi()
+export default function BarraLateral() {
+  const { pagina, navegar, cerrarSesion } = usarAplicacion()
+  const { cerrarBarraLateral } = usarInterfaz()
 
   /**
    * Navega a una página interna y cierra el sidebar (pensado para móvil).
@@ -48,58 +48,58 @@ export default function Sidebar() {
    * Efectos secundarios:
    * - Cambia navegación global y estado UI del sidebar.
    */
-  const go = (to) => {
-    navigate(to)
-    closeSidebar()
+  const irA = (paginaDestino) => {
+    navegar(paginaDestino)
+    cerrarBarraLateral()
   }
 
   return (
     <div className="sidebar">
       <div className="sb-sec">Principal</div>
       <div
-        className={`nav ${page === 'dashboard' ? 'on' : ''}`}
+        className={`nav ${pagina === 'dashboard' ? 'on' : ''}`}
         id="nav-dashboard"
-        onClick={() => go('dashboard')}
+        onClick={() => irA('dashboard')}
       >
-        <SvgIcon className="nav-icon" name="grid" aria-hidden="true" />
+        <IconoSvg className="nav-icon" name="grid" aria-hidden="true" />
         Dashboard
       </div>
       <div className="sb-sec">Trabajo de Campo</div>
-      <div className={`nav ${page === 'ops' ? 'on' : ''}`} id="nav-ops" onClick={() => go('ops')}>
-        <SvgIcon className="nav-icon" name="folder" aria-hidden="true" />
+      <div className={`nav ${pagina === 'ops' ? 'on' : ''}`} id="nav-ops" onClick={() => irA('ops')}>
+        <IconoSvg className="nav-icon" name="folder" aria-hidden="true" />
         Operaciones
       </div>
-      <div className={`nav ${page === 'evadir' ? 'on' : ''}`} id="nav-evadir" onClick={() => go('evadir')}>
-        <SvgIcon className="nav-icon" name="table" aria-hidden="true" />
+      <div className={`nav ${pagina === 'evadir' ? 'on' : ''}`} id="nav-evadir" onClick={() => irA('evadir')}>
+        <IconoSvg className="nav-icon" name="table" aria-hidden="true" />
         EVADIR
       </div>
       <div className="sb-sec">Maestros</div>
       <div
-        className={`nav ${page === 'especies' ? 'on' : ''}`}
+        className={`nav ${pagina === 'especies' ? 'on' : ''}`}
         id="nav-especies"
-        onClick={() => go('especies')}
+        onClick={() => irA('especies')}
       >
-        <SvgIcon className="nav-icon" name="users" aria-hidden="true" />
+        <IconoSvg className="nav-icon" name="users" aria-hidden="true" />
         Especies
       </div>
       <div
-        className={`nav ${page === 'sectores' ? 'on' : ''}`}
+        className={`nav ${pagina === 'sectores' ? 'on' : ''}`}
         id="nav-sectores"
-        onClick={() => go('sectores')}
+        onClick={() => irA('sectores')}
       >
-        <SvgIcon className="nav-icon" name="map" aria-hidden="true" />
+        <IconoSvg className="nav-icon" name="map" aria-hidden="true" />
         Sectores
       </div>
-      <div className={`nav ${page === 'orgs' ? 'on' : ''}`} id="nav-orgs" onClick={() => go('orgs')}>
-        <SvgIcon className="nav-icon" name="users" aria-hidden="true" />
+      <div className={`nav ${pagina === 'orgs' ? 'on' : ''}`} id="nav-orgs" onClick={() => irA('orgs')}>
+        <IconoSvg className="nav-icon" name="users" aria-hidden="true" />
         Organizaciones
       </div>
       <div
-        className={`nav ${page === 'botes' ? 'on' : ''}`}
+        className={`nav ${pagina === 'botes' ? 'on' : ''}`}
         id="nav-botes"
-        onClick={() => go('botes')}
+        onClick={() => irA('botes')}
       >
-        <SvgIcon className="nav-icon" name="anchor" aria-hidden="true" />
+        <IconoSvg className="nav-icon" name="anchor" aria-hidden="true" />
         Botes
       </div>
       <div className="sb-foot">
@@ -107,11 +107,11 @@ export default function Sidebar() {
           className="nav"
           style={{ color: 'var(--red)' }}
           onClick={() => {
-            closeSidebar()
-            logout()
+            cerrarBarraLateral()
+            cerrarSesion()
           }}
         >
-          <SvgIcon className="nav-icon" name="logout" aria-hidden="true" />
+          <IconoSvg className="nav-icon" name="logout" aria-hidden="true" />
           Cerrar sesión
         </div>
       </div>

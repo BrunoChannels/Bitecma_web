@@ -8,7 +8,7 @@ import EvadirRegistradosTable from '../components/evadir/EvadirRegistradosTable.
  * - Peso-Longitud / Diámetro (muestras por bote y especie)
  *
  * @param {object} props - Props del componente.
- * @param {boolean} props.active - Indica si la página está activa (se usa para estilos).
+ * @param {boolean} props.activo - Indica si la página está activa (se usa para estilos).
  * @returns {import('react').JSX.Element} Página con header informativo y tabla de EVADIR registrados.
  *
  * Lógica:
@@ -25,14 +25,14 @@ import EvadirRegistradosTable from '../components/evadir/EvadirRegistradosTable.
  * - Delegado al componente hijo.
  *
  * @example
- * <EvadirPage active={page === 'evadir'} />
+ * <EvadirPage activo={page === 'evadir'} />
  *
  * Notas de mantenimiento:
  * - Mantener el copy alineado con el flujo real de importación/generación EVADIR.
  */
-export default function EvadirPage({ active }) {
+export default function EvadirPage({ activo }) {
   return (
-    <div className={`page${active ? ' active' : ''}`} id="pg-evadir">
+    <div className={`page${activo ? ' active' : ''}`} id="pg-evadir">
       <div className="ph">
         <div>
           <h2>Generar EVADIR</h2>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useApp } from '../context/appContext.jsx'
-import { useUi } from '../context/uiContext.jsx'
+import { usarAplicacion } from '../context/appContext.jsx'
+import { usarInterfaz } from '../context/uiContext.jsx'
 
 const DASH_SEEN_KEY = 'bitecma_tutorial_dashboard_seen_v1'
 
@@ -41,12 +41,12 @@ function safeClone(v) {
 }
 
 export default function Tutorial() {
-  const { isAuthed, page, navigate } = useApp()
-  const { toast } = useUi()
+  const { estaAutenticado, pagina, navegar } = usarAplicacion()
+  const { mostrarToast } = usarInterfaz()
 
-  const curPage = String(page || '')
-  const isDashboard = isAuthed && curPage === 'dashboard'
-  const isOpsTutorial = isAuthed && curPage === 'ops-tutorial'
+  const curPage = String(pagina || '')
+  const isDashboard = estaAutenticado && curPage === 'dashboard'
+  const isOpsTutorial = estaAutenticado && curPage === 'ops-tutorial'
 
   const isFormLikeTarget = (node) => {
     const el = node && node.nodeType === 1 ? node : null
@@ -1021,8 +1021,8 @@ export default function Tutorial() {
     setIdx(0)
     const backTo = String(returnPageRef.current || '')
     window.dispatchEvent(new CustomEvent('bitecma:tutorial:closeall'))
-    if (tour === 'ops' && curPage === 'ops-tutorial') navigate(backTo || 'ops')
-  }, [clearFocus, resetSnapshots, tour, curPage, navigate])
+    if (tour === 'ops' && curPage === 'ops-tutorial') navegar(backTo || 'ops')
+  }, [clearFocus, resetSnapshots, tour, curPage, navegar])
 
   const startDashboard = useCallback(() => {
     returnPageRef.current = 'dashboard'
@@ -1039,15 +1039,15 @@ export default function Tutorial() {
     resetSnapshots()
     setIdx(0)
     setRunning(true)
-    navigate('ops-tutorial')
-  }, [curPage, navigate, resetSnapshots])
+    navegar('ops-tutorial')
+  }, [curPage, navegar, resetSnapshots])
 
   const skipDashboard = useCallback(() => {
     writeSeen(DASH_SEEN_KEY, true)
     setRunning(false)
     setIdx(0)
-    toast('Puedes visitar el tutorial desde configuracion cuando gustes!')
-  }, [toast])
+    mostrarToast('Puedes visitar el tutorial desde configuracion cuando gustes!')
+  }, [mostrarToast])
 
   const next = useCallback(() => {
     if (nextLocked) return
@@ -1162,7 +1162,7 @@ export default function Tutorial() {
     const onTutorialEvent = (e) => {
       const action = String(e?.detail?.action || '')
       const nextTour = String(e?.detail?.tour || '')
-      if (!isAuthed) return
+      if (!estaAutenticado) return
       if (action === 'start' && nextTour === 'ops') {
         startOps()
         return
@@ -1181,7 +1181,7 @@ export default function Tutorial() {
     }
     window.addEventListener('bitecma:tutorial', onTutorialEvent)
     return () => window.removeEventListener('bitecma:tutorial', onTutorialEvent)
-  }, [isAuthed, startOps, startDashboard, resetSnapshots])
+  }, [estaAutenticado, startOps, startDashboard, resetSnapshots])
 
   useEffect(() => {
     const onSnapshotResp = (e) => {
@@ -1531,7 +1531,7 @@ export default function Tutorial() {
           if (!tgt || !el.contains(tgt)) return
           if (!isAdvanceTarget(tgt)) return
           if (typeof tgt?.disabled === 'boolean' && tgt.disabled) {
-            toast('Completa el paso requerido para continuar', 'blue')
+            mostrarToast('Completa el paso requerido para continuar', 'blue')
             return
           }
           clearTimeout(advanceRef.current.t)
@@ -1558,7 +1558,7 @@ export default function Tutorial() {
 
     document.addEventListener('click', onClickCapture, true)
     return () => document.removeEventListener('click', onClickCapture, true)
-  }, [running, canRender, steps, idx, close, next, toast])
+  }, [running, canRender, steps, idx, close, next, mostrarToast])
 
   const showPrompt = isDashboard && !readSeen(DASH_SEEN_KEY) && !running
   const open = showPrompt || (running && canRender)

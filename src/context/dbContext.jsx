@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
-const DbContext = createContext(null)
+const ContextoBaseDatos = createContext(null)
 
-const TOKEN_KEY = 'bitecma_token'
+const claveToken = 'bitecma_token'
 
 /**
  * Retorna el estado inicial de la DB en memoria.
@@ -22,7 +22,7 @@ const TOKEN_KEY = 'bitecma_token'
  * - Mantener las claves estables: la UI y servicios asumen estos nombres.
  * - `caletasByRegionStatic` se mantiene por compatibilidad con UI antigua (fallback vacío).
  */
-function initialDb() {
+function crearBaseDatosInicial() {
   return {
     especies: [],
     operaciones: [],
@@ -66,46 +66,48 @@ function initialDb() {
  * - El contrato de `apiFetch` debe mantenerse consistente con el backend (`{ ok, data, error }`).
  * - Si se agregan nuevos maestros/endpoints, seguir el patrón `ensureXLoaded` con ref `{done,promise}`.
  */
-export function DbProvider({ children }) {
-  const [db, setDb] = useState(() => initialDb())
-  const apiUrl = String(import.meta.env?.VITE_API_URL || '').trim().replace(/\/+$/, '')
-  const apiEnabled = !!apiUrl
+export function ProveedorBaseDatos({ children }) {
+  const [baseDatos, establecerBaseDatos] = useState(() => crearBaseDatosInicial())
+  const urlApi = String(import.meta.env?.VITE_API_URL || '')
+    .trim()
+    .replace(/\/+$/, '')
+  const apiHabilitada = !!urlApi
 
-  const botesLoadRef = useRef({ done: false, promise: null })
-  const sectoresAmerbLoadRef = useRef({ done: false, promise: null })
-  const opaLoadRef = useRef({ done: false, promise: null })
-  const especiesLoadRef = useRef({ done: false, promise: null })
-  const regionesLoadRef = useRef({ done: false, promise: null })
-  const caletasLoadRef = useRef({ done: false, promise: null })
-  const operacionesLoadRef = useRef({ done: false, promise: null })
-  const perfilesLoadRef = useRef({ done: false, promise: null })
-  const opAutosaveRef = useRef({ timers: new Map() })
+  const cargaBotesRef = useRef({ done: false, promise: null })
+  const cargaSectoresAmerbRef = useRef({ done: false, promise: null })
+  const cargaOpaRef = useRef({ done: false, promise: null })
+  const cargaEspeciesRef = useRef({ done: false, promise: null })
+  const cargaRegionesRef = useRef({ done: false, promise: null })
+  const cargaCaletasRef = useRef({ done: false, promise: null })
+  const cargaOperacionesRef = useRef({ done: false, promise: null })
+  const cargaPerfilesRef = useRef({ done: false, promise: null })
+  const autoGuardadoOperacionesRef = useRef({ timers: new Map() })
 
-  const apiFetch = useCallback(
-    async (path, opts) => {
-      const url = `${apiUrl}/${String(path || '').replace(/^\/+/, '')}`
+  const solicitarApi = useCallback(
+    async (ruta, opciones) => {
+      const url = `${urlApi}/${String(ruta || '').replace(/^\/+/, '')}`
       const token = (() => {
         try {
-          return localStorage.getItem(TOKEN_KEY)
+          return localStorage.getItem(claveToken)
         } catch {
           return null
         }
       })()
-      const headers = { ...(opts?.headers || {}) }
-      if (!headers['Content-Type'] && opts?.body) headers['Content-Type'] = 'application/json'
-      if (token && !headers.Authorization) headers.Authorization = `Bearer ${token}`
-      const res = await fetch(url, { ...(opts || {}), headers })
-      const json = await res.json().catch(() => null)
-      if (!res.ok) {
-        const msg = String(json?.error || res.statusText || 'Error')
-        throw new Error(msg)
+      const encabezados = { ...(opciones?.headers || {}) }
+      if (!encabezados['Content-Type'] && opciones?.body) encabezados['Content-Type'] = 'application/json'
+      if (token && !encabezados.Authorization) encabezados.Authorization = `Bearer ${token}`
+      const respuesta = await fetch(url, { ...(opciones || {}), headers: encabezados })
+      const json = await respuesta.json().catch(() => null)
+      if (!respuesta.ok) {
+        const mensaje = String(json?.error || respuesta.statusText || 'Error')
+        throw new Error(mensaje)
       }
       return json
     },
-    [apiUrl],
+    [urlApi],
   )
 
-  const normalizeSectorAmerb = useCallback((s) => {
+  const normalizarSectorAmerb = useCallback((s) => {
     const raw = s && typeof s === 'object' ? s : {}
     const id = raw?.id != null ? Number(raw.id) : null
     const regionNum = raw?.region != null ? Number(raw.region) : raw?.region_id != null ? Number(raw.region_id) : null
@@ -123,60 +125,60 @@ export function DbProvider({ children }) {
     }
   }, [])
 
-  const ensureRegionesLoaded = useCallback(async () => {
-    if (regionesLoadRef.current.done) return
-    if (regionesLoadRef.current.promise) return regionesLoadRef.current.promise
-    if (!apiEnabled) {
-      regionesLoadRef.current.done = true
+  const asegurarRegionesCargadas = useCallback(async () => {
+    if (cargaRegionesRef.current.done) return
+    if (cargaRegionesRef.current.promise) return cargaRegionesRef.current.promise
+    if (!apiHabilitada) {
+      cargaRegionesRef.current.done = true
       return
     }
 
-    regionesLoadRef.current.promise = apiFetch('/regiones')
+    cargaRegionesRef.current.promise = solicitarApi('/regiones')
       .then((json) => {
         const arr = json?.data
-        setDb((prev) => ({ ...prev, regionesChile: Array.isArray(arr) ? arr : [] }))
-        regionesLoadRef.current.done = true
+        establecerBaseDatos((prev) => ({ ...prev, regionesChile: Array.isArray(arr) ? arr : [] }))
+        cargaRegionesRef.current.done = true
       })
       .finally(() => {
-        regionesLoadRef.current.promise = null
+        cargaRegionesRef.current.promise = null
       })
 
-    return regionesLoadRef.current.promise
-  }, [apiEnabled, apiFetch])
+    return cargaRegionesRef.current.promise
+  }, [apiHabilitada, solicitarApi])
 
-  const ensureEspeciesLoaded = useCallback(async () => {
-    if (especiesLoadRef.current.done) return
-    if (especiesLoadRef.current.promise) return especiesLoadRef.current.promise
+  const asegurarEspeciesCargadas = useCallback(async () => {
+    if (cargaEspeciesRef.current.done) return
+    if (cargaEspeciesRef.current.promise) return cargaEspeciesRef.current.promise
 
-    if (!apiEnabled) {
-      especiesLoadRef.current.done = true
+    if (!apiHabilitada) {
+      cargaEspeciesRef.current.done = true
       return
     }
 
-    especiesLoadRef.current.promise = apiFetch('/especies')
+    cargaEspeciesRef.current.promise = solicitarApi('/especies')
       .then((json) => {
         const arr = json?.data
-        setDb((prev) => ({ ...prev, especies: Array.isArray(arr) ? arr : [] }))
-        especiesLoadRef.current.done = true
+        establecerBaseDatos((prev) => ({ ...prev, especies: Array.isArray(arr) ? arr : [] }))
+        cargaEspeciesRef.current.done = true
       })
       .finally(() => {
-        especiesLoadRef.current.promise = null
+        cargaEspeciesRef.current.promise = null
       })
 
-    return especiesLoadRef.current.promise
-  }, [apiEnabled, apiFetch])
+    return cargaEspeciesRef.current.promise
+  }, [apiHabilitada, solicitarApi])
 
-  const ensureCaletasLoaded = useCallback(async () => {
-    if (caletasLoadRef.current.done) return
-    if (caletasLoadRef.current.promise) return caletasLoadRef.current.promise
-    if (!apiEnabled) {
-      caletasLoadRef.current.done = true
+  const asegurarCaletasCargadas = useCallback(async () => {
+    if (cargaCaletasRef.current.done) return
+    if (cargaCaletasRef.current.promise) return cargaCaletasRef.current.promise
+    if (!apiHabilitada) {
+      cargaCaletasRef.current.done = true
       return
     }
 
-    caletasLoadRef.current.promise = Promise.resolve()
-      .then(() => ensureRegionesLoaded?.())
-      .then(() => apiFetch('/caletas'))
+    cargaCaletasRef.current.promise = Promise.resolve()
+      .then(() => asegurarRegionesCargadas?.())
+      .then(() => solicitarApi('/caletas'))
       .then((json) => {
         const arr = json?.data
         const list = Array.isArray(arr) ? arr : []
@@ -192,7 +194,7 @@ export function DbProvider({ children }) {
         })
         Object.keys(byId).forEach((k) => byId[k].sort((a, b) => String(a).localeCompare(String(b))))
 
-        setDb((prev) => {
+        establecerBaseDatos((prev) => {
           const regiones = Array.isArray(prev?.regionesChile) ? prev.regionesChile : []
           const romById = new Map(regiones.map((r) => [Number(r?.id), String(r?.rom || '')]))
           const byRom = {}
@@ -209,79 +211,79 @@ export function DbProvider({ children }) {
           }
         })
 
-        caletasLoadRef.current.done = true
+        cargaCaletasRef.current.done = true
       })
       .finally(() => {
-        caletasLoadRef.current.promise = null
+        cargaCaletasRef.current.promise = null
       })
 
-    return caletasLoadRef.current.promise
-  }, [apiEnabled, apiFetch, ensureRegionesLoaded])
+    return cargaCaletasRef.current.promise
+  }, [apiHabilitada, solicitarApi, asegurarRegionesCargadas])
 
-  const ensureBotesMaestroLoaded = useCallback(async () => {
-    if (botesLoadRef.current.done) return
-    if (botesLoadRef.current.promise) return botesLoadRef.current.promise
-    if (!apiEnabled) {
-      botesLoadRef.current.done = true
+  const asegurarBotesMaestroCargados = useCallback(async () => {
+    if (cargaBotesRef.current.done) return
+    if (cargaBotesRef.current.promise) return cargaBotesRef.current.promise
+    if (!apiHabilitada) {
+      cargaBotesRef.current.done = true
       return
     }
 
-    botesLoadRef.current.promise = apiFetch('/botes')
+    cargaBotesRef.current.promise = solicitarApi('/botes')
       .then((json) => {
         const arr = json?.data
-        setDb((prev) => ({ ...prev, botesMaestro: Array.isArray(arr) ? arr : [] }))
-        botesLoadRef.current.done = true
+        establecerBaseDatos((prev) => ({ ...prev, botesMaestro: Array.isArray(arr) ? arr : [] }))
+        cargaBotesRef.current.done = true
       })
       .finally(() => {
-        botesLoadRef.current.promise = null
+        cargaBotesRef.current.promise = null
       })
 
-    return botesLoadRef.current.promise
-  }, [apiEnabled, apiFetch])
+    return cargaBotesRef.current.promise
+  }, [apiHabilitada, solicitarApi])
 
-  const ensureSectoresAmerbLoaded = useCallback(async () => {
-    if (sectoresAmerbLoadRef.current.done) return
-    if (sectoresAmerbLoadRef.current.promise) return sectoresAmerbLoadRef.current.promise
-    if (!apiEnabled) {
-      sectoresAmerbLoadRef.current.done = true
+  const asegurarSectoresAmerbCargados = useCallback(async () => {
+    if (cargaSectoresAmerbRef.current.done) return
+    if (cargaSectoresAmerbRef.current.promise) return cargaSectoresAmerbRef.current.promise
+    if (!apiHabilitada) {
+      cargaSectoresAmerbRef.current.done = true
       return
     }
 
-    sectoresAmerbLoadRef.current.promise = apiFetch('/sectores')
+    cargaSectoresAmerbRef.current.promise = solicitarApi('/sectores')
       .then((json) => {
         const arr = json?.data
-        const next = Array.isArray(arr) ? arr.map(normalizeSectorAmerb) : []
-        setDb((prev) => ({ ...prev, sectoresAmerb: next }))
-        sectoresAmerbLoadRef.current.done = true
+        const next = Array.isArray(arr) ? arr.map(normalizarSectorAmerb) : []
+        establecerBaseDatos((prev) => ({ ...prev, sectoresAmerb: next }))
+        cargaSectoresAmerbRef.current.done = true
       })
       .finally(() => {
-        sectoresAmerbLoadRef.current.promise = null
+        cargaSectoresAmerbRef.current.promise = null
       })
 
-    return sectoresAmerbLoadRef.current.promise
-  }, [apiEnabled, apiFetch, normalizeSectorAmerb])
+    return cargaSectoresAmerbRef.current.promise
+  }, [apiHabilitada, solicitarApi, normalizarSectorAmerb])
 
-  const ensureOpaLoaded = useCallback(async () => {
-    if (opaLoadRef.current.done) return
-    if (opaLoadRef.current.promise) return opaLoadRef.current.promise
+  const asegurarOpaCargada = useCallback(async () => {
+    if (cargaOpaRef.current.done) return
+    if (cargaOpaRef.current.promise) return cargaOpaRef.current.promise
 
-    if (!apiEnabled) {
-      opaLoadRef.current.done = true
+    if (!apiHabilitada) {
+      cargaOpaRef.current.done = true
       return
     }
 
-    opaLoadRef.current.promise = apiFetch('/organizaciones')
+    cargaOpaRef.current.promise = solicitarApi('/organizaciones')
       .then((json) => {
         const arr = json?.data
-        setDb((prev) => ({ ...prev, opa: Array.isArray(arr) ? arr : [] }))
-        opaLoadRef.current.done = true
+        establecerBaseDatos((prev) => ({ ...prev, opa: Array.isArray(arr) ? arr : [] }))
+        cargaOpaRef.current.done = true
       })
       .finally(() => {
-        opaLoadRef.current.promise = null
+        cargaOpaRef.current.promise = null
       })
 
-    return opaLoadRef.current.promise
-  }, [apiEnabled, apiFetch])
+    return cargaOpaRef.current.promise
+  }, [apiHabilitada, solicitarApi])
 
   const normalizarSubmareal = useCallback((v) => {
     if (v == null) return true
@@ -305,73 +307,90 @@ export function DbProvider({ children }) {
     [normalizarSubmareal],
   )
 
-  const ensureOperacionesLoaded = useCallback(async () => {
-    if (operacionesLoadRef.current.done) return
-    if (operacionesLoadRef.current.promise) return operacionesLoadRef.current.promise
-    if (!apiEnabled) {
-      operacionesLoadRef.current.done = true
+  const serializarOperacion = useCallback(
+    (op) => {
+      const raw = op && typeof op === 'object' ? op : {}
+      const botes = Array.isArray(raw?.botes) ? raw.botes : null
+      if (!botes) return raw
+
+      const botesSerializados = botes.map((b) => {
+        const bote = b && typeof b === 'object' ? b : {}
+        const submareal = normalizarSubmareal(bote?.submareal)
+        return { ...bote, submareal: submareal ? 1 : 0 }
+      })
+
+      return { ...raw, botes: botesSerializados }
+    },
+    [normalizarSubmareal],
+  )
+
+  const asegurarOperacionesCargadas = useCallback(async () => {
+    if (cargaOperacionesRef.current.done) return
+    if (cargaOperacionesRef.current.promise) return cargaOperacionesRef.current.promise
+    if (!apiHabilitada) {
+      cargaOperacionesRef.current.done = true
       return
     }
 
-    operacionesLoadRef.current.promise = apiFetch('/operaciones')
+    cargaOperacionesRef.current.promise = solicitarApi('/operaciones')
       .then((json) => {
         const arr = json?.data
-        setDb((prev) => ({ ...prev, operaciones: Array.isArray(arr) ? arr.map(normalizarOperacion) : [] }))
-        operacionesLoadRef.current.done = true
+        establecerBaseDatos((prev) => ({ ...prev, operaciones: Array.isArray(arr) ? arr.map(normalizarOperacion) : [] }))
+        cargaOperacionesRef.current.done = true
       })
       .finally(() => {
-        operacionesLoadRef.current.promise = null
+        cargaOperacionesRef.current.promise = null
       })
 
-    return operacionesLoadRef.current.promise
-  }, [apiEnabled, apiFetch, normalizarOperacion])
+    return cargaOperacionesRef.current.promise
+  }, [apiHabilitada, solicitarApi, normalizarOperacion])
 
-  const ensurePerfilesLoaded = useCallback(async () => {
-    if (perfilesLoadRef.current.done) return
-    if (perfilesLoadRef.current.promise) return perfilesLoadRef.current.promise
-    if (!apiEnabled) {
-      perfilesLoadRef.current.done = true
+  const asegurarPerfilesCargados = useCallback(async () => {
+    if (cargaPerfilesRef.current.done) return
+    if (cargaPerfilesRef.current.promise) return cargaPerfilesRef.current.promise
+    if (!apiHabilitada) {
+      cargaPerfilesRef.current.done = true
       return
     }
 
-    perfilesLoadRef.current.promise = apiFetch('/usuarios')
+    cargaPerfilesRef.current.promise = solicitarApi('/usuarios')
       .then((json) => {
         const arr = json?.data
-        setDb((prev) => ({ ...prev, perfiles: Array.isArray(arr) ? arr : [] }))
-        perfilesLoadRef.current.done = true
+        establecerBaseDatos((prev) => ({ ...prev, perfiles: Array.isArray(arr) ? arr : [] }))
+        cargaPerfilesRef.current.done = true
       })
       .catch(() => {
-        perfilesLoadRef.current.done = true
+        cargaPerfilesRef.current.done = true
       })
       .finally(() => {
-        perfilesLoadRef.current.promise = null
+        cargaPerfilesRef.current.promise = null
       })
 
-    return perfilesLoadRef.current.promise
-  }, [apiEnabled, apiFetch])
+    return cargaPerfilesRef.current.promise
+  }, [apiHabilitada, solicitarApi])
 
   useEffect(() => {
-    if (!apiEnabled) return
-    ensureRegionesLoaded?.()
-    ensureCaletasLoaded?.()
-    ensureEspeciesLoaded?.()
-    ensureOpaLoaded?.()
-    ensureSectoresAmerbLoaded?.()
-    ensureBotesMaestroLoaded?.()
-    ensureOperacionesLoaded?.()
+    if (!apiHabilitada) return
+    asegurarRegionesCargadas?.()
+    asegurarCaletasCargadas?.()
+    asegurarEspeciesCargadas?.()
+    asegurarOpaCargada?.()
+    asegurarSectoresAmerbCargados?.()
+    asegurarBotesMaestroCargados?.()
+    asegurarOperacionesCargadas?.()
   }, [
-    apiEnabled,
-    ensureRegionesLoaded,
-    ensureCaletasLoaded,
-    ensureEspeciesLoaded,
-    ensureOpaLoaded,
-    ensureSectoresAmerbLoaded,
-    ensureBotesMaestroLoaded,
-    ensureOperacionesLoaded,
+    apiHabilitada,
+    asegurarRegionesCargadas,
+    asegurarCaletasCargadas,
+    asegurarEspeciesCargadas,
+    asegurarOpaCargada,
+    asegurarSectoresAmerbCargados,
+    asegurarBotesMaestroCargados,
+    asegurarOperacionesCargadas,
   ])
 
-  const upsertOperacion = useCallback((op) => {
-    setDb((prev) => {
+  const insertarOActualizarOperacion = useCallback((op) => {
+    establecerBaseDatos((prev) => {
       const ops = Array.isArray(prev.operaciones) ? prev.operaciones : []
       const idx = ops.findIndex((x) => x.id === op.id)
       const nextOps = idx >= 0 ? ops.map((x, i) => (i === idx ? op : x)) : [op, ...ops]
@@ -379,26 +398,26 @@ export function DbProvider({ children }) {
     })
   }, [])
 
-  const deleteOperacion = useCallback((opId) => {
-    setDb((prev) => {
+  const eliminarOperacion = useCallback((opId) => {
+    establecerBaseDatos((prev) => {
       const ops = Array.isArray(prev.operaciones) ? prev.operaciones : []
       return { ...prev, operaciones: ops.filter((x) => x.id !== opId) }
     })
   }, [])
 
-  const saveOperacion = useCallback(
+  const guardarOperacion = useCallback(
     async (op, { mode } = {}) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
       const opId = String(op?.id || '').trim()
       if (!opId) throw new Error('id requerido')
       const m = String(mode || '').toLowerCase()
       const isCreate = m === 'create'
       const method = isCreate ? 'POST' : 'PUT'
       const path = isCreate ? '/operaciones' : `/operaciones/${opId}`
-      const json = await apiFetch(path, { method, body: JSON.stringify(op || {}) })
+      const json = await solicitarApi(path, { method, body: JSON.stringify(serializarOperacion(op || {})) })
       const saved = json?.data ? normalizarOperacion(json.data) : null
       if (saved) {
-        setDb((prev) => {
+        establecerBaseDatos((prev) => {
           const ops = Array.isArray(prev.operaciones) ? prev.operaciones : []
           const idx = ops.findIndex((x) => String(x?.id) === String(saved?.id))
           const nextOps = idx >= 0 ? ops.map((x, i) => (i === idx ? saved : x)) : [saved, ...ops]
@@ -407,57 +426,58 @@ export function DbProvider({ children }) {
       }
       return saved
     },
-    [apiEnabled, apiFetch, normalizarOperacion],
+    [apiHabilitada, solicitarApi, normalizarOperacion, serializarOperacion],
   )
 
-  const deleteOperacionApi = useCallback(
+  const eliminarOperacionApi = useCallback(
     async (opId) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
       const id = String(opId || '').trim()
       if (!id) throw new Error('id requerido')
-      await apiFetch(`/operaciones/${id}`, { method: 'DELETE' })
-      setDb((prev) => {
+      await solicitarApi(`/operaciones/${id}`, { method: 'DELETE' })
+      establecerBaseDatos((prev) => {
         const ops = Array.isArray(prev.operaciones) ? prev.operaciones : []
         return { ...prev, operaciones: ops.filter((x) => String(x?.id) !== id) }
       })
       return true
     },
-    [apiEnabled, apiFetch],
+    [apiHabilitada, solicitarApi],
   )
 
-  const updateOperacion = useCallback((opId, updater) => {
-    setDb((prev) => {
+  const actualizarOperacion = useCallback((opId, updater, opciones) => {
+    establecerBaseDatos((prev) => {
       const ops = Array.isArray(prev.operaciones) ? prev.operaciones : []
       const idx = ops.findIndex((x) => x.id === opId)
       if (idx < 0) return prev
       const cur = ops[idx]
       const next = typeof updater === 'function' ? updater(cur) : { ...cur, ...(updater || {}) }
-      if (apiEnabled) {
+      const omitirAutoGuardado = !!(opciones && typeof opciones === 'object' && opciones.omitirAutoGuardado)
+      if (apiHabilitada && !omitirAutoGuardado) {
         const id = String(next?.id || '')
         if (id) {
-          const timers = opAutosaveRef.current.timers
+          const timers = autoGuardadoOperacionesRef.current.timers
           const existing = timers.get(id)
           if (existing) clearTimeout(existing)
           const t = setTimeout(() => {
-            apiFetch(`/operaciones/${id}`, { method: 'PUT', body: JSON.stringify(next || {}) }).catch(() => null)
+            solicitarApi(`/operaciones/${id}`, { method: 'PUT', body: JSON.stringify(serializarOperacion(next || {})) }).catch(() => null)
           }, 1200)
           timers.set(id, t)
         }
       }
       return { ...prev, operaciones: ops.map((x, i) => (i === idx ? next : x)) }
     })
-  }, [apiEnabled, apiFetch])
+  }, [apiHabilitada, solicitarApi, serializarOperacion])
 
-  const upsertBoteMaestro = useCallback(
+  const insertarOActualizarBoteMaestro = useCallback(
     async (bote) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
       const id = bote?.id != null && String(bote.id).trim() !== '' ? String(bote.id).trim() : null
       const method = id ? 'PUT' : 'POST'
       const path = id ? `/botes/${id}` : '/botes'
-      const json = await apiFetch(path, { method, body: JSON.stringify(bote || {}) })
+      const json = await solicitarApi(path, { method, body: JSON.stringify(bote || {}) })
       const saved = json?.data
       if (saved) {
-        setDb((prev) => {
+        establecerBaseDatos((prev) => {
           const botes = Array.isArray(prev.botesMaestro) ? prev.botesMaestro : []
           const idx = botes.findIndex((x) => String(x?.id) === String(saved?.id))
           const nextBotes = idx >= 0 ? botes.map((x, i) => (i === idx ? saved : x)) : [saved, ...botes]
@@ -466,31 +486,31 @@ export function DbProvider({ children }) {
       }
       return saved
     },
-    [apiEnabled, apiFetch],
+    [apiHabilitada, solicitarApi],
   )
 
-  const deleteBoteMaestro = useCallback(
+  const eliminarBoteMaestro = useCallback(
     async (boteId) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
       const id = String(boteId || '').trim()
       if (!id) throw new Error('id requerido')
-      await apiFetch(`/botes/${id}`, { method: 'DELETE' })
-      setDb((prev) => {
+      await solicitarApi(`/botes/${id}`, { method: 'DELETE' })
+      establecerBaseDatos((prev) => {
         const botes = Array.isArray(prev.botesMaestro) ? prev.botesMaestro : []
         return { ...prev, botesMaestro: botes.filter((x) => String(x?.id) !== id) }
       })
       return true
     },
-    [apiEnabled, apiFetch],
+    [apiHabilitada, solicitarApi],
   )
 
-  const createEspecie = useCallback(
+  const crearEspecie = useCallback(
     async (especie) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
-      const json = await apiFetch('/especies', { method: 'POST', body: JSON.stringify(especie || {}) })
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
+      const json = await solicitarApi('/especies', { method: 'POST', body: JSON.stringify(especie || {}) })
       const saved = json?.data
       if (saved) {
-        setDb((prev) => {
+        establecerBaseDatos((prev) => {
           const especies = Array.isArray(prev.especies) ? prev.especies : []
           const idx = especies.findIndex((x) => Number(x?.id) === Number(saved?.id))
           const nextEspecies = idx >= 0 ? especies.map((x, i) => (i === idx ? saved : x)) : [saved, ...especies]
@@ -499,18 +519,18 @@ export function DbProvider({ children }) {
       }
       return saved
     },
-    [apiEnabled, apiFetch],
+    [apiHabilitada, solicitarApi],
   )
 
-  const updateEspecie = useCallback(
+  const actualizarEspecie = useCallback(
     async (especieId, patch) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
       const id = String(especieId ?? '').trim()
       if (!id) throw new Error('id requerido')
-      const json = await apiFetch(`/especies/${id}`, { method: 'PUT', body: JSON.stringify(patch || {}) })
+      const json = await solicitarApi(`/especies/${id}`, { method: 'PUT', body: JSON.stringify(patch || {}) })
       const saved = json?.data
       if (saved) {
-        setDb((prev) => {
+        establecerBaseDatos((prev) => {
           const especies = Array.isArray(prev.especies) ? prev.especies : []
           const idx = especies.findIndex((x) => Number(x?.id) === Number(saved?.id))
           const nextEspecies = idx >= 0 ? especies.map((x, i) => (i === idx ? saved : x)) : [saved, ...especies]
@@ -519,31 +539,31 @@ export function DbProvider({ children }) {
       }
       return saved
     },
-    [apiEnabled, apiFetch],
+    [apiHabilitada, solicitarApi],
   )
 
-  const deleteEspecie = useCallback(
+  const eliminarEspecie = useCallback(
     async (especieId) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
       const id = String(especieId ?? '').trim()
       if (!id) throw new Error('id requerido')
-      await apiFetch(`/especies/${id}`, { method: 'DELETE' })
-      setDb((prev) => {
+      await solicitarApi(`/especies/${id}`, { method: 'DELETE' })
+      establecerBaseDatos((prev) => {
         const especies = Array.isArray(prev.especies) ? prev.especies : []
         return { ...prev, especies: especies.filter((x) => String(x?.id) !== id) }
       })
       return true
     },
-    [apiEnabled, apiFetch],
+    [apiHabilitada, solicitarApi],
   )
 
-  const createSectorAmerb = useCallback(
+  const crearSectorAmerb = useCallback(
     async (sector) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
-      const json = await apiFetch('/sectores', { method: 'POST', body: JSON.stringify(sector || {}) })
-      const saved = normalizeSectorAmerb(json?.data)
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
+      const json = await solicitarApi('/sectores', { method: 'POST', body: JSON.stringify(sector || {}) })
+      const saved = normalizarSectorAmerb(json?.data)
       if (saved) {
-        setDb((prev) => {
+        establecerBaseDatos((prev) => {
           const list = Array.isArray(prev.sectoresAmerb) ? prev.sectoresAmerb : []
           const idx = list.findIndex((x) => Number(x?.id) === Number(saved?.id))
           const next = idx >= 0 ? list.map((x, i) => (i === idx ? saved : x)) : [saved, ...list]
@@ -552,18 +572,18 @@ export function DbProvider({ children }) {
       }
       return saved
     },
-    [apiEnabled, apiFetch, normalizeSectorAmerb],
+    [apiHabilitada, solicitarApi, normalizarSectorAmerb],
   )
 
-  const updateSectorAmerb = useCallback(
+  const actualizarSectorAmerb = useCallback(
     async (sectorId, patch) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
       const id = String(sectorId ?? '').trim()
       if (!id) throw new Error('id requerido')
-      const json = await apiFetch(`/sectores/${id}`, { method: 'PUT', body: JSON.stringify(patch || {}) })
-      const saved = normalizeSectorAmerb(json?.data)
+      const json = await solicitarApi(`/sectores/${id}`, { method: 'PUT', body: JSON.stringify(patch || {}) })
+      const saved = normalizarSectorAmerb(json?.data)
       if (saved) {
-        setDb((prev) => {
+        establecerBaseDatos((prev) => {
           const list = Array.isArray(prev.sectoresAmerb) ? prev.sectoresAmerb : []
           const idx = list.findIndex((x) => Number(x?.id) === Number(saved?.id))
           const next = idx >= 0 ? list.map((x, i) => (i === idx ? saved : x)) : [saved, ...list]
@@ -572,31 +592,31 @@ export function DbProvider({ children }) {
       }
       return saved
     },
-    [apiEnabled, apiFetch, normalizeSectorAmerb],
+    [apiHabilitada, solicitarApi, normalizarSectorAmerb],
   )
 
-  const deleteSectorAmerb = useCallback(
+  const eliminarSectorAmerb = useCallback(
     async (sectorId) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
       const id = String(sectorId ?? '').trim()
       if (!id) throw new Error('id requerido')
-      await apiFetch(`/sectores/${id}`, { method: 'DELETE' })
-      setDb((prev) => {
+      await solicitarApi(`/sectores/${id}`, { method: 'DELETE' })
+      establecerBaseDatos((prev) => {
         const list = Array.isArray(prev.sectoresAmerb) ? prev.sectoresAmerb : []
         return { ...prev, sectoresAmerb: list.filter((x) => String(x?.id) !== id) }
       })
       return true
     },
-    [apiEnabled, apiFetch],
+    [apiHabilitada, solicitarApi],
   )
 
-  const createCaleta = useCallback(
+  const crearCaleta = useCallback(
     async (caleta) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
-      const json = await apiFetch('/caletas', { method: 'POST', body: JSON.stringify(caleta || {}) })
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
+      const json = await solicitarApi('/caletas', { method: 'POST', body: JSON.stringify(caleta || {}) })
       const saved = json?.data
       if (saved) {
-        setDb((prev) => {
+        establecerBaseDatos((prev) => {
           const list = Array.isArray(prev.caletas) ? prev.caletas : []
           const idx = list.findIndex((x) => Number(x?.id) === Number(saved?.id))
           const nextList = idx >= 0 ? list.map((x, i) => (i === idx ? saved : x)) : [saved, ...list]
@@ -626,18 +646,18 @@ export function DbProvider({ children }) {
       }
       return saved
     },
-    [apiEnabled, apiFetch],
+    [apiHabilitada, solicitarApi],
   )
 
-  const updateCaleta = useCallback(
+  const actualizarCaleta = useCallback(
     async (caletaId, patch) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
       const id = String(caletaId ?? '').trim()
       if (!id) throw new Error('id requerido')
-      const json = await apiFetch(`/caletas/${id}`, { method: 'PUT', body: JSON.stringify(patch || {}) })
+      const json = await solicitarApi(`/caletas/${id}`, { method: 'PUT', body: JSON.stringify(patch || {}) })
       const saved = json?.data
       if (saved) {
-        setDb((prev) => {
+        establecerBaseDatos((prev) => {
           const list = Array.isArray(prev.caletas) ? prev.caletas : []
           const idx = list.findIndex((x) => Number(x?.id) === Number(saved?.id))
           const nextList = idx >= 0 ? list.map((x, i) => (i === idx ? saved : x)) : [saved, ...list]
@@ -667,16 +687,16 @@ export function DbProvider({ children }) {
       }
       return saved
     },
-    [apiEnabled, apiFetch],
+    [apiHabilitada, solicitarApi],
   )
 
-  const deleteCaleta = useCallback(
+  const eliminarCaleta = useCallback(
     async (caletaId) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
       const id = String(caletaId ?? '').trim()
       if (!id) throw new Error('id requerido')
-      await apiFetch(`/caletas/${id}`, { method: 'DELETE' })
-      setDb((prev) => {
+      await solicitarApi(`/caletas/${id}`, { method: 'DELETE' })
+      establecerBaseDatos((prev) => {
         const list = Array.isArray(prev.caletas) ? prev.caletas : []
         const nextList = list.filter((x) => String(x?.id) !== id)
 
@@ -704,16 +724,16 @@ export function DbProvider({ children }) {
       })
       return true
     },
-    [apiEnabled, apiFetch],
+    [apiHabilitada, solicitarApi],
   )
 
-  const createOpa = useCallback(
+  const crearOpa = useCallback(
     async (org) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
-      const json = await apiFetch('/organizaciones', { method: 'POST', body: JSON.stringify(org || {}) })
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
+      const json = await solicitarApi('/organizaciones', { method: 'POST', body: JSON.stringify(org || {}) })
       const saved = json?.data
       if (saved) {
-        setDb((prev) => {
+        establecerBaseDatos((prev) => {
           const list = Array.isArray(prev.opa) ? prev.opa : []
           const idx = list.findIndex((x) => Number(x?.id) === Number(saved?.id))
           const next = idx >= 0 ? list.map((x, i) => (i === idx ? saved : x)) : [saved, ...list]
@@ -722,18 +742,18 @@ export function DbProvider({ children }) {
       }
       return saved
     },
-    [apiEnabled, apiFetch],
+    [apiHabilitada, solicitarApi],
   )
 
-  const updateOpa = useCallback(
+  const actualizarOpa = useCallback(
     async (orgId, patch) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
       const id = String(orgId ?? '').trim()
       if (!id) throw new Error('id requerido')
-      const json = await apiFetch(`/organizaciones/${id}`, { method: 'PUT', body: JSON.stringify(patch || {}) })
+      const json = await solicitarApi(`/organizaciones/${id}`, { method: 'PUT', body: JSON.stringify(patch || {}) })
       const saved = json?.data
       if (saved) {
-        setDb((prev) => {
+        establecerBaseDatos((prev) => {
           const list = Array.isArray(prev.opa) ? prev.opa : []
           const idx = list.findIndex((x) => Number(x?.id) === Number(saved?.id))
           const next = idx >= 0 ? list.map((x, i) => (i === idx ? saved : x)) : [saved, ...list]
@@ -742,91 +762,91 @@ export function DbProvider({ children }) {
       }
       return saved
     },
-    [apiEnabled, apiFetch],
+    [apiHabilitada, solicitarApi],
   )
 
-  const deleteOpa = useCallback(
+  const eliminarOpa = useCallback(
     async (orgId) => {
-      if (!apiEnabled) throw new Error('API no configurada (VITE_API_URL)')
+      if (!apiHabilitada) throw new Error('API no configurada (VITE_API_URL)')
       const id = String(orgId ?? '').trim()
       if (!id) throw new Error('id requerido')
-      await apiFetch(`/organizaciones/${id}`, { method: 'DELETE' })
-      setDb((prev) => {
+      await solicitarApi(`/organizaciones/${id}`, { method: 'DELETE' })
+      establecerBaseDatos((prev) => {
         const list = Array.isArray(prev.opa) ? prev.opa : []
         return { ...prev, opa: list.filter((x) => String(x?.id) !== id) }
       })
       return true
     },
-    [apiEnabled, apiFetch],
+    [apiHabilitada, solicitarApi],
   )
 
-  const value = useMemo(
+  const valorContexto = useMemo(
     () => ({
-      db,
-      setDb,
-      apiEnabled,
-      ensureBotesMaestroLoaded,
-      ensureSectoresAmerbLoaded,
-      ensureOpaLoaded,
-      ensureEspeciesLoaded,
-      ensureRegionesLoaded,
-      ensureOperacionesLoaded,
-      ensurePerfilesLoaded,
-      ensureCaletasLoaded,
-      upsertOperacion,
-      deleteOperacion,
-      saveOperacion,
-      deleteOperacionApi,
-      updateOperacion,
-      upsertBoteMaestro,
-      deleteBoteMaestro,
-      createEspecie,
-      updateEspecie,
-      deleteEspecie,
-      createSectorAmerb,
-      updateSectorAmerb,
-      deleteSectorAmerb,
-      createCaleta,
-      updateCaleta,
-      deleteCaleta,
-      createOpa,
-      updateOpa,
-      deleteOpa,
+      baseDatos,
+      establecerBaseDatos,
+      apiHabilitada,
+      asegurarBotesMaestroCargados,
+      asegurarSectoresAmerbCargados,
+      asegurarOpaCargada,
+      asegurarEspeciesCargadas,
+      asegurarRegionesCargadas,
+      asegurarOperacionesCargadas,
+      asegurarPerfilesCargados,
+      asegurarCaletasCargadas,
+      insertarOActualizarOperacion,
+      eliminarOperacion,
+      guardarOperacion,
+      eliminarOperacionApi,
+      actualizarOperacion,
+      insertarOActualizarBoteMaestro,
+      eliminarBoteMaestro,
+      crearEspecie,
+      actualizarEspecie,
+      eliminarEspecie,
+      crearSectorAmerb,
+      actualizarSectorAmerb,
+      eliminarSectorAmerb,
+      crearCaleta,
+      actualizarCaleta,
+      eliminarCaleta,
+      crearOpa,
+      actualizarOpa,
+      eliminarOpa,
     }),
     [
-      db,
-      apiEnabled,
-      ensureBotesMaestroLoaded,
-      ensureSectoresAmerbLoaded,
-      ensureOpaLoaded,
-      ensureEspeciesLoaded,
-      ensureRegionesLoaded,
-      ensureOperacionesLoaded,
-      ensurePerfilesLoaded,
-      ensureCaletasLoaded,
-      upsertOperacion,
-      deleteOperacion,
-      saveOperacion,
-      deleteOperacionApi,
-      updateOperacion,
-      upsertBoteMaestro,
-      deleteBoteMaestro,
-      createEspecie,
-      updateEspecie,
-      deleteEspecie,
-      createSectorAmerb,
-      updateSectorAmerb,
-      deleteSectorAmerb,
-      createCaleta,
-      updateCaleta,
-      deleteCaleta,
-      createOpa,
-      updateOpa,
-      deleteOpa,
+      baseDatos,
+      apiHabilitada,
+      asegurarBotesMaestroCargados,
+      asegurarSectoresAmerbCargados,
+      asegurarOpaCargada,
+      asegurarEspeciesCargadas,
+      asegurarRegionesCargadas,
+      asegurarOperacionesCargadas,
+      asegurarPerfilesCargados,
+      asegurarCaletasCargadas,
+      insertarOActualizarOperacion,
+      eliminarOperacion,
+      guardarOperacion,
+      eliminarOperacionApi,
+      actualizarOperacion,
+      insertarOActualizarBoteMaestro,
+      eliminarBoteMaestro,
+      crearEspecie,
+      actualizarEspecie,
+      eliminarEspecie,
+      crearSectorAmerb,
+      actualizarSectorAmerb,
+      eliminarSectorAmerb,
+      crearCaleta,
+      actualizarCaleta,
+      eliminarCaleta,
+      crearOpa,
+      actualizarOpa,
+      eliminarOpa,
     ],
   )
 
-  return <DbContext.Provider value={value}>{children}</DbContext.Provider>
+  return <ContextoBaseDatos.Provider value={valorContexto}>{children}</ContextoBaseDatos.Provider>
 }
 
 /**
@@ -855,8 +875,8 @@ export function DbProvider({ children }) {
  * Manejo de errores:
  * - Lanza si se usa fuera de `DbProvider`.
  */
-export function useDb() {
-  const ctx = useContext(DbContext)
-  if (!ctx) throw new Error('DbProvider missing')
-  return ctx
+export function usarBaseDatos() {
+  const contexto = useContext(ContextoBaseDatos)
+  if (!contexto) throw new Error('DbProvider missing')
+  return contexto
 }

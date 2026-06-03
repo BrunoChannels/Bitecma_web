@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useDb } from '../context/dbContext.jsx'
-import { useUi } from '../context/uiContext.jsx'
-import { useApp } from '../context/appContext.jsx'
-import SvgIcon from '../components/svgIcon.jsx'
+import { usarBaseDatos } from '../context/dbContext.jsx'
+import { usarInterfaz } from '../context/uiContext.jsx'
+import { usarAplicacion } from '../context/appContext.jsx'
+import IconoSvg from '../components/svgIcon.jsx'
 
 /**
  * Página de sectores: listado de Sectores AMERB y caletas por región, con búsqueda.
  *
  * @param {object} props - Props del componente.
- * @param {boolean} props.active - Indica si la página está activa (habilita carga inicial).
+ * @param {boolean} props.activo - Indica si la página está activa (habilita carga inicial).
  * @returns {import('react').JSX.Element} Layout con 3 columnas: regiones, sectores y caletas.
  *
  * Lógica (alto nivel):
@@ -31,35 +31,35 @@ import SvgIcon from '../components/svgIcon.jsx'
  * - No gestiona errores explícitos; se asume que el contexto DB expone arreglos seguros.
  *
  * @example
- * <SectoresPage active={page === 'sectores'} />
+ * <SectoresPage activo={page === 'sectores'} />
  *
  * Notas de mantenimiento:
  * - Si se agregan filtros (comuna, id), extender `sectoresFiltrados`.
  * - Si crece el dataset, considerar paginación; hoy se limita a 2000 filas.
  */
-export default function SectoresPage({ active }) {
+export default function SectoresPage({ activo }) {
   const {
-    db,
-    apiEnabled,
-    ensureRegionesLoaded,
-    ensureCaletasLoaded,
-    ensureSectoresAmerbLoaded,
-    createSectorAmerb,
-    updateSectorAmerb,
-    deleteSectorAmerb,
-    createCaleta,
-    updateCaleta,
-    deleteCaleta,
-  } = useDb()
-  const { toast } = useUi()
-  const { isAdmin } = useApp()
+    baseDatos: db,
+    apiHabilitada: apiEnabled,
+    asegurarRegionesCargadas: ensureRegionesLoaded,
+    asegurarCaletasCargadas: ensureCaletasLoaded,
+    asegurarSectoresAmerbCargados: ensureSectoresAmerbLoaded,
+    crearSectorAmerb: createSectorAmerb,
+    actualizarSectorAmerb: updateSectorAmerb,
+    eliminarSectorAmerb: deleteSectorAmerb,
+    crearCaleta: createCaleta,
+    actualizarCaleta: updateCaleta,
+    eliminarCaleta: deleteCaleta,
+  } = usarBaseDatos()
+  const { mostrarToast: toast } = usarInterfaz()
+  const { esAdmin: isAdmin } = usarAplicacion()
 
   useEffect(() => {
-    if (!active) return
+    if (!activo) return
     ensureRegionesLoaded?.()
     ensureCaletasLoaded?.()
     ensureSectoresAmerbLoaded?.()
-  }, [active, ensureRegionesLoaded, ensureCaletasLoaded, ensureSectoresAmerbLoaded])
+  }, [activo, ensureRegionesLoaded, ensureCaletasLoaded, ensureSectoresAmerbLoaded])
 
   const regiones = useMemo(() => {
     const arr = db?.regionesChile
@@ -134,7 +134,7 @@ export default function SectoresPage({ active }) {
   }, [caletasByRegion, caletasList, regionId])
 
   return (
-    <div className={`page${active ? ' active' : ''}`} id="pg-sectores">
+    <div className={`page${activo ? ' active' : ''}`} id="pg-sectores">
       <div className="ph">
         <div>
           <h2>Sectores</h2>
@@ -383,7 +383,7 @@ export default function SectoresPage({ active }) {
                                 })
                               }}
                             >
-                              <SvgIcon name="edit" aria-hidden="true" />
+                              <IconoSvg name="edit" aria-hidden="true" />
                             </button>
 
                             <button
@@ -424,7 +424,7 @@ export default function SectoresPage({ active }) {
                                 }
                               }}
                             >
-                              <SvgIcon name="trash" aria-hidden="true" style={{ fill: 'var(--red)' }} />
+                              <IconoSvg name="trash" aria-hidden="true" style={{ fill: 'var(--red)' }} />
                             </button>
                           </div>
                         </td>
@@ -487,7 +487,7 @@ export default function SectoresPage({ active }) {
                                 })
                               }}
                             >
-                              <SvgIcon name="edit" aria-hidden="true" />
+                              <IconoSvg name="edit" aria-hidden="true" />
                             </button>
 
                             <button
@@ -532,7 +532,7 @@ export default function SectoresPage({ active }) {
                                 }
                               }}
                             >
-                              <SvgIcon name="trash" aria-hidden="true" style={{ fill: 'var(--red)' }} />
+                              <IconoSvg name="trash" aria-hidden="true" style={{ fill: 'var(--red)' }} />
                             </button>
                           </div>
                         </td>

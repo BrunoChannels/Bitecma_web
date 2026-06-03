@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useUi } from '../../context/uiContext.jsx'
-import { useDb } from '../../context/dbContext.jsx'
-import { useApp } from '../../context/appContext.jsx'
-import MappedColumnPreview from './MappedColumnPreview.jsx'
+import { usarInterfaz } from '../../context/uiContext.jsx'
+import { usarBaseDatos } from '../../context/dbContext.jsx'
+import { usarAplicacion } from '../../context/appContext.jsx'
+import VistaPreviaColumnaMapeada from './MappedColumnPreview.jsx'
 
 const IGNORE_VALUE = '__ignore__'
 const ADD_NEW_SPECIES_VALUE = '__add_new_species__'
@@ -23,9 +23,9 @@ export default function ManualColumnMapper({
   rightTitle = 'Mapeos aplicados',
   confirmLabel = 'Confirmar mapeo',
 }) {
-  const { toast } = useUi()
-  const { db, ensureEspeciesLoaded, createEspecie, apiEnabled } = useDb()
-  const { isAdmin } = useApp()
+  const { mostrarToast: toast } = usarInterfaz()
+  const { baseDatos: db, asegurarEspeciesCargadas: ensureEspeciesLoaded, crearEspecie: createEspecie, apiHabilitada: apiEnabled } = usarBaseDatos()
+  const { esAdmin: isAdmin } = usarAplicacion()
 
   const columnasSinMapear = Array.isArray(unmappedColumns) ? unmappedColumns : []
   const camposSistemaProp = Array.isArray(systemSpeciesFields) ? systemSpeciesFields : []
@@ -111,10 +111,10 @@ export default function ManualColumnMapper({
       const seleccionado = String(mapeoPorColumna[nombre] || '').trim()
       if (!seleccionado || seleccionado === IGNORE_VALUE || seleccionado === ADD_NEW_SPECIES_VALUE) return
       out.push({
-        excelColumnName: nombre,
-        fieldId: seleccionado,
-        systemFieldName: labelById.get(seleccionado) || seleccionado,
-        sampleData: Array.isArray(c?.sampleData) ? c.sampleData : [],
+        nombreColumnaExcel: nombre,
+        idCampo: seleccionado,
+        nombreCampoSistema: labelById.get(seleccionado) || seleccionado,
+        datosMuestra: Array.isArray(c?.sampleData) ? c.sampleData : [],
       })
     })
     return out
@@ -123,7 +123,7 @@ export default function ManualColumnMapper({
   const fieldCount = useMemo(() => {
     const m = new Map()
     mapeosActivos.forEach((x) => {
-      m.set(x.fieldId, (m.get(x.fieldId) || 0) + 1)
+      m.set(x.idCampo, (m.get(x.idCampo) || 0) + 1)
     })
     return m
   }, [mapeosActivos])
@@ -216,7 +216,7 @@ export default function ManualColumnMapper({
 
     if (requeridos.length) {
       const requiredIds = requeridos.map((f) => String(f?.id || '').trim()).filter(Boolean)
-      const assigned = new Set(mapeosActivos.map((x) => x.fieldId))
+      const assigned = new Set(mapeosActivos.map((x) => x.idCampo))
       const missing = requiredIds.filter((id) => !assigned.has(id))
       if (missing.length) {
         toast('Faltan campos obligatorios de especies por asignar.', 'red')
@@ -495,12 +495,12 @@ export default function ManualColumnMapper({
           {mapeosActivos.length ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {mapeosActivos.map((m) => (
-                <MappedColumnPreview
-                  key={m.excelColumnName}
-                  excelColumnName={m.excelColumnName}
-                  systemFieldName={m.systemFieldName}
-                  sampleData={m.sampleData}
-                  onRemoveMapping={removeMapping}
+                <VistaPreviaColumnaMapeada
+                  key={m.nombreColumnaExcel}
+                  nombreColumnaExcel={m.nombreColumnaExcel}
+                  nombreCampoSistema={m.nombreCampoSistema}
+                  datosMuestra={m.datosMuestra}
+                  alEliminarMapeo={removeMapping}
                 />
               ))}
             </div>

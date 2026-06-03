@@ -26,7 +26,7 @@
  * - Mantener alineado con la estructura que produce `lpMuestrasService`.
  * - La compatibilidad con `entry.ms` existe por datos heredados/importados.
  */
-export function getOperacionMetricas(op) {
+export function obtenerMetricasOperacion(op) {
   const botes = Array.isArray(op?.botes) ? op.botes : []
   const totalTx = botes.reduce((s, b) => s + ((b?.transectos || []).length || 0), 0)
   const totalLPMuestras = botes.reduce(
@@ -74,10 +74,10 @@ export function getOperacionMetricas(op) {
  * Notas de mantenimiento:
  * - Si se agregan campos relevantes a la UI (ej. `caleta`, `sectorAmerb`), incluirlos aquí.
  */
-function opMatchesText(op, texto) {
+function operacionCoincideConTexto(op, texto) {
   if (!texto) return true
   const botesText = (op?.botes || []).map((b) => `${b?.nombre || ''} ${b?.buzo || ''}`)
-  const haystack = [
+  const textoBusqueda = [
     op?.id || '',
     op?.sector || '',
     op?.org || '',
@@ -86,7 +86,7 @@ function opMatchesText(op, texto) {
   ]
     .join(' ')
     .toLowerCase()
-  return haystack.includes(texto)
+  return textoBusqueda.includes(texto)
 }
 
 /**
@@ -117,17 +117,17 @@ function opMatchesText(op, texto) {
  * Notas de mantenimiento:
  * - Este filtro es deliberadamente simple para uso en UI. Para datasets grandes, considerar indexación.
  */
-export function filterOperaciones(operaciones, { sector = '', mes = '', texto = '' } = {}) {
-  const ops = Array.isArray(operaciones) ? operaciones : []
+export function filtrarOperaciones(operaciones, { sector = '', mes = '', texto = '' } = {}) {
+  const operacionesNormalizadas = Array.isArray(operaciones) ? operaciones : []
   const q = String(texto || '').toLowerCase().trim()
-  return ops.filter((op) => {
+  return operacionesNormalizadas.filter((op) => {
     if (sector && op?.sector !== sector) return false
     if (mes) {
       const fi = String(op?.fechaInicio || '')
       const ff = String(op?.fechaFin || '')
       if (!fi.startsWith(mes) && !ff.startsWith(mes)) return false
     }
-    return opMatchesText(op, q)
+    return operacionCoincideConTexto(op, q)
   })
 }
 
