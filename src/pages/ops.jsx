@@ -3124,14 +3124,21 @@ export default function OpsPage({ activo }) {
                         <BoteCard
                           key={b.id}
                           op={op}
+                          operacion={op}
                           bote={b}
                           especies={db?.especies || []}
                           updateOperacion={safeUpdateOperacion}
+                          actualizarOperacion={safeUpdateOperacion}
                           canWrite={canWrite}
+                          puedeEscribir={canWrite}
                           toast={toast}
+                          mostrarToast={toast}
                           openModal={openModal}
+                          abrirModal={openModal}
                           closeModal={closeModal}
+                          cerrarModal={closeModal}
                           lpJump={lpJump}
+                          saltoLp={lpJump}
                         />
                       ))
                   )}

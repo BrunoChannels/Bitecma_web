@@ -457,12 +457,24 @@ input[type=number].lp-num-inp{-moz-appearance:textfield;appearance:textfield;}
 .ops-grid .op-card.op-open{grid-column:1 / -1;}
 
 @media (max-width: 575.98px){
-  .topbar{padding:0 12px;gap:9px;}
-  .tb-mob-loc{max-width:32vw;}
-  .tb-logo-text{display:block;font-size:14px;line-height:1;white-space:nowrap;}
+  .topbar{height:64px;min-height:64px;padding:0 14px;gap:10px;}
+  .tb-logo-icon{width:36px;height:36px;border-radius:10px;}
+  .tb-mob-loc{display:none;}
+  .tb-logo-text{display:block;font-size:15px;line-height:1;white-space:nowrap;}
   .user-role{display:none;}
-  .user-name{max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .tb-btn.tb-menu{font-size:18px;line-height:1;}
+  .user-name{max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;}
+  .user-chip{padding:4px 12px 4px 4px;border-radius:22px;gap:8px;}
+  .user-av{width:32px;height:32px;font-size:11px;}
+  .tb-btn{width:42px;height:42px;border-radius:10px;font-size:16px;}
+  .tb-btn svg{width:20px;height:20px;}
+  .tb-btn.tb-menu{font-size:26px;line-height:1;width:48px;height:48px;}
+  .sb-wrap{top:64px;}
+  .sb-backdrop{inset:64px 0 0 0;}
+  .sidebar{padding:16px 12px;}
+  .sb-sec{font-size:10px;padding:12px 10px 6px;}
+  .nav{padding:12px 12px;border-radius:12px;font-size:15px;gap:10px;}
+  .nav-icon{width:20px;height:20px;}
+  .nav-badge{font-size:10px;padding:2px 7px;border-radius:10px;}
   .ph{flex-direction:column;gap:10px;}
   .ph-a{width:100%;justify-content:flex-start;flex-wrap:wrap;}
   .g2,.g3,.g4,.i2,.i3{grid-template-columns:1fr!important;}

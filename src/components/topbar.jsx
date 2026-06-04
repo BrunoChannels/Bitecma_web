@@ -212,7 +212,7 @@ function CuerpoModalConfiguracion() {
         </div>
       </div>
 
-      {isAdmin ? (
+      {esAdmin ? (
         <>
           <div className="cfg-row">
             <div>
@@ -314,7 +314,7 @@ function CuerpoModalConfiguracion() {
       ) : (
         <div className="info-box blue">
           <span>i</span>
-          <div>Las opciones de migración están disponibles solo para Admin.</div>
+          <div>Las opciones extras están disponibles solo para Admin.</div>
         </div>
       )}
 
