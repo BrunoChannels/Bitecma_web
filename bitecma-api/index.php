@@ -91,6 +91,39 @@ if ($resource === '' || $resource === 'ping') {
     api_send(200, ['ok' => true, 'service' => 'bitecma-api']);
 }
 
+if ($resource === 'docs') {
+    $metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    if ($metodo !== 'GET') {
+        api_send(405, ['ok' => false, 'error' => 'Método no permitido']);
+    }
+
+    $uri = (string)($_SERVER['REQUEST_URI'] ?? '');
+    $rutaUrl = (string)(parse_url($uri, PHP_URL_PATH) ?: '');
+    if ($rutaUrl !== '' && substr($rutaUrl, -5) === '/docs') {
+        http_response_code(302);
+        header('Location: ' . $rutaUrl . '/');
+        exit;
+    }
+
+    $archivo = (string)($parts[1] ?? '');
+    if ($archivo === '' || $archivo === null) $archivo = 'index.html';
+    if ($archivo !== 'index.html' && $archivo !== 'openapi.yaml') {
+        api_send(404, ['ok' => false, 'error' => 'No encontrado']);
+    }
+
+    $rutaBase = __DIR__ . '/docs';
+    $ruta = $rutaBase . '/' . $archivo;
+    if (!is_file($ruta)) {
+        api_send(404, ['ok' => false, 'error' => 'No encontrado']);
+    }
+
+    http_response_code(200);
+    if ($archivo === 'index.html') header('Content-Type: text/html; charset=utf-8');
+    else header('Content-Type: text/yaml; charset=utf-8');
+    echo file_get_contents($ruta);
+    exit;
+}
+
 if ($resource === 'auth') {
     require_once __DIR__ . '/middleware/auth.php';
     $sub = $parts[1] ?? '';

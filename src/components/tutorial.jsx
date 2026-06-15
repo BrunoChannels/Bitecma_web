@@ -128,7 +128,7 @@ export default function Tutorial() {
         id: 'ops-newop-create',
         selector: '[data-tutorial-id="ops-newop-create"]',
         title: 'Crear',
-        text: 'Crea la operación de ejemplo con los datos seleccionados. Luego pasas al editor de botes.',
+        text: 'Crea la operación de ejemplo con los datos seleccionados. Luego pasas al editor de botes. (Oculta el panel si estás en modo móvil)',
         requiresClick: true,
         passThrough: true,
         advanceDelayMs: 90,
@@ -144,6 +144,12 @@ export default function Tutorial() {
         text: 'Aquí agregas los botes, buzo, zona y el tipo de unidad de muestreo (transecto/cuadrante) para la operación creada.',
         focusClosestSelector: '.mb-box',
         tipPlacement: 'above-center',
+      },
+      {
+        id: 'ops-bote-tipo-0',
+        selector: '[data-tutorial-id="ops-bote-tipo-0"]',
+        title: 'Tipo intermareal o submareal',
+        text: 'Esta celda define si el registro será submareal o intermareal. En submareal puedes escoger bote; en intermareal se omite ese paso y queda habilitado solo el trabajo asociado a la fila.',
       },
       {
         id: 'ops-bote-name-0',
@@ -781,6 +787,9 @@ export default function Tutorial() {
   const [tour, setTour] = useState('dashboard')
   const [running, setRunning] = useState(false)
   const [idx, setIdx] = useState(0)
+  const [menuCapitulosAbierto, setMenuCapitulosAbierto] = useState(false)
+  const [esMovil, setEsMovil] = useState(() => window.innerWidth <= 767)
+  const [panelOcultoMovil, setPanelOcultoMovil] = useState(false)
   const returnPageRef = useRef('dashboard')
   const focusRetryRef = useRef({ t: 0, token: '' })
   const advanceRef = useRef({ t: 0 })
@@ -818,10 +827,11 @@ export default function Tutorial() {
     const step = curStepRef.current
     const tipRect = tip.getBoundingClientRect()
     const margin = 12
+    const esMovilAhora = window.innerWidth <= 767
 
     if (!el || !el.isConnected) {
       const left = clamp((window.innerWidth - tipRect.width) / 2, margin, window.innerWidth - tipRect.width - margin)
-      const top = clamp(90, margin, window.innerHeight - tipRect.height - margin)
+      const top = esMovilAhora ? clamp(window.innerHeight - tipRect.height - margin, margin, window.innerHeight - tipRect.height - margin) : clamp(90, margin, window.innerHeight - tipRect.height - margin)
       setTipPos({ top, left, show: true })
       setSpot(null)
       return
@@ -831,6 +841,33 @@ export default function Tutorial() {
     const gap = 12
     const vw = window.innerWidth
     const vh = window.innerHeight
+
+    if (esMovilAhora) {
+      const left = clamp((vw - tipRect.width) / 2, margin, vw - tipRect.width - margin)
+      const top = clamp(vh - tipRect.height - margin, margin, vh - tipRect.height - margin)
+      setTipPos({ top, left, show: true })
+
+      const pad = 14
+      const sTop = clamp(r.top - pad, 0, window.innerHeight)
+      const sLeft = clamp(r.left - pad, 0, window.innerWidth)
+      const sRight = clamp(r.right + pad, 0, window.innerWidth)
+      const sBottom = clamp(r.bottom + pad, 0, window.innerHeight)
+      const sW = Math.max(0, sRight - sLeft)
+      const sH = Math.max(0, sBottom - sTop)
+      const br = (() => {
+        try {
+          const v = window.getComputedStyle(el).borderRadius
+          const n = parseFloat(String(v || '').split(' ')[0])
+          if (Number.isFinite(n) && n > 0) return n
+        } catch {
+          //
+        }
+        return 14
+      })()
+      const radius = clamp(br + 6, 12, 28)
+      setSpot({ top: sTop, left: sLeft, width: sW, height: sH, radius })
+      return
+    }
 
     if (String(step?.tipPlacement || '') === 'above-center') {
       const left = clamp(r.left + r.width / 2 - tipRect.width / 2, margin, vw - tipRect.width - margin)
@@ -1144,8 +1181,9 @@ export default function Tutorial() {
       )
       restoreSnapshot(tour, target)
       setIdx(target)
+      if (esMovil) setMenuCapitulosAbierto(false)
     },
-    [running, canRender, tour, idx, restoreSnapshot, steps.length, chaptersLocked],
+    [running, canRender, tour, idx, restoreSnapshot, steps.length, chaptersLocked, esMovil],
   )
 
   useEffect(() => {
@@ -1486,6 +1524,37 @@ export default function Tutorial() {
   }, [running, canRender, idx, recomputeTipPos])
 
   useEffect(() => {
+    const onResize = () => {
+      const nextEsMovil = window.innerWidth <= 767
+      setEsMovil(nextEsMovil)
+      if (!nextEsMovil) setMenuCapitulosAbierto(true)
+    }
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  useEffect(() => {
+    if (!(running && canRender) || tour !== 'ops') {
+      setMenuCapitulosAbierto(false)
+      return
+    }
+    setMenuCapitulosAbierto(!esMovil)
+  }, [running, canRender, tour, esMovil])
+
+  useEffect(() => {
+    if (!(running && canRender) || tour !== 'ops') return
+    if (!esMovil) return
+    setMenuCapitulosAbierto(false)
+  }, [idx, running, canRender, tour, esMovil])
+
+  useEffect(() => {
+    if (!(running && canRender) || !esMovil) {
+      setPanelOcultoMovil(false)
+    }
+  }, [running, canRender, esMovil])
+
+  useEffect(() => {
     if (!(running && canRender)) return
     const tip = tipRef.current
     const el = focusedElRef.current
@@ -1570,56 +1639,34 @@ export default function Tutorial() {
       className={`tut-ov${open ? ' open' : ''}${showPrompt ? ' prompt' : ''}${running ? ' running' : ''}`}
     >
       {running && canRender && tour === 'ops' && chapters.length ? (
-        <div
-          style={{
-            position: 'fixed',
-            top: 12,
-            left: 12,
-            zIndex: 99999,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 6,
-            padding: 10,
-            borderRadius: 12,
-            background: 'rgba(20,20,20,.72)',
-            color: 'white',
-            fontFamily: 'var(--ff-d)',
-            fontSize: 12,
-            fontWeight: 800,
-            letterSpacing: 0.2,
-            pointerEvents: 'auto',
-            maxWidth: 260,
-          }}
-        >
-          {chapters.map((ch) => {
-            const isActive = ch.id === chapter?.id
-            const unlocked = !chaptersLocked
-            return (
-              <button
-                key={ch.id}
-                type="button"
-                disabled={!unlocked}
-                onClick={() => jumpToChapter(ch)}
-                style={{
-                  appearance: 'none',
-                  border: 'none',
-                  textAlign: 'left',
-                  padding: '7px 9px',
-                  borderRadius: 10,
-                  background: isActive ? 'rgba(10,143,126,.38)' : 'rgba(255,255,255,.08)',
-                  color: isActive ? 'white' : 'rgba(255,255,255,.86)',
-                  cursor: unlocked ? 'pointer' : 'not-allowed',
-                  opacity: unlocked ? 1 : 0.55,
-                  fontFamily: 'var(--ff-d)',
-                  fontSize: 12,
-                  fontWeight: isActive ? 900 : 800,
-                  letterSpacing: 0.2,
-                }}
-              >
-                {ch.title}
-              </button>
-            )
-          })}
+        <div className={`tut-capitulos${menuCapitulosAbierto ? ' open' : ''}${esMovil ? ' mobile' : ''}`}>
+          <button
+            type="button"
+            className="tut-capitulos-toggle"
+            onClick={() => setMenuCapitulosAbierto((v) => !v)}
+            aria-expanded={menuCapitulosAbierto}
+            aria-label="Mostrar capítulos del tutorial"
+          >
+            <span>{chapter?.title || 'Capítulos del tutorial'}</span>
+            <span>{menuCapitulosAbierto ? 'Ocultar' : 'Ver capítulos'}</span>
+          </button>
+          <div className="tut-capitulos-lista">
+            {chapters.map((ch) => {
+              const isActive = ch.id === chapter?.id
+              const unlocked = !chaptersLocked
+              return (
+                <button
+                  key={ch.id}
+                  type="button"
+                  disabled={!unlocked}
+                  onClick={() => jumpToChapter(ch)}
+                  className={`tut-capitulo-btn${isActive ? ' active' : ''}`}
+                >
+                  {ch.title}
+                </button>
+              )
+            })}
+          </div>
         </div>
       ) : null}
       {running && canRender && curStep && spot ? (
@@ -1666,7 +1713,19 @@ export default function Tutorial() {
         </div>
       ) : null}
 
-      {running && canRender && curStep ? (
+      {running && canRender && curStep && esMovil && panelOcultoMovil ? (
+        <button
+          key={`tut-fab-${tour}-${idx}-${String(curStep?.id || '')}`}
+          type="button"
+          className="tut-fab"
+          onClick={() => setPanelOcultoMovil(false)}
+          aria-label="Mostrar panel del tutorial"
+        >
+          Mostrar Panel
+        </button>
+      ) : null}
+
+      {running && canRender && curStep && !(esMovil && panelOcultoMovil) ? (
         <div
           className="tut-tip"
           ref={tipRef}
@@ -1679,6 +1738,11 @@ export default function Tutorial() {
           role="dialog"
           aria-modal="true"
         >
+          {esMovil ? (
+            <button type="button" className="tut-hide-btn" onClick={() => setPanelOcultoMovil(true)}>
+              Ocultar
+            </button>
+          ) : null}
           <div className="tut-step">{stepLabel}</div>
           <h3 className="tut-title">{curStep.title}</h3>
           <p className="tut-text">{curStep.text}</p>

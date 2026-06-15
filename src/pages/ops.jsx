@@ -220,6 +220,104 @@ function normKey(v) {
 }
 
 /**
+ * Resuelve el nombre visible de un perfil de usuario para mostrarlo en UI.
+ *
+ * @param {object} perfil - Registro del usuario.
+ * @returns {string} Nombre listo para mostrar o '' si no hay datos suficientes.
+ *
+ * Lógica:
+ * 1) Prioriza `nombre`.
+ * 2) Si no existe, compone desde posibles campos separados.
+ * 3) Usa `usuario`/`correo` como fallback final.
+ *
+ * Dependencias externas:
+ * - Ninguna.
+ *
+ * Efectos secundarios:
+ * - Ninguno.
+ *
+ * Manejo de errores:
+ * - Tolera perfiles incompletos.
+ */
+function getNombrePerfil(perfil) {
+  const nombreDirecto = String(perfil?.nombre || '').trim()
+  if (nombreDirecto) return nombreDirecto
+
+  const nombreCompuesto = [
+    perfil?.nombres,
+    perfil?.apellidoPaterno,
+    perfil?.apellidoMaterno,
+    perfil?.apellidos,
+    perfil?.apellido,
+  ]
+    .map((parte) => String(parte || '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+
+  if (nombreCompuesto) return nombreCompuesto
+
+  return String(perfil?.usuario || perfil?.correo || '').trim()
+}
+
+function resolveNombrePersona(v) {
+  if (v == null) return ''
+
+  if (typeof v === 'object') {
+    const nombre = String(v?.nombre || v?.name || '').trim()
+    if (nombre) return nombre
+    const nombres = String(v?.nombres || '').trim()
+    const apellidos = String(v?.apellidos || '').trim()
+    const completo = String(`${nombres} ${apellidos}`).trim()
+    if (completo) return completo
+    const correo = String(v?.correo || v?.email || '').trim()
+    if (correo) return correo
+    return ''
+  }
+
+  return String(v).trim()
+}
+
+function getEtiquetaCreador(op, creadoresById) {
+  const creador =
+    op?.createdByName ??
+    op?.created_by_name ??
+    op?.createdBy ??
+    op?.created_by ??
+    op?.creador ??
+    op?.creadoPor ??
+    op?.creado_por ??
+    op?.usuario ??
+    op?.user ??
+    op?.usuarioId ??
+    op?.usuario_id ??
+    op?.userId ??
+    op?.user_id ??
+    op?.owner ??
+    op?.ownerId ??
+    null
+
+  const nombreDirecto = resolveNombrePersona(creador)
+  if (nombreDirecto) return nombreDirecto
+
+  const creadorId =
+    op?.createdById ??
+    op?.created_by_id ??
+    op?.createdBy ??
+    op?.created_by ??
+    op?.creadorId ??
+    op?.creador_id ??
+    op?.usuarioId ??
+    op?.usuario_id ??
+    op?.userId ??
+    op?.user_id ??
+    op?.ownerId ??
+    null
+
+  return creadoresById.get(String(creadorId ?? '').trim()) || ''
+}
+
+/**
  * Extrae especies presentes en una operación (nombres comunes/científicos) de forma única y ordenada.
  *
  * @param {object} op - Operación con `botes[]` y datos de densidad y/o LP.
@@ -399,6 +497,7 @@ export default function OpsPage({ activo }) {
     asegurarRegionesCargadas: ensureRegionesLoaded,
     asegurarCaletasCargadas: ensureCaletasLoaded,
     asegurarOperacionesCargadas: ensureOperacionesLoaded,
+    asegurarPerfilesCargados: ensurePerfilesLoaded,
     asegurarBotesMaestroCargados: ensureBotesMaestroLoaded,
     asegurarSectoresAmerbCargados: ensureSectoresAmerbLoaded,
     asegurarOpaCargada: ensureOpaLoaded,
@@ -592,6 +691,7 @@ export default function OpsPage({ activo }) {
     ensureRegionesLoaded?.()
     ensureCaletasLoaded?.()
     ensureOperacionesLoaded?.()
+    ensurePerfilesLoaded?.()
     ensureSectoresAmerbLoaded?.()
     ensureOpaLoaded?.()
   }, [
@@ -600,6 +700,7 @@ export default function OpsPage({ activo }) {
     ensureRegionesLoaded,
     ensureCaletasLoaded,
     ensureOperacionesLoaded,
+    ensurePerfilesLoaded,
     ensureSectoresAmerbLoaded,
     ensureOpaLoaded,
   ])
@@ -646,6 +747,16 @@ export default function OpsPage({ activo }) {
     return db?.caletasByRegionStatic || {}
   }, [db?.caletasByRegionId, db?.caletasByRegionStatic])
   const opa = useMemo(() => db?.opa || [], [db?.opa])
+  const creadoresById = useMemo(() => {
+    const map = new Map()
+    ;(Array.isArray(db?.perfiles) ? db.perfiles : []).forEach((perfil) => {
+      const id = String(perfil?.id ?? '').trim()
+      const nombre = getNombrePerfil(perfil)
+      if (!id || !nombre) return
+      map.set(id, nombre)
+    })
+    return map
+  }, [db?.perfiles])
   const regionMetaById = useMemo(() => new Map(regiones.map((r) => [String(r?.id), r])), [regiones])
   const regionNameById = useMemo(
     () => new Map(regiones.map((r) => [String(r?.id), String(r?.nom || r?.rom || r?.id || '')])),
@@ -3008,6 +3119,7 @@ export default function OpsPage({ activo }) {
                 const open = String(expanded || '') === String(op?.id ?? '')
                 const year = getOperacionYear(op)
                 const segLabel = getOperacionSegLabel(op)
+                const creadorNombre = getEtiquetaCreador(op, creadoresById)
                 const regionLabel = regionNameById.get(String(op?.region ?? '')) || String(op?.region || '—')
                 const caletaLabel = String(op?.sector || op?.caleta || '').trim() || '—'
                 const sectorAmerbLabel = String(op?.sectorAmerb || '').trim() || caletaLabel || '—'
@@ -3041,6 +3153,11 @@ export default function OpsPage({ activo }) {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 800, color: 'var(--text)' }}>
                     {year || '—'}, {segLabel}, {sectorAmerbLabel}
+                    {creadorNombre ? (
+                      <span style={{ marginLeft: 6, color: '#b8c0cc', fontStyle: 'italic', fontWeight: 500 }}>
+                        - {creadorNombre}
+                      </span>
+                    ) : null}
                   </div>
                   <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                     {totalTransectos > 0 ? <span className="pill p-blu">{totalTransectos} Transectos</span> : null}

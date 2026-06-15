@@ -124,6 +124,192 @@ class Operacion
         ];
     }
 
+    private static function normalizarIdsPurgado(array $ids)
+    {
+        $out = [];
+        foreach ($ids as $id) {
+            if ($id === null) continue;
+
+            if (is_int($id)) {
+                if ($id > 0) $out[(string)$id] = $id;
+                continue;
+            }
+
+            if (is_string($id)) {
+                $v = trim($id);
+                if ($v !== '') $out[$v] = $v;
+                continue;
+            }
+
+            if (is_numeric($id)) {
+                $v = (int)$id;
+                if ($v > 0) $out[(string)$v] = $v;
+            }
+        }
+        return array_values($out);
+    }
+
+    private static function placeholders($cantidad)
+    {
+        $cantidad = (int)$cantidad;
+        return $cantidad > 0 ? implode(',', array_fill(0, $cantidad, '?')) : '';
+    }
+
+    private static function escaparIdentificadorSql($nombre)
+    {
+        $nombre = trim((string)$nombre);
+        if ($nombre === '' || !preg_match('/^[A-Za-z0-9_]+$/', $nombre)) {
+            throw new RuntimeException('Identificador SQL invalido');
+        }
+        return '`' . $nombre . '`';
+    }
+
+    private static function obtenerPkSimple(PDO $db, $tabla, array &$cache)
+    {
+        $tabla = (string)$tabla;
+        if (array_key_exists($tabla, $cache['pk'] ?? [])) return $cache['pk'][$tabla];
+
+        $stmt = $db->prepare(
+            "SELECT COLUMN_NAME
+             FROM information_schema.KEY_COLUMN_USAGE
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = :tabla
+               AND CONSTRAINT_NAME = 'PRIMARY'
+             ORDER BY ORDINAL_POSITION ASC"
+        );
+        $stmt->execute([':tabla' => $tabla]);
+        $cols = array_map(function ($r) {
+            return (string)$r['COLUMN_NAME'];
+        }, $stmt->fetchAll());
+
+        if (!isset($cache['pk']) || !is_array($cache['pk'])) $cache['pk'] = [];
+        $cache['pk'][$tabla] = count($cols) === 1 ? $cols[0] : null;
+        return $cache['pk'][$tabla];
+    }
+
+    private static function obtenerRelacionesForaneas(PDO $db, $tablaPadre, array &$cache)
+    {
+        $tablaPadre = (string)$tablaPadre;
+        if (array_key_exists($tablaPadre, $cache['rel'] ?? [])) return $cache['rel'][$tablaPadre];
+
+        $stmt = $db->prepare(
+            "SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_COLUMN_NAME
+             FROM information_schema.KEY_COLUMN_USAGE
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND REFERENCED_TABLE_SCHEMA = DATABASE()
+               AND REFERENCED_TABLE_NAME = :tabla
+               AND REFERENCED_COLUMN_NAME IS NOT NULL
+             ORDER BY TABLE_NAME ASC, COLUMN_NAME ASC"
+        );
+        $stmt->execute([':tabla' => $tablaPadre]);
+
+        $rels = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $tablaHija = (string)($r['TABLE_NAME'] ?? '');
+            $columnaHija = (string)($r['COLUMN_NAME'] ?? '');
+            $columnaPadre = (string)($r['REFERENCED_COLUMN_NAME'] ?? '');
+            if ($tablaHija === '' || $columnaHija === '' || $columnaPadre === '') continue;
+            $rels[] = [
+                'tabla_hija' => $tablaHija,
+                'columna_hija' => $columnaHija,
+                'columna_padre' => $columnaPadre,
+            ];
+        }
+
+        if (!isset($cache['rel']) || !is_array($cache['rel'])) $cache['rel'] = [];
+        $cache['rel'][$tablaPadre] = $rels;
+        return $rels;
+    }
+
+    private static function obtenerValoresRelacionados(PDO $db, $tabla, $columnaPk, $columnaRelacion, array $ids)
+    {
+        $ids = self::normalizarIdsPurgado($ids);
+        if (!$ids) return [];
+        if ($columnaPk === $columnaRelacion) return $ids;
+
+        $tablaSql = self::escaparIdentificadorSql($tabla);
+        $pkSql = self::escaparIdentificadorSql($columnaPk);
+        $relSql = self::escaparIdentificadorSql($columnaRelacion);
+        $ph = self::placeholders(count($ids));
+
+        $stmt = $db->prepare(
+            "SELECT DISTINCT $relSql AS valor
+             FROM $tablaSql
+             WHERE $pkSql IN ($ph)
+               AND $relSql IS NOT NULL"
+        );
+        $stmt->execute($ids);
+
+        $valores = [];
+        foreach ($stmt->fetchAll() as $r) {
+            if (!array_key_exists('valor', $r) || $r['valor'] === null) continue;
+            $valores[] = $r['valor'];
+        }
+        return self::normalizarIdsPurgado($valores);
+    }
+
+    private static function eliminarFilasPorColumna(PDO $db, $tabla, $columna, array $ids)
+    {
+        $ids = self::normalizarIdsPurgado($ids);
+        if (!$ids) return;
+
+        $tablaSql = self::escaparIdentificadorSql($tabla);
+        $columnaSql = self::escaparIdentificadorSql($columna);
+        $ph = self::placeholders(count($ids));
+
+        $stmt = $db->prepare("DELETE FROM $tablaSql WHERE $columnaSql IN ($ph)");
+        $stmt->execute($ids);
+    }
+
+    private static function purgarRelacionadosPorIds(PDO $db, $tablaPadre, $columnaPkPadre, array $ids, array &$cache, array $ruta = [])
+    {
+        $ids = self::normalizarIdsPurgado($ids);
+        if (!$ids) return;
+
+        $claveRuta = (string)$tablaPadre . '|' . (string)$columnaPkPadre;
+        if (isset($ruta[$claveRuta])) return;
+        $ruta[$claveRuta] = true;
+
+        $relaciones = self::obtenerRelacionesForaneas($db, $tablaPadre, $cache);
+        if (!$relaciones) return;
+
+        foreach ($relaciones as $rel) {
+            $tablaHija = $rel['tabla_hija'];
+            $columnaHija = $rel['columna_hija'];
+            $columnaPadreRelacion = $rel['columna_padre'];
+            $valoresRelacion = self::obtenerValoresRelacionados($db, $tablaPadre, $columnaPkPadre, $columnaPadreRelacion, $ids);
+            if (!$valoresRelacion) continue;
+
+            $pkHija = self::obtenerPkSimple($db, $tablaHija, $cache);
+            if ($pkHija !== null) {
+                $tablaHijaSql = self::escaparIdentificadorSql($tablaHija);
+                $pkHijaSql = self::escaparIdentificadorSql($pkHija);
+                $columnaHijaSql = self::escaparIdentificadorSql($columnaHija);
+                $ph = self::placeholders(count($valoresRelacion));
+
+                $stmt = $db->prepare(
+                    "SELECT DISTINCT $pkHijaSql AS id
+                     FROM $tablaHijaSql
+                     WHERE $columnaHijaSql IN ($ph)"
+                );
+                $stmt->execute($valoresRelacion);
+
+                $idsHijos = [];
+                foreach ($stmt->fetchAll() as $r) {
+                    if (!array_key_exists('id', $r) || $r['id'] === null) continue;
+                    $idsHijos[] = $r['id'];
+                }
+
+                $idsHijos = self::normalizarIdsPurgado($idsHijos);
+                if ($idsHijos) {
+                    self::purgarRelacionadosPorIds($db, $tablaHija, $pkHija, $idsHijos, $cache, $ruta);
+                }
+            }
+
+            self::eliminarFilasPorColumna($db, $tablaHija, $columnaHija, $valoresRelacion);
+        }
+    }
+
     public static function all(PDO $db)
     {
         $stmt = $db->query(
@@ -562,6 +748,13 @@ class Operacion
     {
         $opId = (string)$opId;
         if ($opId === '') return;
+
+        try {
+            $cache = [];
+            self::purgarRelacionadosPorIds($db, 'operaciones', 'id', [$opId], $cache);
+            return;
+        } catch (Throwable $e) {
+        }
 
         $stmtB = $db->prepare("SELECT id FROM operacion_botes WHERE operacion_id = :id");
         $stmtB->execute([':id' => $opId]);

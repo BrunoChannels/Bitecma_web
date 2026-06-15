@@ -315,6 +315,7 @@ export default function OpsTutorialPage({ activo }) {
 
           return {
             id: 'B1',
+            submareal: cur?.submareal == null ? true : !!cur.submareal,
             nombre: ensureBotes ? seedMeta.bote1 : String(cur?.nombre || ''),
             buzo: String(cur?.buzo || 'Buzo 1'),
             zona: normalizarZonaMuestreo(cur?.zona) || '1',
@@ -347,6 +348,7 @@ export default function OpsTutorialPage({ activo }) {
 
           return {
             id: 'B2',
+            submareal: cur?.submareal == null ? true : !!cur.submareal,
             nombre: ensureBotes ? seedMeta.bote2 : String(cur?.nombre || ''),
             buzo: String(cur?.buzo || 'Buzo 2'),
             zona: normalizarZonaMuestreo(cur?.zona) || '2',
@@ -1067,6 +1069,7 @@ export default function OpsTutorialPage({ activo }) {
           .map((r) => ({
             sourceId: String(r.sourceId || ''),
             zona: normalizarZonaMuestreo(r.zona) || '1',
+            submareal: r?.submareal == null ? true : !!r.submareal,
             nombre: String(r.nombre || '').trim(),
             buzo: String(r.buzo || '').trim(),
             densTipo: r.densTipo === 'cuadrante' ? 'cuadrante' : 'transecto',
@@ -1099,7 +1102,8 @@ export default function OpsTutorialPage({ activo }) {
             const keepDensidad = prev && prevDensTipo === r.densTipo
             return {
               id: `B${i + 1}`,
-              nombre: r.nombre,
+              submareal: r.submareal,
+              nombre: r.submareal ? r.nombre : 'Intermareal',
               buzo: r.buzo,
               zona: r.zona,
               densTipo: r.densTipo,
@@ -1178,13 +1182,14 @@ export default function OpsTutorialPage({ activo }) {
                       <select
                         className="is"
                         value={(r?.submareal == null ? true : !!r.submareal) ? 'submareal' : 'intermareal'}
+                        data-tutorial-id={idx === 0 ? 'ops-bote-tipo-0' : idx === 1 ? 'ops-bote-tipo-1' : undefined}
                         disabled={tutorialLock}
                         onChange={(e) => {
                           const nextSubmareal = e.target.value === 'intermareal' ? false : true
                           setRows((p) =>
                             p.map((x, i) => {
                               if (i !== idx) return x
-                              return { ...x, submareal: nextSubmareal, nombre: nextSubmareal ? x.nombre : '' }
+                              return { ...x, submareal: nextSubmareal, nombre: nextSubmareal ? x.nombre : 'Intermareal' }
                             }),
                           )
                           if (!nextSubmareal) closePanel()
