@@ -79,9 +79,23 @@ export function normalizarNombreBoteParaMatch(nombreBote) {
 
 export function normalizarZonaParaClave(zonaRaw) {
   const zonaNorm = normalizarZonaMuestreo(zonaRaw)
-  const zonaNum = parseIntSafe(zonaNorm)
-  if (zonaNum != null && zonaNum > 0) return { zona: String(zonaNum), zonaValida: true, zonaNorm }
-  return { zona: '1', zonaValida: false, zonaNorm }
+  if (!zonaNorm) return { zona: '1', zonaValida: false, zonaNorm }
+  if (/^\d+$/.test(zonaNorm)) {
+    const zonaNum = Number(zonaNorm)
+    if (Number.isFinite(zonaNum) && zonaNum > 0) return { zona: String(zonaNum), zonaValida: true, zonaNorm }
+  }
+  return { zona: zonaNorm, zonaValida: true, zonaNorm }
+}
+
+function compararZonaTexto(a, b) {
+  const aTexto = String(a ?? '').trim()
+  const bTexto = String(b ?? '').trim()
+  const aEsNumero = /^\d+$/.test(aTexto)
+  const bEsNumero = /^\d+$/.test(bTexto)
+  if (aEsNumero && bEsNumero) return Number(aTexto) - Number(bTexto)
+  if (aEsNumero) return -1
+  if (bEsNumero) return 1
+  return aTexto.localeCompare(bTexto, 'es', { sensitivity: 'base' })
 }
 
 export function analizarBotesMultiZonaDesdePares(paresBoteZona) {
@@ -109,7 +123,7 @@ export function analizarBotesMultiZonaDesdePares(paresBoteZona) {
 
   const botesConMultiplesZonas = []
   for (const [nombreBoteNorm, setZonas] of zonasPorBote.entries()) {
-    const zonas = Array.from(setZonas).sort((a, b) => (parseIntSafe(a) || 0) - (parseIntSafe(b) || 0))
+    const zonas = Array.from(setZonas).sort(compararZonaTexto)
     if (zonas.length > 1) botesConMultiplesZonas.push({ nombreBoteNorm, zonas })
   }
 
