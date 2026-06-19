@@ -1,7 +1,13 @@
 # 🌊 BITECMA WEB
 ### Plataforma de Gestión de Evaluaciones de Recursos Bentónicos
 
-> Sistema digital para la gestión integral de operaciones de muestreo submarino, reemplazando el flujo manual en Excel por una plataforma centralizada, trazable y accesible desde cualquier dispositivo.
+> Sistema digital para la gestión integral de operaciones de muestreo submarino, reemplazando el flujo manual en Excel por una plataforma centralizada, trazable y accesible desde cualquier dispositivo. Accesible desde la página web www.amerb.bitecma.cl.
+
+Actualmente se puede ingresar como Visualizador a la página web con el siguiente usuario:
+
+| Usuario | Contraseña |
+|---------|-------------|
+| visualizador@visualizador.cl | 12345678 |
 
 ---
 
@@ -51,7 +57,7 @@ BITECMA WEB centraliza todo el flujo en una sola plataforma digital.
 | Capa | Tecnología |
 |------|------------|
 | Frontend | React 18 + Vite 5 + Bootstrap 5 |
-| Backend | PHP 8 (router `index.php`) |
+| Backend | PHP 8 (router `index.php`) | (Documentación: https://bitecma.cl/api/docs/)
 | Base de Datos | MySQL 5.7.44 (InnoDB) |
 | Autenticación | JWT + CORS + SSL/HTTPS |
 | Exportación Excel | `xlsx-js-style` |
