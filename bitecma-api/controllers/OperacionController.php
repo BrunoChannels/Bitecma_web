@@ -55,7 +55,8 @@ if ($method === 'POST') {
         $created = Operacion::create($db, $data, $createdBy);
         if (is_array($created) && isset($created['error'])) {
             $db->rollBack();
-            op_send(400, ['ok' => false, 'error' => $created['error']]);
+            $status = $created['error'] === 'id ya existe' ? 409 : 400;
+            op_send($status, ['ok' => false, 'error' => $created['error']]);
         }
         $db->commit();
         op_send(201, ['ok' => true, 'data' => $created]);

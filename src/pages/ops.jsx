@@ -43,14 +43,16 @@ function nextOpId(ops, year) {
   const nums = ops
     .map((o) => String(o?.id || ''))
     .map((id) => {
-      const m = id.match(/^OP-(\d{4})-(\d{3})$/)
+      const m = id.match(/^OP-(\d{4})-(\d{3,})$/)
       if (!m) return null
       if (m[1] !== y) return null
       return parseInt(m[2], 10)
     })
     .filter((n) => Number.isFinite(n))
   const max = nums.length ? Math.max(...nums) : 0
-  return `OP-${y}-${String(max + 1).padStart(3, '0')}`
+  const nextNum = max + 1
+  const nextSuffix = nextNum >= 1000 ? String(nextNum) : String(nextNum).padStart(3, '0')
+  return `OP-${y}-${nextSuffix}`
 }
 
 /**
