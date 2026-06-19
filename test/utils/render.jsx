@@ -52,6 +52,7 @@ export function renderWithProviders(ui, { user = defaultUser, dbSeed } = {}) {
   if (user) {
     localStorage.setItem('bitecma_active_profile', String(user.id))
   }
+  localStorage.removeItem('bitecma_token')
 
   const seed = {
     perfiles: user ? [user] : [],

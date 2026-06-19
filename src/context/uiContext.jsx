@@ -282,5 +282,22 @@ export function ProveedorInterfaz({ children }) {
 export function usarInterfaz() {
   const contexto = useContext(ContextoInterfaz)
   if (!contexto) throw new Error('UiProvider missing')
-  return contexto
+  return {
+    ...contexto,
+    toastState: contexto.estadoToast,
+    toast: contexto.mostrarToast,
+    modalState: contexto.estadoModal,
+    openModal: contexto.abrirModal,
+    closeModal: contexto.cerrarModal,
+    theme: contexto.tema,
+    setTheme: contexto.establecerTema,
+    toggleTheme: contexto.alternarTema,
+    sidebarOpen: contexto.barraLateralAbierta,
+    openSidebar: contexto.abrirBarraLateral,
+    closeSidebar: contexto.cerrarBarraLateral,
+    toggleSidebar: contexto.alternarBarraLateral,
+  }
 }
+
+export const UiProvider = ProveedorInterfaz
+export const useUi = usarInterfaz

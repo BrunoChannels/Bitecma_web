@@ -35,7 +35,7 @@ describe('EvadirImporter - detección de botes con múltiples zonas', () => {
     expect(botesConMultiplesZonas).toHaveLength(0)
   })
 
-  it('registra zonas inválidas/vacías sin interrumpir y sin falsear multi-zona', () => {
+  it('registra zonas vacías como inválidas y detecta multi-zona cuando también existe una zona textual válida', () => {
     const { botesConMultiplesZonas, filasZonaInvalida } = analizarBotesMultiZonaDesdePares([
       { nombreBote: 'En tierra', zonaRaw: '' },
       { nombreBote: 'En tierra', zonaRaw: null },
@@ -43,8 +43,8 @@ describe('EvadirImporter - detección de botes con múltiples zonas', () => {
       { nombreBote: 'En tierra', zonaRaw: 6 },
     ])
 
-    expect(filasZonaInvalida).toHaveLength(3)
-    expect(botesConMultiplesZonas).toHaveLength(0)
+    expect(filasZonaInvalida).toHaveLength(2)
+    expect(botesConMultiplesZonas).toHaveLength(1)
+    expect(botesConMultiplesZonas[0].zonas).toEqual(['6', 'abc'])
   })
 })
-

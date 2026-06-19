@@ -878,5 +878,28 @@ export function ProveedorBaseDatos({ children }) {
 export function usarBaseDatos() {
   const contexto = useContext(ContextoBaseDatos)
   if (!contexto) throw new Error('DbProvider missing')
-  return contexto
+  return {
+    ...contexto,
+    db: contexto.baseDatos,
+    setDb: contexto.establecerBaseDatos,
+    apiEnabled: contexto.apiHabilitada,
+    ensureBotesMaestroLoaded: contexto.asegurarBotesMaestroCargados,
+    ensureSectoresAmerbLoaded: contexto.asegurarSectoresAmerbCargados,
+    ensureOpaLoaded: contexto.asegurarOpaCargada,
+    ensureEspeciesLoaded: contexto.asegurarEspeciesCargadas,
+    ensureRegionesLoaded: contexto.asegurarRegionesCargadas,
+    ensureOperacionesLoaded: contexto.asegurarOperacionesCargadas,
+    ensurePerfilesLoaded: contexto.asegurarPerfilesCargados,
+    ensureCaletasLoaded: contexto.asegurarCaletasCargadas,
+    upsertOperacion: contexto.insertarOActualizarOperacion,
+    deleteOperacion: contexto.eliminarOperacion,
+    saveOperacion: contexto.guardarOperacion,
+    deleteOperacionApi: contexto.eliminarOperacionApi,
+    updateOperacion: contexto.actualizarOperacion,
+    upsertBoteMaestro: contexto.insertarOActualizarBoteMaestro,
+    deleteBoteMaestro: contexto.eliminarBoteMaestro,
+  }
 }
+
+export const DbProvider = ProveedorBaseDatos
+export const useDb = usarBaseDatos

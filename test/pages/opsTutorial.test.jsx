@@ -5,7 +5,7 @@ import { renderWithProviders } from '../utils/render.jsx'
 
 describe('Página Operaciones (Tutorial)', () => {
   it('renderiza sin quedar en blanco', async () => {
-    renderWithProviders(<OpsTutorialPage active />, {
+    renderWithProviders(<OpsTutorialPage activo />, {
       dbSeed: {
         regionesChile: [{ id: 4, rom: 'IV', nom: 'Coquimbo' }],
         sectoresAmerb: [],
@@ -24,7 +24,7 @@ describe('Página Operaciones (Tutorial)', () => {
   })
 
   it('no abre el modal de botes en pasos de bote (ops-bote-header)', async () => {
-    renderWithProviders(<OpsTutorialPage active />, {
+    renderWithProviders(<OpsTutorialPage activo />, {
       dbSeed: {
         regionesChile: [{ id: 4, rom: 'IV', nom: 'Coquimbo' }],
         sectoresAmerb: [],
@@ -48,7 +48,7 @@ describe('Página Operaciones (Tutorial)', () => {
   })
 
   it('abre el modal de botes en pasos del editor de botes (ops-botes-panel)', async () => {
-    renderWithProviders(<OpsTutorialPage active />, {
+    renderWithProviders(<OpsTutorialPage activo />, {
       dbSeed: {
         regionesChile: [{ id: 4, rom: 'IV', nom: 'Coquimbo' }],
         sectoresAmerb: [],
@@ -73,7 +73,7 @@ describe('Página Operaciones (Tutorial)', () => {
   })
 
   it('bloquea inputs/selects del panel de botes solo en el step ops-botes-panel', async () => {
-    renderWithProviders(<OpsTutorialPage active />, {
+    renderWithProviders(<OpsTutorialPage activo />, {
       dbSeed: {
         regionesChile: [{ id: 4, rom: 'IV', nom: 'Coquimbo' }],
         sectoresAmerb: [],
@@ -110,7 +110,7 @@ describe('Página Operaciones (Tutorial)', () => {
   })
 
   it('abre el modal de edición en pasos de edición (ops-editop-panel)', async () => {
-    renderWithProviders(<OpsTutorialPage active />, {
+    renderWithProviders(<OpsTutorialPage activo />, {
       dbSeed: {
         regionesChile: [{ id: 4, rom: 'IV', nom: 'Coquimbo' }],
         sectoresAmerb: [],
@@ -133,7 +133,7 @@ describe('Página Operaciones (Tutorial)', () => {
   })
 
   it('muestra el editor de botes dentro del modal de edición (ops-editop-botes-panel)', async () => {
-    renderWithProviders(<OpsTutorialPage active />, {
+    renderWithProviders(<OpsTutorialPage activo />, {
       dbSeed: {
         regionesChile: [{ id: 4, rom: 'IV', nom: 'Coquimbo' }],
         sectoresAmerb: [],

@@ -500,5 +500,23 @@ export function ProveedorAplicacion({ children }) {
 export function usarAplicacion() {
   const contexto = useContext(ContextoAplicacion)
   if (!contexto) throw new Error('AppProvider missing')
-  return contexto
+  return {
+    ...contexto,
+    page: contexto.pagina,
+    navigate: contexto.navegar,
+    isAuthed: contexto.estaAutenticado,
+    user: contexto.usuario,
+    role: contexto.rol,
+    isAdmin: contexto.esAdmin,
+    isViewer: contexto.esVisualizador,
+    canWrite: contexto.puedeEscribir,
+    login: contexto.iniciarSesion,
+    logout: contexto.cerrarSesion,
+    updateProfile: contexto.actualizarPerfil,
+    uploadAvatar: contexto.subirAvatar,
+    changePassword: contexto.cambiarContrasena,
+  }
 }
+
+export const AppProvider = ProveedorAplicacion
+export const useApp = usarAplicacion
