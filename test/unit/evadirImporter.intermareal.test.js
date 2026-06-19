@@ -6,6 +6,12 @@ describe('EvadirImporter - detección de botes intermareales', () => {
     expect(esNombreBoteIntermarealDirecto('A PIE')).toBe(true)
   })
 
+  it('reconoce variantes como APIE, A-Pie y A  PIE como intermareal', () => {
+    expect(esNombreBoteIntermarealDirecto('APIE')).toBe(true)
+    expect(esNombreBoteIntermarealDirecto('A-Pie')).toBe(true)
+    expect(esNombreBoteIntermarealDirecto('A  PIE')).toBe(true)
+  })
+
   it('mantiene EN TIERRA como intermareal', () => {
     expect(esNombreBoteIntermarealDirecto('EN TIERRA')).toBe(true)
   })

@@ -108,8 +108,10 @@ export function inferirEspecieHuiroDesdeNombreHoja(nombreHoja, especies) {
 
 export function esNombreBoteIntermarealDirecto(nombre) {
   const clave = normText(nombre)
+  const claveCompacta = clave.replace(/\s+/g, '')
   const clavesIntermareales = new Set(['en tierra', 'a pie'])
-  return clave && clavesIntermareales.has(clave)
+  const clavesIntermarealesCompactas = new Set(['entierra', 'apie'])
+  return (clave && clavesIntermareales.has(clave)) || (claveCompacta && clavesIntermarealesCompactas.has(claveCompacta))
 }
 
 export function resolverOCrearBoteSubmarealFaltante(botesActuales, zonaRaw, nombreBoteRaw, buzoNombre = '') {
@@ -149,7 +151,7 @@ export function resolverOCrearBoteSubmarealFaltante(botesActuales, zonaRaw, nomb
 
 export function normalizarNombreBoteParaMatch(nombreBote) {
   const nombreCrudo = String(nombreBote ?? '').trim()
-  if (/^-+$/.test(nombreCrudo)) return '-'
+  if (/^[-\u2010-\u2015\u2212]+$/.test(nombreCrudo)) return '-'
   const tokens = normHeader(nombreBote).split(' ').filter(Boolean)
   while (tokens.length && ['el', 'la', 'los', 'las', 'bote'].includes(tokens[0])) tokens.shift()
   return tokens.join(' ')

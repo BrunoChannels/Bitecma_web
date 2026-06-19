@@ -35,6 +35,8 @@ describe('EvadirImporter - botes faltantes en biometría', () => {
 
   it('preserva el bote llamado guion para matching', () => {
     expect(normalizarNombreBoteParaMatch('-')).toBe('-')
+    expect(normalizarNombreBoteParaMatch('–')).toBe('-')
+    expect(normalizarNombreBoteParaMatch('—')).toBe('-')
   })
 
   it('crea un bote llamado guion cuando viene desde biometría y no existe en EVADIR', () => {
