@@ -287,6 +287,7 @@ export function buildEvadirPreviewSheets({ db, op }) {
     if (!lpGroups.has(key)) lpGroups.set(key, [])
     lpGroups.get(key).push(row)
   }
+  const especiesConLongitudExplicita = new Set()
 
   const normKind = (kind) => {
     const k = String(kind || '').trim().toUpperCase()
@@ -321,13 +322,20 @@ export function buildEvadirPreviewSheets({ db, op }) {
   ;(op.botes || []).forEach((b) => {
     Object.entries(b.lpMuestras || {}).forEach(([spIdRaw, entry]) => {
       const spId = parseInt(spIdRaw)
-      const sp = speciesById.get(spId)
       const hasExplicitL =
         entry &&
         typeof entry === 'object' &&
         !Array.isArray(entry) &&
         !Array.isArray(entry.ms) &&
         Object.prototype.hasOwnProperty.call(entry, 'L')
+      if (hasExplicitL) especiesConLongitudExplicita.add(spId)
+    })
+  })
+
+  ;(op.botes || []).forEach((b) => {
+    Object.entries(b.lpMuestras || {}).forEach(([spIdRaw, entry]) => {
+      const spId = parseInt(spIdRaw)
+      const sp = speciesById.get(spId)
 
       eachLpSample(entry, (m, forcedKind) => {
         const isAlga = isAlgaId(spId)
@@ -352,7 +360,7 @@ export function buildEvadirPreviewSheets({ db, op }) {
           d: m?.d ?? m?.l ?? '',
         }
         pushLP(kind, spId, row)
-        if (!isAlga && hasExplicitL && kind === 'LP') pushLP('L', spId, row)
+        if (!isAlga && especiesConLongitudExplicita.has(spId) && kind === 'LP') pushLP('L', spId, row)
       })
     })
   })

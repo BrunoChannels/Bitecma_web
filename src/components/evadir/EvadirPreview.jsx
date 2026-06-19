@@ -771,9 +771,9 @@ export default function EvadirPreview({ db, op }) {
   const [tab, setTab] = useState(() => sheets[0]?.name || 'EVADIR')
   const [rowLimit, setRowLimit] = useState(250)
   const [unidadFilter, setUnidadFilter] = useState('todos')
-  const [isMobile, setIsMobile] = useState(() => {
+  const [esCompacto, setEsCompacto] = useState(() => {
     if (typeof window === 'undefined') return false
-    const mm = window.matchMedia ? window.matchMedia('(max-width: 768px)') : null
+    const mm = window.matchMedia ? window.matchMedia('(max-width: 1024px)') : null
     return !!mm?.matches
   })
   const [showLpChart, setShowLpChart] = useState(false)
@@ -781,8 +781,8 @@ export default function EvadirPreview({ db, op }) {
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (!window.matchMedia) return
-    const mm = window.matchMedia('(max-width: 768px)')
-    const handler = () => setIsMobile(!!mm.matches)
+    const mm = window.matchMedia('(max-width: 1024px)')
+    const handler = () => setEsCompacto(!!mm.matches)
     handler()
     if (typeof mm.addEventListener === 'function') mm.addEventListener('change', handler)
     else if (typeof mm.addListener === 'function') mm.addListener(handler)
@@ -1064,10 +1064,19 @@ export default function EvadirPreview({ db, op }) {
   }
 
   return (
-    <div className="evp" style={{ height: '70vh', minHeight: 520, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div
+      className="evp evp-responsive"
+      style={{
+        height: '100%',
+        minHeight: esCompacto ? 0 : 520,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: esCompacto ? 'visible' : 'hidden',
+      }}
+    >
       {isLpTab && lpPreview ? (
-        <div style={{ display: isMobile ? 'block' : 'flex', gap: 10, alignItems: 'stretch', flex: '0 0 auto' }}>
-          <div className="info-box blue" style={{ flex: isMobile ? '0 0 auto' : 1, margin: 0 }}>
+        <div className="evp-resumen-superior" style={{ display: esCompacto ? 'block' : 'flex', gap: 10, alignItems: 'stretch', flex: '0 0 auto' }}>
+          <div className="info-box blue" style={{ flex: esCompacto ? '0 0 auto' : 1, margin: 0 }}>
             <span>i</span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div>
@@ -1093,7 +1102,7 @@ export default function EvadirPreview({ db, op }) {
                   LP {resumen.muestras.LP}
                 </span>
               </div>
-              {isMobile ? (
+              {esCompacto ? (
                 <div>
                   <button className="btn b-out b-sm" onClick={() => setShowLpChart((v) => !v)}>
                     {showLpChart ? 'Ocultar gráfico' : 'Gráfico de dispersión'}
@@ -1102,8 +1111,8 @@ export default function EvadirPreview({ db, op }) {
               ) : null}
             </div>
           </div>
-          {!isMobile ? (
-            <div style={{ width: 520 }}>
+          {!esCompacto ? (
+            <div style={{ width: 520, maxWidth: '42%' }}>
               <LpScatter
                 points={lpPreview.points}
                 onJump={(pt) => {
@@ -1267,7 +1276,7 @@ export default function EvadirPreview({ db, op }) {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: '0 0 auto' }}>
+      <div className="evp-tabs">
         {sheets.map((s) => (
           <button
             key={s.name}
@@ -1286,7 +1295,7 @@ export default function EvadirPreview({ db, op }) {
 
       <div style={{ flex: 1, overflow: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {isEvadirTab ? (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="evp-filtros">
             <div style={{ color: 'var(--text3)', fontSize: 12 }}>Tipo unidad</div>
             {unidadMode === 'mixed' ? (
               <>
@@ -1343,7 +1352,7 @@ export default function EvadirPreview({ db, op }) {
           <div style={{ color: 'var(--text3)', fontSize: 12 }}>Mostrando {rows.length} filas</div>
         ) : null}
 
-        <div style={{ flex: 1, overflow: 'auto', minHeight: 0, border: '1px solid var(--border)', borderRadius: 10 }}>
+        <div className="evp-tabla-wrap">
           <table className="tbl evp-sticky tbl-evp-mobile">
             <thead>
               {isEvadirTab ? (

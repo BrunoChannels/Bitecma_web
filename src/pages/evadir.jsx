@@ -34,7 +34,7 @@ export default function EvadirPage({ activo }) {
   return (
     <div className={`page${activo ? ' active' : ''}`} id="pg-evadir">
       <div className="ph">
-        <div>
+        <div className="evadir-page-intro">
           <h2>Generar EVADIR</h2>
           <p>
             El EVADIR se construye desde una operación: tabla <strong>DENSIDAD</strong> (transectos) + tablas{' '}
@@ -44,7 +44,7 @@ export default function EvadirPage({ activo }) {
         <div className="ph-a"></div>
       </div>
 
-      <div className="card mb">
+      <div className="card mb evadir-page-card">
         <div className="ct">EVADIR registrados</div>
         <EvadirRegistradosTable />
       </div>
