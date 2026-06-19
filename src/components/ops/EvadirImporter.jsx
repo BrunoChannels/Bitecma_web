@@ -71,7 +71,85 @@ function normHeader(v) {
   return normText(v).replace(/\s+/g, ' ').trim()
 }
 
+function buscarIdEspeciePorNombres(especies, nombresComunes = [], nombresCientificos = []) {
+  const comunes = nombresComunes.map(normHeader).filter(Boolean)
+  const cientificos = nombresCientificos.map(normHeader).filter(Boolean)
+
+  for (const especie of Array.isArray(especies) ? especies : []) {
+    const id = Number(especie?.id)
+    if (!Number.isFinite(id)) continue
+
+    const nombreComun = normHeader(especie?.com)
+    const nombreCientifico = normHeader(especie?.sci)
+
+    if (comunes.includes(nombreComun)) return id
+    if (cientificos.includes(nombreCientifico)) return id
+  }
+
+  return null
+}
+
+export function inferirEspecieHuiroDesdeNombreHoja(nombreHoja, especies) {
+  const nombreNormalizado = normHeader(nombreHoja)
+  if (!nombreNormalizado) return null
+
+  const esHuiroPalo = /(^|\s)h\s+palo(\s|$)/.test(nombreNormalizado)
+  if (esHuiroPalo) {
+    return buscarIdEspeciePorNombres(especies, ['Huiro palo'], ['Lessonia trabeculata'])
+  }
+
+  const esHuiroNegro = /(^|\s)h\s+negro(\s|$)/.test(nombreNormalizado)
+  if (esHuiroNegro) {
+    return buscarIdEspeciePorNombres(especies, ['Huiro negro'], ['Lessonia berteroana', 'Lessonia nigrescens', 'Lessonia spicata'])
+  }
+
+  return null
+}
+
+export function esNombreBoteIntermarealDirecto(nombre) {
+  const clave = normText(nombre)
+  const clavesIntermareales = new Set(['en tierra', 'a pie'])
+  return clave && clavesIntermareales.has(clave)
+}
+
+export function resolverOCrearBoteSubmarealFaltante(botesActuales, zonaRaw, nombreBoteRaw, buzoNombre = '') {
+  const zona = normalizarZonaMuestreo(zonaRaw) || '1'
+  const nombreBote = String(nombreBoteRaw || '').trim()
+  const nombreNormalizado = normalizarNombreBoteParaMatch(nombreBote)
+  if (!nombreNormalizado) return { bote: null, creado: false }
+
+  const existente =
+    (Array.isArray(botesActuales) ? botesActuales : []).find(
+      (b) =>
+        (b?.submareal == null ? true : b?.submareal === true || b?.submareal === 1 || b?.submareal === '1') &&
+        normalizarZonaMuestreo(b?.zona) === zona &&
+        normalizarNombreBoteParaMatch(b?.nombre) === nombreNormalizado,
+    ) || null
+
+  if (existente) {
+    const buzo = String(buzoNombre || '').trim()
+    if (!existente.buzo && buzo) existente.buzo = buzo
+    return { bote: existente, creado: false }
+  }
+
+  return {
+    bote: {
+      id: `B${(Array.isArray(botesActuales) ? botesActuales.length : 0) + 1}`,
+      zona,
+      submareal: true,
+      nombre: nombreBote,
+      buzo: String(buzoNombre || '').trim(),
+      densTipo: 'transecto',
+      lpMuestras: {},
+      transectos: [],
+    },
+    creado: true,
+  }
+}
+
 export function normalizarNombreBoteParaMatch(nombreBote) {
+  const nombreCrudo = String(nombreBote ?? '').trim()
+  if (/^-+$/.test(nombreCrudo)) return '-'
   const tokens = normHeader(nombreBote).split(' ').filter(Boolean)
   while (tokens.length && ['el', 'la', 'los', 'las', 'bote'].includes(tokens[0])) tokens.shift()
   return tokens.join(' ')
@@ -820,6 +898,8 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       const guessSpeciesFromSheetName = (sheetName) => {
         const s = normHeader(sheetName)
         if (!s) return null
+        const huiroAliasId = inferirEspecieHuiroDesdeNombreHoja(sheetName, especies)
+        if (huiroAliasId != null) return huiroAliasId
         const stop = new Set(['evadir', 'long', 'longo', 'largo', 'peso', 'lp', 'l', 'd','L','LP','D', 'diam', 'diametro','DIAMETRO', 'disco'])
         let best = null
         for (const [alias, id] of comAliasToId.entries()) {
@@ -1412,17 +1492,11 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
       await openProcesando('Analizando filas EVADIR y preparando borrador de operación…')
 
       const clavesBoteAmbiguas = new Set(['n a', 'na', 'intermareal', 'intermarea'])
-      const clavesBoteIntermarealDirectas = new Set(['en tierra'])
       const submarealPorClaveBoteAmbigua = new Map()
 
       const esNombreBoteAmbiguo = (nombre) => {
         const k = normText(nombre)
         return k && clavesBoteAmbiguas.has(k)
-      }
-
-      const esNombreBoteIntermarealDirecto = (nombre) => {
-        const k = normText(nombre)
-        return k && clavesBoteIntermarealDirectas.has(k)
       }
 
       const preguntarTipoMuestreoParaNombreBoteAmbiguo = async (nombreBoteRaw) => {
@@ -1961,6 +2035,20 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         return m
       })()
 
+      const registrarBoteEnIndices = (bote) => {
+        const candidato = {
+          b: bote,
+          zona: normalizarZonaMuestreo(bote?.zona),
+          raw: String(bote?.nombre || '').trim(),
+          norm: normalizarNombreBoteParaMatch(bote?.nombre),
+        }
+        boatCandidates.push(candidato)
+        if (candidato.norm) {
+          boatByZonaNorm.set(`${candidato.zona}::${candidato.norm}`, bote)
+          if (!boatByNorm.has(candidato.norm)) boatByNorm.set(candidato.norm, bote)
+        }
+      }
+
       const intermarealByZonaBuzo = (() => {
         const m = new Map()
         botesOut.forEach((b) => {
@@ -1995,12 +2083,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
           transectos: [],
         }
         botesOut.push(nuevo)
-        const candidate = { b: nuevo, zona: normalizarZonaMuestreo(nuevo?.zona), raw: String(nuevo?.nombre || '').trim(), norm: normalizarNombreBoteParaMatch(nuevo?.nombre) }
-        boatCandidates.push(candidate)
-        if (candidate.norm) {
-          boatByZonaNorm.set(`${candidate.zona}::${candidate.norm}`, nuevo)
-          if (!boatByNorm.has(candidate.norm)) boatByNorm.set(candidate.norm, nuevo)
-        }
+        registrarBoteEnIndices(nuevo)
         return nuevo
       }
 
@@ -2022,6 +2105,15 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
         botesOut.push(nuevo)
         intermarealByZonaBuzo.set(key, nuevo)
         return nuevo
+      }
+
+      const ensureSubmarealBoteDesdeBiometria = (zonaRaw, nombreBoteRaw, buzoNombre) => {
+        const { bote, creado } = resolverOCrearBoteSubmarealFaltante(botesOut, zonaRaw, nombreBoteRaw, buzoNombre)
+        if (!bote) return null
+        if (!creado) return bote
+        botesOut.push(bote)
+        registrarBoteEnIndices(bote)
+        return bote
       }
 
       /**
@@ -2125,6 +2217,7 @@ export default function EvadirImporter({ db, canWrite, toast, openModal, closeMo
               b = submareal ? ensureSubmarealBoteNa(zonaNum) : ensureIntermarealBote(zonaNum, buzoCell)
             } else {
               b = resolveBoatFromLp(boatNameForLookup, zonaNum)
+              if (!b && boteCell) b = ensureSubmarealBoteDesdeBiometria(zonaNum, boteCell, useAltAsBoat ? '' : buzoCell)
             }
           }
           if (!b) {
