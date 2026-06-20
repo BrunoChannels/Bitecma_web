@@ -13,6 +13,7 @@ dist
 dist-ssr
 *.local
 .trae/rules/*
+.bitecma-api/*
 
 # Editor directories and files
 .vscode/*
