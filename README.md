@@ -9,6 +9,10 @@ Actualmente se puede ingresar como Visualizador a la página web con el siguient
 |---------|-------------|
 | visualizador@visualizador.cl | 12345678 |
 
+|Documentación de API vía Swagger:|
+|---------|-------------|
+|https://bitecma.cl/api/docs/|
+
 ---
 
 ## ¿Para quién es esta plataforma?
