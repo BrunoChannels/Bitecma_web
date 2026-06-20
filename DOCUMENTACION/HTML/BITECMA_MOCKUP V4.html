@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BITECMA — Sistema AMERB</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f6f9;--bg2:#eef1f6;--white:#ffffff;--border:#e0e5ef;--border2:#cdd4e3;
+  --navy:#1a3a5c;--navy2:#0f2540;--teal:#0a8f7e;--teal-lt:#d0f0ec;--teal-md:#5ec4b8;
+  --amber:#d97706;--amber-lt:#fef3c7;--green:#059669;--green-lt:#d1fae5;
+  --red:#dc2626;--red-lt:#fee2e2;--blue:#1d6fa4;--blue-lt:#dbeafe;
+  --slate:#64748b;--slate-lt:#f1f5f9;--text:#1e293b;--text2:#475569;--text3:#94a3b8;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.05);
+  --shadow-md:0 4px 12px rgba(0,0,0,.12),0 8px 32px rgba(0,0,0,.06);
+  --ff-d:'Fraunces',serif;--ff-b:'DM Sans',sans-serif;--ff-m:'DM Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--ff-b);background:var(--bg);color:var(--text);overflow:hidden;font-size:14px;}
+.screen{display:none;width:100vw;height:100vh;position:absolute;top:0;left:0;}
+.screen.active{display:flex;}
+
+/* LOGIN */
+#scr-login{align-items:center;justify-content:center;background:linear-gradient(135deg,#e8f4f8 0%,#f0f7f4 50%,#e8eef8 100%);overflow:hidden;}
+.login-card{position:relative;z-index:10;background:var(--white);border-radius:24px;padding:48px 44px;width:440px;box-shadow:0 20px 60px rgba(10,143,126,.12),0 4px 16px rgba(0,0,0,.06);border:1px solid rgba(10,143,126,.15);animation:card-in .5s cubic-bezier(.22,1,.36,1) both;}
+@keyframes card-in{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+.lc-logo{display:flex;align-items:center;gap:12px;margin-bottom:32px;}
+.lc-icon{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--teal),var(--navy));display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;box-shadow:0 4px 12px rgba(10,143,126,.3);}
+.lc-brand h1{font-family:var(--ff-d);font-size:22px;font-weight:900;color:var(--navy);}
+.lc-brand span{font-family:var(--ff-m);font-size:10px;color:var(--teal);letter-spacing:2px;text-transform:uppercase;}
+.lc-title{font-family:var(--ff-d);font-size:26px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+.lc-sub{color:var(--text2);font-size:13px;margin-bottom:28px;}
+.lf-group{margin-bottom:16px;}
+.lf-label{font-family:var(--ff-m);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--teal);display:block;margin-bottom:6px;}
+.lf-input{width:100%;padding:11px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;font-family:var(--ff-b);outline:none;transition:border-color .2s,box-shadow .2s;}
+.lf-input:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(10,143,126,.12);}
+.lf-input::placeholder{color:var(--text3);}
+.role-row{display:flex;gap:6px;margin-bottom:22px;}
+.role-opt{flex:1;padding:8px 4px;text-align:center;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:11px;font-family:var(--ff-m);cursor:pointer;transition:all .15s;}
+.role-opt.sel{background:var(--teal-lt);border-color:var(--teal);color:var(--teal);font-weight:600;}
+.btn-login{width:100%;padding:13px;border-radius:11px;background:linear-gradient(135deg,var(--teal),#076e60);border:none;color:#fff;font-family:var(--ff-d);font-weight:700;font-size:15px;cursor:pointer;transition:all .2s;box-shadow:0 4px 14px rgba(10,143,126,.35);}
+.btn-login:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(10,143,126,.45);}
+.lc-foot{text-align:center;margin-top:18px;font-size:12px;color:var(--text3);}
+.lc-foot a{color:var(--teal);cursor:pointer;}
+
+/* APP */
+#scr-app{flex-direction:column;}
+.topbar{height:56px;min-height:56px;background:var(--white);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:14px;z-index:200;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.tb-logo{display:flex;align-items:center;gap:9px;cursor:pointer;}
+.tb-logo-icon{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--teal),var(--navy));display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;}
+.tb-logo-text{font-family:var(--ff-d);font-weight:900;font-size:17px;color:var(--navy);}
+.tb-logo-text span{color:var(--teal);}
+.tb-sep{width:1px;height:28px;background:var(--border);flex-shrink:0;}
+.tb-bc{display:flex;align-items:center;gap:5px;font-family:var(--ff-m);font-size:11px;color:var(--text3);}
+.tb-bc .active{color:var(--teal);font-weight:500;}
+.tb-spacer{flex:1;}
+.tb-search{display:flex;align-items:center;gap:8px;padding:7px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:22px;width:220px;}
+.tb-search input{background:none;border:none;outline:none;color:var(--text);font-size:12px;width:100%;font-family:var(--ff-b);}
+.tb-search input::placeholder{color:var(--text3);}
+.tb-actions{display:flex;align-items:center;gap:7px;}
+.tb-btn{width:34px;height:34px;border-radius:9px;border:1.5px solid var(--border);background:var(--white);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .15s;position:relative;}
+.tb-btn:hover{background:var(--teal-lt);border-color:var(--teal);color:var(--teal);}
+.tb-badge{position:absolute;top:-4px;right:-4px;width:15px;height:15px;border-radius:50%;background:var(--red);font-size:8px;color:#fff;display:flex;align-items:center;justify-content:center;border:2px solid var(--white);}
+.user-chip{display:flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border-radius:22px;border:1.5px solid var(--border);cursor:pointer;background:var(--white);}
+.user-av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--navy));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;}
+.user-name{font-size:12px;font-weight:600;color:var(--navy);}
+.user-role{font-family:var(--ff-m);font-size:9px;color:var(--teal);}
+.app-body{display:flex;flex:1;overflow:hidden;}
+.sidebar{width:218px;min-width:218px;background:var(--white);border-right:1px solid var(--border);padding:14px 10px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;flex-shrink:0;}
+.sb-section{font-family:var(--ff-m);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);padding:10px 8px 5px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;cursor:pointer;transition:all .15s;color:var(--text2);font-size:13px;white-space:nowrap;border:1.5px solid transparent;}
+.nav-item:hover{background:var(--slate-lt);color:var(--text);}
+.nav-item.active{background:var(--teal-lt);color:var(--teal);border-color:rgba(10,143,126,.2);font-weight:600;}
+.nav-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0;}
+.nav-badge{margin-left:auto;background:var(--teal);color:#fff;font-size:9px;padding:2px 7px;border-radius:10px;font-family:var(--ff-m);}
+.sb-footer{margin-top:auto;padding-top:12px;border-top:1px solid var(--border);}
+.main{flex:1;overflow-y:auto;padding:22px 24px;background:var(--bg);}
+.page{display:none;animation:fade-in .3s ease both;}
+.page.active{display:block;}
+@keyframes fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* GENERIC */
+.ph{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;}
+.ph h2{font-family:var(--ff-d);font-size:22px;font-weight:700;color:var(--navy);}
+.ph p{font-size:12px;color:var(--text2);margin-top:3px;}
+.ph-actions{display:flex;gap:8px;align-items:center;}
+.btn{padding:8px 16px;border-radius:9px;font-size:12px;font-family:var(--ff-b);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;font-weight:500;border:none;}
+.btn-teal{background:var(--teal);color:#fff;box-shadow:0 2px 8px rgba(10,143,126,.25);}
+.btn-teal:hover{background:#087a6b;transform:translateY(-1px);}
+.btn-outline{background:var(--white);color:var(--text2);border:1.5px solid var(--border);}
+.btn-outline:hover{border-color:var(--teal-md);color:var(--teal);background:var(--teal-lt);}
+.btn-navy{background:var(--navy);color:#fff;}
+.btn-red{background:var(--red);color:#fff;}
+.btn-green{background:var(--green);color:#fff;}
+.btn-amber{background:var(--amber);color:#fff;}
+.btn-sm{padding:5px 11px;font-size:11px;border-radius:7px;}
+.btn-xs{padding:3px 8px;font-size:10px;border-radius:6px;}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important;}
+.card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:var(--shadow);}
+.card-title{font-family:var(--ff-m);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
+.mb16{margin-bottom:16px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.pill{display:inline-flex;align-items:center;gap:3px;padding:2px 9px;border-radius:20px;font-size:10px;font-family:var(--ff-m);}
+.p-teal{background:var(--teal-lt);color:var(--teal);}
+.p-amber{background:var(--amber-lt);color:var(--amber);}
+.p-green{background:var(--green-lt);color:var(--green);}
+.p-red{background:var(--red-lt);color:var(--red);}
+.p-blue{background:var(--blue-lt);color:var(--blue);}
+.p-slate{background:var(--slate-lt);color:var(--slate);}
+.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.tbl th{text-align:left;padding:9px 12px;font-family:var(--ff-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);border-bottom:1.5px solid var(--border);background:var(--bg);white-space:nowrap;cursor:pointer;user-select:none;}
+.tbl th:hover{color:var(--teal);}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle;}
+.tbl tbody tr:hover td{background:var(--teal-lt);}
+.tbl tbody tr:last-child td{border-bottom:none;}
+.flt{padding:8px 12px;border-radius:9px;border:1.5px solid var(--border);background:var(--white);color:var(--text);font-size:12px;font-family:var(--ff-b);outline:none;cursor:pointer;transition:border-color .2s;}
+.flt:focus{border-color:var(--teal);}
+.filters{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center;}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden;transition:all .2s;}
+.stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+.stat-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0;}
+.sc-teal::after{background:var(--teal);}
+.sc-amber::after{background:var(--amber);}
+.sc-green::after{background:var(--green);}
+.sc-red::after{background:var(--red);}
+.sc-blue::after{background:var(--blue);}
+.sc-label{font-family:var(--ff-m);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+.sc-val{font-family:var(--ff-d);font-size:28px;font-weight:900;line-height:1;color:var(--navy);}
+.sc-sub{font-size:11px;color:var(--text3);margin-top:5px;}
+
+/* FORM */
+.inf-group{margin-bottom:12px;}
+.inf-label{font-family:var(--ff-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--teal);display:block;margin-bottom:5px;}
+.inf-input,.inf-select,.inf-ta{width:100%;padding:9px 12px;border-radius:9px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;font-family:var(--ff-b);outline:none;transition:border-color .2s;}
+.inf-input:focus,.inf-select:focus,.inf-ta:focus{border-color:var(--teal);background:var(--white);}
+.inf-ta{height:70px;resize:none;}
+.inf-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.inf-3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.inf-sec{font-family:var(--ff-d);font-size:13px;font-weight:700;color:var(--teal);border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:12px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:12px 18px;border-radius:12px;font-size:13px;z-index:9999;box-shadow:var(--shadow-md);display:none;align-items:center;gap:10px;}
+.toast.show{display:flex;animation:fade-in .3s ease both;}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:999;display:none;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--white);border-radius:18px;padding:28px;width:700px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);animation:card-in .3s ease both;}
+.modal.wide{width:900px;}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-shrink:0;}
+.modal-header h3{font-family:var(--ff-d);font-size:18px;font-weight:700;color:var(--navy);}
+.modal-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.modal-close:hover{background:var(--red-lt);border-color:var(--red);color:var(--red);}
+
+/* WIZARD STEPS */
+.wizard-steps{display:flex;align-items:center;gap:0;margin-bottom:24px;overflow:hidden;border-radius:10px;border:1px solid var(--border);}
+.wz-step{flex:1;padding:10px 12px;text-align:center;font-family:var(--ff-m);font-size:10px;letter-spacing:.5px;background:var(--bg);color:var(--text3);border-right:1px solid var(--border);cursor:pointer;transition:all .2s;}
+.wz-step:last-child{border-right:none;}
+.wz-step.done{background:var(--teal-lt);color:var(--teal);}
+.wz-step.active{background:var(--teal);color:#fff;font-weight:600;}
+.wz-step .wz-num{display:block;font-size:14px;font-weight:700;margin-bottom:2px;}
+
+/* OPERATION CARDS */
+.op-card{background:var(--white);border:1.5px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:all .2s;margin-bottom:10px;}
+.op-card:hover{border-color:var(--teal-md);box-shadow:var(--shadow);}
+.op-card.selected{border-color:var(--teal);background:var(--teal-lt);box-shadow:0 0 0 3px rgba(10,143,126,.12);}
+.op-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.op-card-title{font-family:var(--ff-d);font-size:14px;font-weight:700;color:var(--navy);}
+.op-card-meta{display:flex;gap:8px;flex-wrap:wrap;}
+
+/* BOTE CARD */
+.bote-card{background:var(--bg);border:1.5px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px;}
+.bote-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--white);border-bottom:1px solid var(--border);cursor:pointer;}
+.bote-header:hover{background:var(--slate-lt);}
+.bote-title{display:flex;align-items:center;gap:10px;}
+.bote-icon{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--teal),var(--navy));display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;}
+.bote-name{font-weight:700;color:var(--navy);font-size:13px;}
+.bote-sub{font-size:11px;color:var(--text3);font-family:var(--ff-m);}
+.bote-body{padding:14px 16px;display:none;}
+.bote-body.open{display:block;}
+
+/* TRANSECTO CARD */
+.transecto-card{background:var(--white);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;}
+.transecto-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;}
+.transecto-header:hover{background:var(--slate-lt);}
+.transecto-body{padding:14px;border-top:1px solid var(--border);display:none;}
+.transecto-body.open{display:block;}
+
+/* SPECIES SELECTOR */
+.species-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.sp-chip{padding:8px 10px;border-radius:9px;border:1.5px solid var(--border);background:var(--white);cursor:pointer;transition:all .15s;text-align:center;font-size:11px;}
+.sp-chip:hover{border-color:var(--teal-md);background:var(--teal-lt);}
+.sp-chip.sel{border-color:var(--teal);background:var(--teal-lt);color:var(--teal);font-weight:600;}
+.sp-chip .sp-com{font-weight:700;font-size:12px;color:var(--navy);}
+.sp-chip .sp-sci{font-size:9px;color:var(--text3);font-style:italic;}
+
+/* MUESTRA INPUT */
+.muestra-input-row{display:flex;gap:8px;align-items:flex-end;padding:12px;background:var(--teal-lt);border-radius:10px;border:1.5px solid rgba(10,143,126,.3);margin-bottom:12px;}
+.muestra-input-row .inf-group{margin-bottom:0;flex:1;}
+.muestra-counter{font-family:var(--ff-m);font-size:11px;color:var(--teal);font-weight:600;}
+
+/* MUESTRA TABLE */
+.muestra-tbl{width:100%;border-collapse:collapse;font-size:11px;}
+.muestra-tbl th{padding:7px 10px;font-family:var(--ff-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg);}
+.muestra-tbl td{padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text);}
+.muestra-tbl tr:hover td{background:rgba(10,143,126,.04);}
+.muestra-tbl tr:last-child td{border-bottom:none;}
+
+/* EVADIR PREVIEW */
+.evadir-preview-tbl{width:100%;border-collapse:collapse;font-size:11px;overflow-x:auto;display:block;}
+.evadir-preview-tbl th{padding:7px 10px;background:var(--navy);color:#fff;font-family:var(--ff-m);font-size:9px;letter-spacing:.5px;white-space:nowrap;}
+.evadir-preview-tbl td{padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
+.evadir-preview-tbl tr:nth-child(even) td{background:var(--bg);}
+
+/* PROGRESS */
+.prog-bar{height:6px;border-radius:3px;background:var(--bg2);overflow:hidden;margin-top:5px;}
+.prog-fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.22,1,.36,1);}
+
+/* SCATTER */
+.scatter-wrap{position:relative;height:180px;margin-top:4px;}
+.sc-dot{position:absolute;width:6px;height:6px;border-radius:50%;transform:translate(-50%,-50%);cursor:pointer;transition:all .15s;}
+.sc-dot:hover{width:10px;height:10px;z-index:10;}
+.axis-x{position:absolute;bottom:0;left:0;right:0;height:1px;background:var(--border);}
+.axis-y{position:absolute;top:0;bottom:0;left:0;width:1px;background:var(--border);}
+.ax-lbl{position:absolute;font-family:var(--ff-m);font-size:8px;color:var(--text3);}
+
+/* HIST */
+.hist-wrap{display:flex;align-items:flex-end;gap:2px;height:110px;padding:0 2px;}
+.h-bar{flex:1;border-radius:2px 2px 0 0;cursor:pointer;transition:filter .15s;min-width:3px;}
+.h-bar:hover{filter:brightness(1.15);}
+
+/* BAR CHART */
+.bar-chart{display:flex;align-items:flex-end;gap:5px;height:120px;padding-top:8px;}
+.bar-grp{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;}
+.bar{width:100%;border-radius:4px 4px 0 0;min-height:3px;cursor:pointer;position:relative;transition:filter .15s;}
+.bar:hover{filter:brightness(1.1);}
+.bar:hover::after{content:attr(data-v);position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:2px 7px;border-radius:5px;font-size:9px;white-space:nowrap;font-family:var(--ff-m);pointer-events:none;}
+.bar-lbl{font-family:var(--ff-m);font-size:8px;color:var(--text3);text-align:center;}
+
+/* UPLOAD AREA */
+.upload-area{border:2px dashed var(--border2);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg);}
+.upload-area:hover{border-color:var(--teal-md);background:var(--teal-lt);}
+.upload-area.dragover{border-color:var(--teal);background:var(--teal-lt);}
+
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"><span id="toast-msg">✅ OK</span></div>
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal" id="modal-box">
+    <div class="modal-header"><h3 id="modal-title">—</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="scr-login" class="screen active">
+  <div class="login-card">
+    <div class="lc-logo"><div class="lc-icon">🐚</div><div class="lc-brand"><h1>BITECMA</h1><span>Sistema AMERB · v3.2</span></div></div>
+    <div class="lc-title">Iniciar sesión</div>
+    <div class="lc-sub">Accede al sistema de gestión de áreas de manejo y recursos bentónicos.</div>
+    <div class="lf-group"><label class="lf-label">Correo electrónico</label><input class="lf-input" type="email" value="arosson@bitecma.cl"></div>
+    <div class="lf-group"><label class="lf-label">Contraseña</label><input class="lf-input" type="password" value="••••••••"></div>
+    <div class="lf-group"><label class="lf-label">Rol</label>
+      <div class="role-row">
+        <button class="role-opt sel" onclick="selRole(this)">Admin</button>
+        <button class="role-opt" onclick="selRole(this)">Biólogo</button>
+        <button class="role-opt" onclick="selRole(this)">Técnico</button>
+        <button class="role-opt" onclick="selRole(this)">Analista</button>
+      </div>
+    </div>
+    <button class="btn-login" onclick="enterApp()">Ingresar al sistema →</button>
+    <div class="lc-foot"><a onclick="toast('📧 Correo enviado')">¿Olvidaste tu contraseña?</a> · Bitecma Ltda. © 2026</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="scr-app" class="screen">
+  <div class="topbar">
+    <div class="tb-logo" onclick="goPage('dashboard')">
+      <div class="tb-logo-icon">🐚</div>
+      <div class="tb-logo-text">BIT<span>ECMA</span></div>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-bc" id="topbc"><span>Inicio</span><span>/</span><span class="active">Dashboard</span></div>
+    <div class="tb-spacer"></div>
+    <div class="tb-search"><span style="color:var(--text3)">🔍</span><input placeholder="Buscar sector, operación, especie..."></div>
+    <div class="tb-actions">
+      <button class="tb-btn" onclick="openNotif()">🔔<span class="tb-badge">3</span></button>
+      <button class="tb-btn" onclick="toast('⚙️ Configuración próximamente')">⚙️</button>
+      <div class="user-chip" onclick="toast('👤 Perfil de usuario')">
+        <div class="user-av">AR</div>
+        <div><div class="user-name">A. Rosson</div><div class="user-role">Admin</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="sb-section">Principal</div>
+      <div class="nav-item active" id="nav-dashboard" onclick="goPage('dashboard')"><span class="nav-icon">📊</span>Dashboard</div>
+      <div class="sb-section">Operaciones</div>
+      <div class="nav-item" id="nav-pl" onclick="goPage('pl')"><span class="nav-icon">📏</span>Peso — Longitud</div>
+      <div class="nav-item" id="nav-evadir" onclick="goPage('evadir')"><span class="nav-icon">🤿</span>EVADIR</div>
+      <div class="sb-section">Análisis</div>
+      <div class="nav-item" id="nav-historico" onclick="goPage('historico')"><span class="nav-icon">📁</span>Registro Histórico</div>
+      <div class="nav-item" id="nav-informe" onclick="goPage('informe')"><span class="nav-icon">📄</span>Generar Informe</div>
+      <div class="sb-section">Maestros</div>
+      <div class="nav-item" id="nav-sectores" onclick="goPage('sectores')"><span class="nav-icon">🗺️</span>Sectores</div>
+      <div class="nav-item" id="nav-especies" onclick="goPage('especies')"><span class="nav-icon">🐠</span>Especies</div>
+      <div class="nav-item" id="nav-orgs" onclick="goPage('orgs')"><span class="nav-icon">🏢</span>Organizaciones</div>
+      <div class="sb-footer">
+        <div class="nav-item" style="color:var(--red)" onclick="logout()"><span class="nav-icon">🚪</span>Cerrar sesión</div>
+      </div>
+    </div>
+
+    <div class="main" id="main-content">
+
+<!-- ═══════ DASHBOARD ═══════ -->
+<div class="page active" id="pg-dashboard">
+  <div class="ph">
+    <div><h2>Dashboard — Temporada 2026</h2><p>Resumen operacional · Todas las zonas</p></div>
+    <div class="ph-actions">
+      <button class="btn btn-outline btn-sm" onclick="toast('⬇ Exportando resumen...')">⬇ Exportar</button>
+      <button class="btn btn-teal btn-sm" onclick="goPage('pl')">＋ Nueva operación L-P</button>
+    </div>
+  </div>
+  <div class="g4 mb16">
+    <div class="stat-card sc-teal" style="cursor:pointer" onclick="goPage('pl')"><div class="sc-label">Operaciones L-P</div><div class="sc-val">12</div><div class="sc-sub">3 activas este mes</div></div>
+    <div class="stat-card sc-blue" style="cursor:pointer" onclick="goPage('evadir')"><div class="sc-label">EVADIR generados</div><div class="sc-val">58</div><div class="sc-sub">SEG-16 en curso</div></div>
+    <div class="stat-card sc-green" style="cursor:pointer" onclick="toast('📊 Ver muestras totales')"><div class="sc-label">Muestras L-P totales</div><div class="sc-val">2.847</div><div class="sc-sub">↑ 12% este mes</div></div>
+    <div class="stat-card sc-amber" style="cursor:pointer" onclick="goPage('informe')"><div class="sc-label">Informes pendientes</div><div class="sc-val">3</div><div class="sc-sub">Entrega Mar 2026</div></div>
+  </div>
+  <div class="g2 mb16">
+    <div class="card">
+      <div class="card-title">Operaciones recientes — L-P
+        <button class="btn btn-outline btn-sm" onclick="goPage('pl')">Ver todas →</button>
+      </div>
+      <table class="tbl">
+        <thead><tr><th>Operación</th><th>Sector</th><th>Fecha</th><th>Botes</th><th>Muestras</th><th>Estado</th></tr></thead>
+        <tbody>
+          <tr style="cursor:pointer" onclick="goPage('pl')"><td><strong>OP-2026-002</strong></td><td>AMARGOS</td><td>05-02-2026</td><td>4</td><td>1.000+</td><td><span class="pill p-green">✓ Completa</span></td></tr>
+          <tr style="cursor:pointer" onclick="goPage('pl')"><td><strong>OP-2025-033</strong></td><td>HUAPE B</td><td>17-12-2025</td><td>3</td><td>720</td><td><span class="pill p-green">✓ Completa</span></td></tr>
+          <tr style="cursor:pointer" onclick="goPage('pl')"><td><strong>OP-2026-005</strong></td><td>LOS VILOS B</td><td>10-03-2026</td><td>4</td><td>320</td><td><span class="pill p-amber">⏳ Parcial</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">EVADIR generados recientemente
+        <button class="btn btn-outline btn-sm" onclick="goPage('evadir')">Ver todos →</button>
+      </div>
+      <table class="tbl">
+        <thead><tr><th>Sector</th><th>SEG</th><th>Fecha</th><th>Estado</th></tr></thead>
+        <tbody>
+          <tr style="cursor:pointer" onclick="goPage('evadir')"><td>HUAPE B</td><td>16</td><td>17-12-2025</td><td><span class="pill p-teal">🔒 Cerrado</span></td></tr>
+          <tr style="cursor:pointer" onclick="goPage('evadir')"><td>AMARGOS</td><td>16</td><td>05-02-2026</td><td><span class="pill p-amber">⏳ En proceso</span></td></tr>
+          <tr style="cursor:pointer" onclick="goPage('evadir')"><td>LOS VILOS B</td><td>15</td><td>14-10-2024</td><td><span class="pill p-teal">🔒 Archivado</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card mb16">
+    <div class="card-title">Muestras ingresadas por especie — Últimas operaciones</div>
+    <div class="bar-chart" id="dash-bars"></div>
+    <div style="display:flex;gap:14px;margin-top:8px;font-size:11px;flex-wrap:wrap">
+      <span><span style="color:var(--teal)">■</span> Loco</span>
+      <span><span style="color:var(--amber)">■</span> Erizo rojo</span>
+      <span><span style="color:var(--green)">■</span> Lapa</span>
+      <span><span style="color:var(--blue)">■</span> Otros</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ PESO-LONGITUD ═══════ -->
+<div class="page" id="pg-pl">
+  <div class="ph">
+    <div><h2>Peso — Longitud</h2><p>Operaciones de muestreo bentónico · Jerarquía: Operación → Bote → Transecto → Especie → Muestras</p></div>
+    <div class="ph-actions">
+      <button class="btn btn-outline btn-sm" onclick="openUploadExcel()">⬆ Subir Excel</button>
+      <button class="btn btn-teal btn-sm" onclick="openNuevaOperacion()">＋ Nueva operación</button>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:10px;overflow:hidden;width:fit-content">
+    <button class="btn" style="border-radius:0;background:var(--teal);color:#fff;border-right:1px solid rgba(255,255,255,.2)" id="tab-ops" onclick="switchTab('ops')">📋 Operaciones</button>
+    <button class="btn btn-outline" style="border-radius:0;border:none" id="tab-anal" onclick="switchTab('anal')">📊 Análisis L-P</button>
+  </div>
+
+  <!-- TAB: OPERACIONES -->
+  <div id="tab-content-ops">
+    <div class="filters">
+      <select class="flt" onchange="toast('🔍 Filtro aplicado')"><option>Todos los sectores</option><option>AMARGOS</option><option>HUAPE SECTOR B</option><option>LOS VILOS SECTOR B</option></select>
+      <select class="flt"><option>Todas las especies</option><option>Loco</option><option>Erizo rojo</option><option>Lapa</option></select>
+      <input class="flt" type="month" value="2026-02">
+      <button class="btn btn-outline btn-sm" onclick="toast('↺ Filtros limpiados')">↺ Limpiar</button>
+    </div>
+
+    <div id="operaciones-list"></div>
+  </div>
+
+  <!-- TAB: ANÁLISIS -->
+  <div id="tab-content-anal" style="display:none">
+    <div class="filters">
+      <select class="flt" onchange="toast('📊 Especie actualizada')"><option>Concholepas concholepas (Loco)</option><option>Loxechinus albus (Erizo rojo)</option><option>Fissurella nigra (Lapa negra)</option></select>
+      <select class="flt"><option>OP-2026-002 · AMARGOS</option><option>OP-2025-033 · HUAPE B</option></select>
+      <button class="btn btn-outline btn-sm" onclick="openInTab('scatter_lp')">↗ Abrir en pestaña</button>
+    </div>
+    <div class="g2 mb16">
+      <div class="card">
+        <div class="card-title">Distribución de frecuencias de talla<button class="btn btn-outline btn-sm" onclick="openInTab('histogram')" style="margin-left:auto">↗ Pestaña</button></div>
+        <div class="hist-wrap" id="pl-histogram"></div>
+        <div style="display:flex;justify-content:space-between;font-family:var(--ff-m);font-size:8px;color:var(--text3);padding-top:4px"><span>40mm</span><span>70</span><span>100</span><span>130mm</span></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Relación L-P · W = aLᵇ<button class="btn btn-outline btn-sm" onclick="openInTab('scatter_lp')" style="margin-left:auto">↗ Pestaña</button></div>
+        <div style="font-family:var(--ff-m);font-size:10px;color:var(--text2);margin-bottom:8px">a = 0.0001 · b = 3.1594 · r² = 0.9395</div>
+        <div class="scatter-wrap" id="pl-scatter" style="height:150px">
+          <div class="axis-x"></div><div class="axis-y"></div>
+          <div class="ax-lbl" style="bottom:-14px;right:0">Longitud (mm)</div>
+          <div class="ax-lbl" style="top:0;left:4px">Peso (g)</div>
+          <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"><line x1="5%" y1="93%" x2="95%" y2="7%" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="5 3" opacity=".7"/></svg>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Estadísticos por especie y operación</div>
+      <table class="tbl">
+        <thead><tr><th>Especie</th><th>Operación</th><th>N</th><th>Long. prom. (mm)</th><th>Peso prom. (g)</th><th>Mín</th><th>Máx</th><th>r²</th></tr></thead>
+        <tbody>
+          <tr><td><em>C. concholepas</em></td><td>OP-2026-002</td><td>1000</td><td>85.3</td><td>248</td><td>43mm</td><td>130mm</td><td>0.94</td></tr>
+          <tr><td><em>L. albus</em></td><td>OP-2026-002</td><td>201</td><td>78.2</td><td>190</td><td>55mm</td><td>104mm</td><td>0.91</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ EVADIR ═══════ -->
+<div class="page" id="pg-evadir">
+  <div class="ph">
+    <div><h2>EVADIR</h2><p>Evaluaciones directas · Generación desde operaciones de Peso-Longitud</p></div>
+    <div class="ph-actions">
+      <button class="btn btn-outline btn-sm" onclick="toast('⬇ Exportando CSV...')">⬇ Exportar CSV</button>
+      <button class="btn btn-teal btn-sm" onclick="openNuevoEvadir()">＋ Generar EVADIR</button>
+    </div>
+  </div>
+
+  <div class="g4 mb16" style="grid-template-columns:repeat(5,1fr)">
+    <div class="stat-card sc-teal" style="padding:14px;cursor:default"><div class="sc-label" style="font-size:8px">EVADIR generados</div><div class="sc-val" style="font-size:22px">58</div></div>
+    <div class="stat-card" style="padding:14px;cursor:default;border-top:3px solid var(--teal)"><div class="sc-label" style="font-size:8px">Den. Loco</div><div class="sc-val" style="font-size:22px">0.598</div><div style="font-family:var(--ff-m);font-size:9px;color:var(--text3)">ind/m²</div></div>
+    <div class="stat-card" style="padding:14px;cursor:default;border-top:3px solid var(--amber)"><div class="sc-label" style="font-size:8px">Den. Erizo</div><div class="sc-val" style="font-size:22px">0.753</div></div>
+    <div class="stat-card" style="padding:14px;cursor:default;border-top:3px solid var(--green)"><div class="sc-label" style="font-size:8px">Transectos tot.</div><div class="sc-val" style="font-size:22px">48</div></div>
+    <div class="stat-card sc-red" style="padding:14px;cursor:pointer" onclick="toast('⚠ 2 outliers detectados — T4, T10')"><div class="sc-label" style="font-size:8px">Outliers ⚠</div><div class="sc-val" style="font-size:22px">2</div></div>
+  </div>
+
+  <div class="card mb16">
+    <div class="card-title">EVADIR registrados
+      <button class="btn btn-teal btn-sm" onclick="openNuevoEvadir()">＋ Generar nuevo EVADIR</button>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Sector</th><th>SEG/ESBA</th><th>Operación origen</th><th>Fecha</th><th>Transectos</th><th>Den Loco</th><th>Den Erizo</th><th>Estado</th><th>Acción</th></tr></thead>
+      <tbody>
+        <tr><td>HUAPE B</td><td>SEG-16</td><td>OP-2025-033</td><td>17-12-2025</td><td>48</td><td>0.598</td><td>0.000</td><td><span class="pill p-teal">🔒 Cerrado</span></td><td>
+          <button class="btn btn-outline btn-xs" onclick="openEvadirDetail()">👁 Ver</button>
+          <button class="btn btn-teal btn-xs" onclick="openInTab('evadir_export')">⬇ CSV</button>
+        </td></tr>
+        <tr><td>AMARGOS</td><td>SEG-16</td><td>OP-2026-002</td><td>05-02-2026</td><td>12</td><td>0.567</td><td>0.333</td><td><span class="pill p-amber">⏳ Borrador</span></td><td>
+          <button class="btn btn-outline btn-xs" onclick="openEvadirDetail()">👁 Ver</button>
+          <button class="btn btn-teal btn-xs" onclick="toast('✅ EVADIR finalizado')">✓ Finalizar</button>
+        </td></tr>
+        <tr><td>LOS VILOS B</td><td>SEG-15</td><td>OP-2024-018</td><td>14-10-2024</td><td>36</td><td>0.390</td><td>0.026</td><td><span class="pill p-teal">🔒 Archivado</span></td><td>
+          <button class="btn btn-outline btn-xs" onclick="openEvadirDetail()">👁 Ver</button>
+          <button class="btn btn-teal btn-xs" onclick="openInTab('evadir_export')">⬇ CSV</button>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Vista previa EVADIR — AMARGOS SEG-16 (desde OP-2026-002)
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-sm" onclick="openInTab('evadir_export')">↗ Abrir en pestaña</button>
+        <button class="btn btn-teal btn-sm" onclick="toast('✅ Exportado: EVADIR_AMARGOS_SEG16.csv')">⬇ CSV</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="evadir-preview-tbl" id="evadir-preview-tbl"></table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ HISTÓRICO ═══════ -->
+<div class="page" id="pg-historico">
+  <div class="ph">
+    <div><h2>Registro Histórico</h2><p>36.127 transectos · 1999–2026 · Todas las operaciones</p></div>
+    <div class="ph-actions">
+      <button class="btn btn-outline btn-sm" onclick="toast('⬇ Exportando...')">⬇ Exportar</button>
+      <button class="btn btn-teal btn-sm" onclick="openInTab('historico_full')">↗ Vista completa</button>
+    </div>
+  </div>
+  <div class="g3 mb16">
+    <div class="stat-card sc-teal" style="cursor:default"><div class="sc-label">Total registros</div><div class="sc-val">36.127</div></div>
+    <div class="stat-card sc-blue" style="cursor:default"><div class="sc-label">Sectores únicos</div><div class="sc-val">58</div></div>
+    <div class="stat-card sc-green" style="cursor:default"><div class="sc-label">Rango temporal</div><div class="sc-val" style="font-size:18px">1999–2026</div></div>
+  </div>
+  <div class="card mb16">
+    <div class="card-title">Continuidad de seguimientos
+      <button class="btn btn-outline btn-sm" onclick="openInTab('historico_full')">↗ Pestaña</button>
+    </div>
+    <div style="overflow-x:auto"><table class="tbl" id="cont-tbl"><thead><tr id="cont-head"></tr></thead><tbody id="cont-body"></tbody></table></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Tendencia densidad Loco — Huape B</div>
+    <div class="bar-chart" id="hist-bars" style="height:130px"></div>
+  </div>
+</div>
+
+<!-- ═══════ INFORME ═══════ -->
+<div class="page" id="pg-informe">
+  <div class="ph">
+    <div><h2>Generar Informe</h2><p>Plantilla DOCX autorrellenable · Formato SUBPESCA oficial</p></div>
+    <div class="ph-actions">
+      <button class="btn btn-outline btn-sm" onclick="toast('📋 Descargando plantilla vacía...')">📋 Plantilla vacía</button>
+      <button class="btn btn-teal btn-sm" onclick="runGenerate()">⚡ Generar DOCX</button>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:320px 1fr;gap:16px">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="inf-group"><label class="inf-label">Sector AMERB</label><select class="inf-select"><option>HUAPE SECTOR B — CORRAL</option><option>AMARGOS</option></select></div>
+        <div class="inf-2col">
+          <div class="inf-group"><label class="inf-label">N° Seguimiento</label><input class="inf-input" value="16"></div>
+          <div class="inf-group"><label class="inf-label">Período</label><input class="inf-input" value="Enero 2026"></div>
+        </div>
+        <div class="inf-group"><label class="inf-label">Operación L-P vinculada</label><select class="inf-select"><option>OP-2025-033 · Huape B · 17-12-2025</option><option>OP-2026-002 · Amargos · 05-02-2026</option></select></div>
+        <div class="inf-group"><label class="inf-label">Jefe de proyecto</label><select class="inf-select"><option>Armando Rosson Villalobos</option><option>Lorena Olmos Palacios</option></select></div>
+        <div class="inf-2col">
+          <div class="inf-group"><label class="inf-label">Ingresos ($)</label><input class="inf-input" value="118.258.200"></div>
+          <div class="inf-group"><label class="inf-label">Costos ($)</label><input class="inf-input" value="11.500.000"></div>
+        </div>
+        <button class="btn btn-teal" style="width:100%" onclick="runGenerate()">⚡ Generar informe DOCX</button>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="background:var(--bg);padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-family:var(--ff-d);font-weight:700;color:var(--navy)">Vista previa</span>
+        <div style="display:flex;gap:6px"><span class="pill p-amber" id="inf-status">📄 Borrador</span>
+          <button class="btn btn-outline btn-sm" onclick="openInTab('informe_preview')">↗ Pestaña</button></div>
+      </div>
+      <div style="padding:18px;overflow-y:auto;max-height:calc(100vh - 260px)">
+        <div style="background:var(--bg);border-radius:10px;padding:22px;border:1px solid var(--border);font-size:12px;line-height:1.75">
+          <div style="text-align:center;margin-bottom:16px">
+            <div style="font-family:var(--ff-m);font-size:9px;color:var(--teal);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">SUBSECRETARÍA DE PESCA Y ACUICULTURA</div>
+            <div style="font-family:var(--ff-d);font-size:16px;font-weight:900;color:var(--navy)">INFORME DE SEGUIMIENTO N° <span style="background:var(--teal-lt);border:1px solid rgba(10,143,126,.3);border-radius:4px;padding:0 6px;color:var(--teal);font-family:var(--ff-m);font-size:11px">16</span></div>
+            <div style="font-size:14px;font-weight:700;margin:6px 0">ÁREA DE MANEJO HUAPE SECTOR B</div>
+            <div style="font-size:11px;color:var(--text3)">Región de Los Ríos · Enero 2026</div>
+          </div>
+          <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+          <div style="font-family:var(--ff-m);font-size:9px;color:var(--teal);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">Evaluación directa</div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bg2);font-size:11px"><span style="color:var(--text3)">Fecha EVADIR</span><span>17-12-2025</span></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bg2);font-size:11px"><span style="color:var(--text3)">Stock Loco</span><span style="font-weight:700">74.641 ind / 18.399 kg</span></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bg2);font-size:11px"><span style="color:var(--text3)">CTP Loco 2026</span><span>33.775 ud / 8.410 kg</span></div>
+          <div style="font-family:var(--ff-m);font-size:9px;color:var(--teal);letter-spacing:1.5px;text-transform:uppercase;margin:12px 0 6px">Evaluación económica</div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px"><span style="color:var(--text3)">B/C</span><span style="font-weight:700;color:var(--green)">10.2</span></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-teal" style="flex:1" onclick="runGenerate()">⬇ Descargar .DOCX</button>
+          <button class="btn btn-outline" style="flex:1" onclick="toast('📧 Enviado a SUBPESCA','green')">📧 Enviar SUBPESCA</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SECTORES / ESPECIES / ORGS ═══════ -->
+<div class="page" id="pg-sectores">
+  <div class="ph"><div><h2>Sectores AMERB</h2><p>59 áreas de manejo registradas</p></div>
+    <div class="ph-actions"><button class="btn btn-teal btn-sm" onclick="toast('➕ Nuevo sector')">＋ Nuevo sector</button></div>
+  </div>
+  <div class="card">
+    <table class="tbl">
+      <thead><tr><th>Sector</th><th>Región</th><th>Sup. Total (ha)</th><th>Fondo Duro</th><th>N° Recursos</th><th>Acciones</th></tr></thead>
+      <tbody>
+        <tr><td>HUAPE SECTOR B</td><td>XIV</td><td>108.0</td><td>91.5 ha</td><td><span class="pill p-teal">4</span></td><td><button class="btn btn-outline btn-xs" onclick="toast('📋 Ver Huape B')">Ver</button> <button class="btn btn-teal btn-xs" onclick="goPage('pl')">L-P</button> <button class="btn btn-outline btn-xs" onclick="goPage('evadir')">EVADIR</button></td></tr>
+        <tr><td>AMARGOS</td><td>XIV</td><td>66.94</td><td>50.03 ha</td><td><span class="pill p-teal">3</span></td><td><button class="btn btn-outline btn-xs" onclick="toast('📋 Ver Amargos')">Ver</button> <button class="btn btn-teal btn-xs" onclick="goPage('pl')">L-P</button> <button class="btn btn-outline btn-xs" onclick="goPage('evadir')">EVADIR</button></td></tr>
+        <tr><td>LOS VILOS SECTOR B</td><td>IV</td><td>142.0</td><td>88.0 ha</td><td><span class="pill p-teal">3</span></td><td><button class="btn btn-outline btn-xs" onclick="toast('📋 Ver Los Vilos')">Ver</button> <button class="btn btn-teal btn-xs" onclick="goPage('pl')">L-P</button> <button class="btn btn-outline btn-xs" onclick="goPage('evadir')">EVADIR</button></td></tr>
+        <tr><td>MEHUIN SECTOR B</td><td>XIV</td><td>93.4</td><td>74.0 ha</td><td><span class="pill p-teal">4</span></td><td><button class="btn btn-outline btn-xs" onclick="toast('📋 Ver Mehuin')">Ver</button> <button class="btn btn-teal btn-xs" onclick="goPage('pl')">L-P</button> <button class="btn btn-outline btn-xs" onclick="goPage('evadir')">EVADIR</button></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="page" id="pg-especies">
+  <div class="ph"><div><h2>Maestro de Especies</h2><p>36 especies bentónicas de Chile registradas</p></div>
+    <div class="ph-actions"><button class="btn btn-teal btn-sm" onclick="toast('➕ Nueva especie')">＋ Nueva especie</button></div>
+  </div>
+  <div class="card"><table class="tbl" id="especies-tbl"><thead><tr><th>#</th><th>Nombre común</th><th>Nombre científico</th><th>Clase</th><th>SERNAPESCA</th></tr></thead><tbody id="especies-tbody"></tbody></table></div>
+</div>
+
+<div class="page" id="pg-orgs">
+  <div class="ph"><div><h2>Organizaciones</h2><p>61 organizaciones de pescadores artesanales</p></div>
+    <div class="ph-actions"><button class="btn btn-teal btn-sm" onclick="toast('➕ Nueva organización')">＋ Nueva</button></div>
+  </div>
+  <div class="card"><table class="tbl"><thead><tr><th>Sector</th><th>Nombre organización</th><th>Tipo</th><th>Socios</th><th>Buzos</th></tr></thead><tbody>
+    <tr><td>AMARGOS</td><td>S.T.I. Buzos, Pescadores Artesanales de Amargo</td><td>STI</td><td>54</td><td>16</td></tr>
+    <tr><td>ALEPUE</td><td>S.T.I. N°7 de Pescadores Artesanales de Mehuin</td><td>STI</td><td>35</td><td>6</td></tr>
+    <tr><td>HUAPE B</td><td>S.T.I. Pescadores... Caleta de Huape</td><td>STI</td><td>37</td><td>3</td></tr>
+    <tr><td>CHAN CHAN</td><td>Asociación de Pescadores Indígenas Rayen Lafquen</td><td>AINDG</td><td>22</td><td>8</td></tr>
+  </tbody></table></div>
+</div>
+
+    </div><!-- /main -->
+  </div><!-- /app-body -->
+</div><!-- /scr-app -->
+
+<script>
+// ════════════════════════════════════════════════════
+// DATA
+// ════════════════════════════════════════════════════
+const TODAS_ESPECIES = [
+  {id:1,com:'Loco',sci:'Concholepas concholepas',lp:true,campo:{long:true,peso:true}},
+  {id:2,com:'Choro',sci:'Choromytilus chorus',lp:false,campo:{long:true,peso:true}},
+  {id:3,com:'Chorito',sci:'Mytilus chilensis',lp:false,campo:{long:true,peso:true}},
+  {id:4,com:'Cholga',sci:'Aulacomya atra',lp:false,campo:{long:true,peso:true}},
+  {id:5,com:'Erizo rojo',sci:'Loxechinus albus',lp:true,campo:{long:true,peso:true}},
+  {id:6,com:'Lapa bonete',sci:'Fissurella costata',lp:false,campo:{long:true,peso:true}},
+  {id:7,com:'Lapa rosada',sci:'Fissurella cumingi',lp:false,campo:{long:true,peso:true}},
+  {id:8,com:'Lapa negra',sci:'Fissurella nigra',lp:false,campo:{long:true,peso:true}},
+  {id:9,com:'Lapa blanquilla',sci:'Fissurella limbata',lp:false,campo:{long:true,peso:true}},
+  {id:10,com:'Lapa reina',sci:'Fissurella maxima',lp:false,campo:{long:true,peso:true}},
+  {id:11,com:'Lapa negra',sci:'Fissurella latimarginata',lp:false,campo:{long:true,peso:true}},
+  {id:12,com:'Lapa picta',sci:'Fissurella picta',lp:false,campo:{long:true,peso:true}},
+  {id:13,com:'Lapa spp.',sci:'Fissurella spp.',lp:false,campo:{long:true,peso:true}},
+  {id:14,com:'Huiro negro',sci:'Lessonia berteroana',lp:false,campo:{long:false,peso:true}},
+  {id:15,com:'Huiro palo',sci:'Lessonia trabeculata',lp:false,campo:{long:false,peso:true}},
+  {id:16,com:'Cochayuyo',sci:'Durvillaea antarctica',lp:false,campo:{long:false,peso:true}},
+  {id:17,com:'Huiro canutillo',sci:'Macrocystis integrifolia',lp:false,campo:{long:false,peso:true}},
+  {id:18,com:'Huiro',sci:'Macrocystis pyrifera',lp:false,campo:{long:false,peso:true}},
+  {id:19,com:'Piure',sci:'Pyura chilensis',lp:false,campo:{long:true,peso:true}},
+  {id:20,com:'Almeja',sci:'Retrotapes lenticularis',lp:false,campo:{long:true,peso:true}},
+  {id:21,com:'Tumbao',sci:'Semele solida',lp:false,campo:{long:true,peso:true}},
+  {id:22,com:'Almeja venus',sci:'Venus antiqua',lp:false,campo:{long:true,peso:true}},
+  {id:23,com:'Taca',sci:'Protothaca thaca',lp:false,campo:{long:true,peso:true}},
+  {id:24,com:'Almeja rufa',sci:'Retrotapes rufa',lp:false,campo:{long:true,peso:true}},
+  {id:25,com:'Culengue',sci:'Gari solida',lp:false,campo:{long:true,peso:true}},
+  {id:26,com:'Macha',sci:'Mesodesma donacium',lp:false,campo:{long:true,peso:true}},
+  {id:27,com:'Pepino de mar',sci:'Athyonidium chilensis',lp:false,campo:{long:true,peso:true}},
+  {id:28,com:'Huepo',sci:'Ensis macha',lp:false,campo:{long:true,peso:true}},
+  {id:29,com:'Navajuela',sci:'Tagelus dombeii',lp:false,campo:{long:true,peso:true}},
+  {id:30,com:'Luga roja',sci:'Gigartina skottsbergii',lp:false,campo:{long:false,peso:true}},
+  {id:31,com:'Luga negra',sci:'Sarcothalia crispata',lp:false,campo:{long:false,peso:true}},
+  {id:32,com:'Luga cuchara',sci:'Mazzaella laminarioides',lp:false,campo:{long:false,peso:true}},
+  {id:33,com:'Juliana',sci:'Tawera gayi',lp:false,campo:{long:true,peso:true}},
+  {id:34,com:'Taquilla',sci:'Mulinia edulis',lp:false,campo:{long:true,peso:true}},
+  {id:35,com:'Caracol picuyo',sci:'Odontocymbiola magellanica',lp:false,campo:{long:true,peso:true}},
+  {id:36,com:'Caracol trophon',sci:'Trophon geversianus',lp:false,campo:{long:true,peso:true}},
+];
+
+const SECTORES_BD = ['ALEPUE','AMARGOS','BAHÍA POLOCUÉ SECTOR A','BAHÍA POLOCUÉ SECTOR B','BONIFACIO SECTOR A','BONIFACIO SECTOR B','CALETA BOCA DEL BARCO','CALETA HUEICOLLA','CALETA HUIDO','CALETA LA ARENA','CASCAJAL SECTOR A','CHAIHUIN SECTOR A','CHAIHUIN SECTOR B','CHAIHUIN SECTOR C','CHAN CHAN','CHIGUALOCO','CORRAL','EL QUISCO SECTOR A','HUAPE SECTOR A','HUAPE SECTOR B','ISLA DEL REY','LOS VILOS SECTOR A','LOS VILOS SECTOR B','MEHUIN SECTOR B','MISSISSIPI','PIEDRA BLANCA'];
+
+const ORGS_BD = {
+  'AMARGOS':'S.T.I. BUZOS, PESCADORES ARTESANALES DE AMARGO',
+  'HUAPE SECTOR B':'S.T.I. PESCADORES, BUZOS, MARISCADORES... CALETA DE HUAPE',
+  'LOS VILOS SECTOR B':'S.T.I. PESCADORES ARTESANALES LOS VILOS',
+  'EL QUISCO SECTOR A':'S.T.I. NARCISO AGUIRRE DE PESCADORES ARTESANALES',
+  'MEHUIN SECTOR B':'S.T.I. N°7 DE PESCADORES ARTESANALES DE MEHUIN',
+};
+
+// In-memory DB
+const DB = {
+  operaciones: [
+    {
+      id:'OP-2026-002', region:14, sector:'AMARGOS', tipoOrg:'STI', org:'S.T.I. BUZOS, PESCADORES ARTESANALES DE AMARGO',
+      numSeg:16, fechaInicio:'2026-02-05', fechaFin:'2026-02-05',
+      botes:[
+        {id:'B1', nombre:'BRUNO', buzo:'ERWIN MONSALVE', zona:1,
+          transectos:[
+            {num:1, area:120, fecha:'2026-02-05', x:629738.19, y:5583972.55, lon:-73.48268, lat:-39.88438, sustrato:'ROCA', cubierta:'ALGAS',
+              especies:{1:{muestras:[{l:104,p:267},{l:96,p:236},{l:108,p:321},{l:115,p:340}]}, 5:{muestras:[{l:80,p:190},{l:96,p:246},{l:92,p:274}]}}},
+            {num:2, area:120, fecha:'2026-02-05', x:629744.56, y:5584010.79, lon:-73.48262, lat:-39.88404, sustrato:'ROCA', cubierta:'PIURE',
+              especies:{1:{muestras:[{l:98,p:245},{l:112,p:305},{l:87,p:202}]}, 5:{muestras:[{l:75,p:178},{l:88,p:220}]}}},
+          ]},
+        {id:'B2', nombre:'DON TAQUITO', buzo:'RODRIGO MUÑOZ', zona:2,
+          transectos:[
+            {num:3, area:120, fecha:'2026-02-05', x:629800.0, y:5584100.0, lon:-73.48180, lat:-39.88320, sustrato:'ROCA', cubierta:'ALGAS PARDAS',
+              especies:{1:{muestras:[{l:120,p:356},{l:95,p:235}]}}},
+          ]},
+      ]
+    },
+    {
+      id:'OP-2025-033', region:14, sector:'HUAPE SECTOR B', tipoOrg:'STI', org:'S.T.I. PESCADORES... CALETA DE HUAPE',
+      numSeg:16, fechaInicio:'2025-12-17', fechaFin:'2025-12-17',
+      botes:[
+        {id:'B1', nombre:'PELÍCANO', buzo:'HUGO CARRILLO', zona:1,
+          transectos:[
+            {num:1, area:120, fecha:'2025-12-17', x:0, y:0, lon:-73.5, lat:-40.0, sustrato:'ROCA', cubierta:'ALGAS',
+              especies:{1:{muestras:[{l:104,p:267},{l:96,p:236}]}}},
+          ]},
+      ]
+    }
+  ]
+};
+
+// ════════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════════
+let toastTimer;
+function toast(msg, type='teal') {
+  const t = document.getElementById('toast');
+  t.style.background = type==='green'?'#065f46':type==='red'?'#7f1d1d':'var(--navy)';
+  document.getElementById('toast-msg').textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2800);
+}
+function selRole(el){document.querySelectorAll('.role-opt').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');}
+function logout(){document.getElementById('scr-app').classList.remove('active');document.getElementById('scr-login').classList.add('active');toast('👋 Sesión cerrada');}
+
+// ════════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════════
+function goPage(id) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const pg = document.getElementById('pg-'+id);
+  const nav = document.getElementById('nav-'+id);
+  if(!pg) return;
+  pg.classList.add('active');
+  if(nav) nav.classList.add('active');
+  const labels = {dashboard:'Dashboard',pl:'Peso — Longitud',evadir:'EVADIR',historico:'Histórico',informe:'Generar Informe',sectores:'Sectores',especies:'Especies',orgs:'Organizaciones'};
+  const secs = {dashboard:'Principal',pl:'Operaciones',evadir:'Operaciones',historico:'Análisis',informe:'Análisis',sectores:'Maestros',especies:'Maestros',orgs:'Maestros'};
+  document.getElementById('topbc').innerHTML=`<span>${secs[id]||''}</span><span>/</span><span class="active">${labels[id]||id}</span>`;
+  if(id==='pl'){renderOperaciones();renderHistogram();renderPLScatter();}
+  if(id==='evadir'){renderEvadirPreview();}
+  if(id==='historico'){renderContinuity();renderHistBars();}
+  if(id==='especies'){renderEspeciesTbl();}
+  if(id==='dashboard'){renderDashBars();}
+}
+
+function enterApp(){
+  document.getElementById('scr-login').classList.remove('active');
+  document.getElementById('scr-app').classList.add('active');
+  renderDashBars(); toast('✅ Bienvenido, Armando Rosson');
+}
+
+// ════════════════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════════════════
+function openModal(title, bodyHTML, wide=false) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHTML;
+  document.getElementById('modal-box').className = 'modal'+(wide?' wide':'');
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
+function closeModalOutside(e){if(e.target===document.getElementById('modal-overlay'))closeModal();}
+function openNotif(){openModal('🔔 Notificaciones',`<div style="display:flex;flex-direction:column;gap:10px">
+  <div style="padding:12px;border-radius:10px;background:var(--red-lt);border:1px solid var(--red);font-size:13px"><strong>⚠️ 2 outliers detectados en EVADIR HUAPE B</strong><br><span style="color:var(--text2)">T-4 y T-10 — Revisar valores de densidad</span></div>
+  <div style="padding:12px;border-radius:10px;background:var(--amber-lt);border:1px solid var(--amber);font-size:13px"><strong>📄 Informe SEG-16 Amargos pendiente</strong><br><span style="color:var(--text2)">Fecha límite: 31 Mar 2026</span></div>
+  <div style="padding:12px;border-radius:10px;background:var(--teal-lt);border:1px solid var(--teal);font-size:13px"><strong>✅ OP-2026-002 completada — AMARGOS</strong><br><span style="color:var(--text2)">1.201 muestras ingresadas · 4 botes · 12 transectos</span></div>
+</div>`);}
+
+// ════════════════════════════════════════════════════
+// DASHBOARD BARS
+// ════════════════════════════════════════════════════
+function renderDashBars(){
+  const el=document.getElementById('dash-bars');
+  if(!el||el.childElementCount>0)return;
+  const data=[
+    {l:'Loco',v:1000,c:'var(--teal)'},{l:'Erizo',v:201,c:'var(--amber)'},
+    {l:'Lapa',v:85,c:'var(--green)'},{l:'Otros',v:32,c:'var(--blue)'},
+    {l:'Loco',v:720,c:'var(--teal)'},{l:'Erizo',v:180,c:'var(--amber)'},
+    {l:'Loco',v:320,c:'var(--teal)'},{l:'Erizo',v:90,c:'var(--amber)'},
+  ];
+  const maxV=Math.max(...data.map(d=>d.v));
+  el.innerHTML=data.map(d=>`<div class="bar-grp"><div class="bar" style="height:${d.v/maxV*100}%;background:${d.c}" data-v="${d.l}: ${d.v}"></div><div class="bar-lbl">${d.l.substring(0,4)}</div></div>`).join('');
+}
+
+// ════════════════════════════════════════════════════
+// RENDER OPERACIONES
+// ════════════════════════════════════════════════════
+function renderOperaciones(){
+  const el=document.getElementById('operaciones-list');
+  if(!el)return;
+  el.innerHTML=DB.operaciones.map(op=>renderOpCard(op)).join('');
+}
+
+function renderOpCard(op){
+  const totalMuestras=op.botes.reduce((s,b)=>s+b.transectos.reduce((s2,t)=>s2+Object.values(t.especies).reduce((s3,sp)=>s3+sp.muestras.length,0),0),0);
+  const totalTransectos=op.botes.reduce((s,b)=>s+b.transectos.length,0);
+  const botesHtml=op.botes.map(b=>renderBoteCard(op.id,b)).join('');
+  return`<div class="card mb16">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div>
+        <div style="font-family:var(--ff-d);font-size:16px;font-weight:700;color:var(--navy)">${op.id} — ${op.sector}</div>
+        <div style="display:flex;gap:8px;margin-top:5px;flex-wrap:wrap">
+          <span class="pill p-teal">Región ${op.region}</span>
+          <span class="pill p-slate">${op.tipoOrg}</span>
+          <span class="pill p-blue">SEG-${op.numSeg}</span>
+          <span class="pill p-green">📅 ${op.fechaInicio}${op.fechaFin!==op.fechaInicio?' → '+op.fechaFin:''}</span>
+          <span class="pill p-amber">${op.botes.length} botes · ${totalTransectos} transectos · ${totalMuestras} muestras</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="openNuevoBote('${op.id}')">＋ Bote</button>
+        <button class="btn btn-teal btn-sm" onclick="generarEvadirDesde('${op.id}')">🤿 Generar EVADIR</button>
+      </div>
+    </div>
+    <div id="botes-${op.id}">${botesHtml}</div>
+  </div>`;
+}
+
+function renderBoteCard(opId, b){
+  const totalM=b.transectos.reduce((s,t)=>s+Object.values(t.especies).reduce((s2,sp)=>s2+sp.muestras.length,0),0);
+  const transHtml=b.transectos.map(t=>renderTransectoCard(opId,b.id,t)).join('');
+  return`<div class="bote-card">
+    <div class="bote-header" onclick="toggleBote('${opId}_${b.id}')">
+      <div class="bote-title">
+        <div class="bote-icon">⛵</div>
+        <div>
+          <div class="bote-name">Bote: ${b.nombre} &nbsp;·&nbsp; Zona ${b.zona}</div>
+          <div class="bote-sub">Buzo: ${b.buzo} · ${b.transectos.length} transectos · ${totalM} muestras</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="pill p-teal">Zona ${b.zona}</span>
+        <button class="btn btn-teal btn-xs" onclick="event.stopPropagation();openNuevoTransecto('${opId}','${b.id}')">＋ Transecto</button>
+        <span style="color:var(--text3);font-size:18px">▾</span>
+      </div>
+    </div>
+    <div class="bote-body" id="body_${opId}_${b.id}">
+      ${transHtml}
+      <button class="btn btn-outline btn-sm" style="margin-top:6px" onclick="openNuevoTransecto('${opId}','${b.id}')">＋ Agregar transecto</button>
+    </div>
+  </div>`;
+}
+
+function renderTransectoCard(opId, boteId, t){
+  const espHtml=Object.entries(t.especies).map(([eid,edata])=>{
+    const sp=TODAS_ESPECIES.find(e=>e.id==eid);
+    return`<span class="pill p-teal" style="cursor:pointer;margin:2px" onclick="openMuestrasEspecie('${opId}','${boteId}',${t.num},${eid})">${sp?sp.com:'?'} (${edata.muestras.length})</span>`;
+  }).join('');
+  return`<div class="transecto-card">
+    <div class="transecto-header" onclick="toggleTransecto('tx_${opId}_${boteId}_${t.num}')">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="pill p-blue" style="font-size:11px">T${t.num}</span>
+        <span style="font-size:12px;color:var(--text2)">${t.fecha} · ${t.area} m² · ${t.sustrato}</span>
+        <div>${espHtml}</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-outline btn-xs" onclick="event.stopPropagation();openAgregarEspecie('${opId}','${boteId}',${t.num})">＋ Especie</button>
+        <span style="color:var(--text3);font-size:14px">▾</span>
+      </div>
+    </div>
+    <div class="transecto-body" id="tx_${opId}_${boteId}_${t.num}">
+      <div class="inf-3col" style="margin-bottom:10px">
+        <div><div class="inf-label">Coordenada X</div><div style="font-family:var(--ff-m);font-size:11px">${t.x.toFixed(2)}</div></div>
+        <div><div class="inf-label">Coordenada Y</div><div style="font-family:var(--ff-m);font-size:11px">${t.y.toFixed(2)}</div></div>
+        <div><div class="inf-label">Área</div><div style="font-family:var(--ff-m);font-size:11px">${t.area} m²</div></div>
+        <div><div class="inf-label">Longitud</div><div style="font-family:var(--ff-m);font-size:11px">${t.lon}</div></div>
+        <div><div class="inf-label">Latitud</div><div style="font-family:var(--ff-m);font-size:11px">${t.lat}</div></div>
+        <div><div class="inf-label">Cubierta biol.</div><div style="font-family:var(--ff-m);font-size:11px">${t.cubierta}</div></div>
+      </div>
+      <div style="font-family:var(--ff-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Especies muestreadas</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${Object.entries(t.especies).map(([eid,edata])=>{
+          const sp=TODAS_ESPECIES.find(e=>e.id==eid);
+          return`<div onclick="openMuestrasEspecie('${opId}','${boteId}',${t.num},${eid})" style="cursor:pointer;padding:8px 12px;border-radius:9px;border:1.5px solid var(--teal);background:var(--teal-lt);transition:all .15s">
+            <div style="font-weight:700;font-size:12px;color:var(--navy)">${sp?sp.com:'?'}</div>
+            <div style="font-size:10px;color:var(--text3);font-style:italic">${sp?sp.sci:''}</div>
+            <div style="font-family:var(--ff-m);font-size:10px;color:var(--teal);margin-top:3px">${edata.muestras.length} muestras →</div>
+          </div>`;
+        }).join('')}
+        <div onclick="openAgregarEspecie('${opId}','${boteId}',${t.num})" style="cursor:pointer;padding:8px 12px;border-radius:9px;border:1.5px dashed var(--border2);background:var(--bg);transition:all .15s;display:flex;align-items:center;gap:6px;color:var(--text3)">
+          <span>＋</span> Agregar especie
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ════════════════════════════════════════════════════
+// TOGGLE
+// ════════════════════════════════════════════════════
+function toggleBote(id){const el=document.getElementById('body_'+id);if(el)el.classList.toggle('open');}
+function toggleTransecto(id){const el=document.getElementById(id);if(el)el.classList.toggle('open');}
+
+// ════════════════════════════════════════════════════
+// NUEVA OPERACIÓN
+// ════════════════════════════════════════════════════
+function openNuevaOperacion(){
+  const sectoresOpts=SECTORES_BD.map(s=>`<option>${s}</option>`).join('');
+  openModal('＋ Nueva operación Peso-Longitud',`
+    <div style="margin-bottom:16px;padding:12px;background:var(--teal-lt);border-radius:10px;border:1px solid rgba(10,143,126,.3);font-size:12px;color:var(--teal)">
+      ℹ️ Una operación agrupa los muestreos L-P de varios botes en un sector y fecha. Desde ella se generará el EVADIR.
+    </div>
+    <div class="inf-2col">
+      <div class="inf-group"><label class="inf-label">Región</label>
+        <select class="inf-select" id="op-region"><option value="14">XIV — Los Ríos</option><option value="5">V — Valparaíso</option><option value="4">IV — Coquimbo</option><option value="10">X — Los Lagos</option><option value="11">XI — Aysén</option></select>
+      </div>
+      <div class="inf-group"><label class="inf-label">Num. Seguimiento / ESBA</label>
+        <input class="inf-input" id="op-seg" placeholder="16" value="16">
+      </div>
+    </div>
+    <div class="inf-group"><label class="inf-label">Sector AMERB</label>
+      <select class="inf-select" id="op-sector" onchange="updateOrgByOp()">${sectoresOpts}</select>
+    </div>
+    <div class="inf-2col">
+      <div class="inf-group"><label class="inf-label">Tipo de organización</label>
+        <select class="inf-select" id="op-tipoOrg"><option>STI</option><option>AINDG</option><option>SCOOP</option><option>ASOC</option></select>
+      </div>
+      <div class="inf-group"><label class="inf-label">Nombre organización</label>
+        <input class="inf-input" id="op-org" value="S.T.I. BUZOS, PESCADORES ARTESANALES DE AMARGO">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-teal" style="flex:1" onclick="crearOperacion()">✓ Crear operación y agregar botes</button>
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+  document.getElementById('op-sector').value='AMARGOS';
+  updateOrgByOp();
+}
+
+function updateOrgByOp(){
+  const s=document.getElementById('op-sector')?.value;
+  const o=ORGS_BD[s]||'';
+  const inp=document.getElementById('op-org');
+  if(inp&&o)inp.value=o;
+}
+
+function crearOperacion(){
+  const region=document.getElementById('op-region')?.value;
+  const sector=document.getElementById('op-sector')?.value;
+  const tipoOrg=document.getElementById('op-tipoOrg')?.value;
+  const org=document.getElementById('op-org')?.value;
+  const seg=document.getElementById('op-seg')?.value;
+  if(!sector||!org){toast('⚠ Completa todos los campos','red');return;}
+  const newId='OP-2026-'+String(DB.operaciones.length+10).padStart(3,'0');
+  DB.operaciones.unshift({id:newId,region:parseInt(region),sector,tipoOrg,org,numSeg:parseInt(seg)||16,fechaInicio:new Date().toISOString().slice(0,10),fechaFin:new Date().toISOString().slice(0,10),botes:[]});
+  closeModal();
+  toast(`✅ Operación ${newId} creada. Ahora agrega botes.`,'green');
+  renderOperaciones();
+}
+
+// ════════════════════════════════════════════════════
+// NUEVO BOTE
+// ════════════════════════════════════════════════════
+function openNuevoBote(opId){
+  openModal(`＋ Agregar bote — ${opId}`,`
+    <div style="margin-bottom:14px;padding:10px 12px;background:var(--blue-lt);border-radius:9px;font-size:12px;color:var(--blue)">
+      Cada bote tiene su zona de muestreo asignada y contiene múltiples transectos.
+    </div>
+    <div class="inf-2col">
+      <div class="inf-group"><label class="inf-label">Nombre del bote</label><input class="inf-input" id="bote-nombre" placeholder="BRUNO"></div>
+      <div class="inf-group"><label class="inf-label">Zona de muestreo</label><input class="inf-input" id="bote-zona" type="number" value="1" min="1" max="10"></div>
+    </div>
+    <div class="inf-group"><label class="inf-label">Nombre del buzo</label><input class="inf-input" id="bote-buzo" placeholder="NOMBRE APELLIDO"></div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-teal" style="flex:1" onclick="crearBote('${opId}')">✓ Agregar bote</button>
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+
+function crearBote(opId){
+  const nombre=document.getElementById('bote-nombre')?.value;
+  const zona=parseInt(document.getElementById('bote-zona')?.value);
+  const buzo=document.getElementById('bote-buzo')?.value;
+  if(!nombre||!buzo){toast('⚠ Completa todos los campos','red');return;}
+  const op=DB.operaciones.find(o=>o.id===opId);
+  if(op){op.botes.push({id:'B'+Date.now(),nombre:nombre.toUpperCase(),buzo:buzo.toUpperCase(),zona,transectos:[]});}
+  closeModal();
+  toast(`✅ Bote ${nombre} (Zona ${zona}) agregado`,'green');
+  renderOperaciones();
+}
+
+// ════════════════════════════════════════════════════
+// NUEVO TRANSECTO
+// ════════════════════════════════════════════════════
+function openNuevoTransecto(opId, boteId){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const bote=op?.botes.find(b=>b.id===boteId);
+  const nextNum=(bote?.transectos.length||0)+1;
+  openModal(`＋ Nuevo transecto — ${opId} · Bote ${bote?.nombre||''}`,`
+    <div class="inf-3col">
+      <div class="inf-group"><label class="inf-label">N° Transecto</label><input class="inf-input" id="tx-num" value="${nextNum}"></div>
+      <div class="inf-group"><label class="inf-label">Área (m²)</label><select class="inf-select" id="tx-area"><option value="120">120 m² (30×4m)</option><option value="60">60 m² (30×2m)</option><option value="0.0625">0.0625 m² (cuadrante)</option></select></div>
+      <div class="inf-group"><label class="inf-label">Fecha</label><input class="inf-input" id="tx-fecha" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+    </div>
+    <div class="inf-2col">
+      <div class="inf-group"><label class="inf-label">Coordenada X (UTM)</label><input class="inf-input" id="tx-x" placeholder="629738.19" type="number"></div>
+      <div class="inf-group"><label class="inf-label">Coordenada Y (UTM)</label><input class="inf-input" id="tx-y" placeholder="5583972.55" type="number"></div>
+    </div>
+    <div class="inf-2col">
+      <div class="inf-group"><label class="inf-label">Longitud (°)</label><input class="inf-input" id="tx-lon" placeholder="-73.48268" type="number" step="0.00001"></div>
+      <div class="inf-group"><label class="inf-label">Latitud (°)</label><input class="inf-input" id="tx-lat" placeholder="-39.88438" type="number" step="0.00001"></div>
+    </div>
+    <div class="inf-2col">
+      <div class="inf-group"><label class="inf-label">Tipo de sustrato</label>
+        <select class="inf-select" id="tx-sustrato"><option>ROCA</option><option>ROCA/ARENA</option><option>BOLÓN</option><option>ARENA</option><option>MIXTO</option><option>TERTEL</option></select>
+      </div>
+      <div class="inf-group"><label class="inf-label">Cubierta biológica</label>
+        <select class="inf-select" id="tx-cubierta"><option>ALGAS PARDAS</option><option>ALGAS ROJAS</option><option>ALGAS</option><option>PIURE</option><option>SIN COBERTURA</option><option>MIXTA</option></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-teal" style="flex:1" onclick="crearTransecto('${opId}','${boteId}')">✓ Crear transecto y agregar especies</button>
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+
+function crearTransecto(opId, boteId){
+  const num=parseInt(document.getElementById('tx-num')?.value)||1;
+  const area=parseFloat(document.getElementById('tx-area')?.value)||120;
+  const fecha=document.getElementById('tx-fecha')?.value||new Date().toISOString().slice(0,10);
+  const x=parseFloat(document.getElementById('tx-x')?.value)||0;
+  const y=parseFloat(document.getElementById('tx-y')?.value)||0;
+  const lon=parseFloat(document.getElementById('tx-lon')?.value)||0;
+  const lat=parseFloat(document.getElementById('tx-lat')?.value)||0;
+  const sustrato=document.getElementById('tx-sustrato')?.value||'ROCA';
+  const cubierta=document.getElementById('tx-cubierta')?.value||'ALGAS';
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const bote=op?.botes.find(b=>b.id===boteId);
+  if(bote){bote.transectos.push({num,area,fecha,x,y,lon,lat,sustrato,cubierta,especies:{}});}
+  closeModal();
+  toast(`✅ Transecto T${num} creado. Agrega especies.`,'green');
+  renderOperaciones();
+  setTimeout(()=>{
+    const body=document.getElementById(`body_${opId}_${boteId}`);
+    if(body)body.classList.add('open');
+  },100);
+}
+
+// ════════════════════════════════════════════════════
+// AGREGAR ESPECIE A TRANSECTO
+// ════════════════════════════════════════════════════
+function openAgregarEspecie(opId, boteId, txNum){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const bote=op?.botes.find(b=>b.id===boteId);
+  const tx=bote?.transectos.find(t=>t.num===txNum);
+  const yaAgregadas=tx?Object.keys(tx.especies).map(Number):[];
+  const spGrid=TODAS_ESPECIES.map(sp=>`
+    <div class="sp-chip ${yaAgregadas.includes(sp.id)?'sel':''}" onclick="toggleEspecie(this,${sp.id})" data-id="${sp.id}">
+      <div class="sp-com">${sp.com}</div>
+      <div class="sp-sci">${sp.sci}</div>
+      ${sp.lp?'<div style="font-size:9px;color:var(--teal);margin-top:2px">★ L-P frecuente</div>':''}
+    </div>`).join('');
+  openModal(`Seleccionar especies — T${txNum}`,`
+    <div style="margin-bottom:12px;padding:10px 12px;background:var(--amber-lt);border-radius:9px;font-size:12px;color:var(--amber)">
+      ★ = especie con registro L-P frecuente (Loco, Erizo rojo). Selecciona todas las que correspondan.
+    </div>
+    <div style="margin-bottom:12px"><input class="flt" style="width:100%" placeholder="🔍 Buscar especie..." oninput="filterSpeciesGrid(this.value)"></div>
+    <div class="species-grid" id="species-grid">${spGrid}</div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-teal" style="flex:1" onclick="confirmarEspecies('${opId}','${boteId}',${txNum})">✓ Confirmar y agregar muestras</button>
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Cancelar</button>
+    </div>
+  `,true);
+}
+
+function filterSpeciesGrid(q){
+  document.querySelectorAll('#species-grid .sp-chip').forEach(el=>{
+    const txt=el.textContent.toLowerCase();
+    el.style.display=txt.includes(q.toLowerCase())?'':'none';
+  });
+}
+function toggleEspecie(el,id){el.classList.toggle('sel');}
+
+function confirmarEspecies(opId, boteId, txNum){
+  const sel=[...document.querySelectorAll('#species-grid .sp-chip.sel')].map(el=>parseInt(el.dataset.id));
+  if(sel.length===0){toast('⚠ Selecciona al menos una especie','red');return;}
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const bote=op?.botes.find(b=>b.id===boteId);
+  const tx=bote?.transectos.find(t=>t.num===txNum);
+  if(tx){sel.forEach(sid=>{if(!tx.especies[sid])tx.especies[sid]={muestras:[]};});}
+  // Open first species for sampling
+  const firstSp=sel[0];
+  closeModal();
+  renderOperaciones();
+  setTimeout(()=>{openMuestrasEspecie(opId,boteId,txNum,firstSp);},200);
+}
+
+// ════════════════════════════════════════════════════
+// MUESTRAS ESPECIE — TABLA DE INGRESO
+// ════════════════════════════════════════════════════
+function openMuestrasEspecie(opId, boteId, txNum, spId){
+  const sp=TODAS_ESPECIES.find(e=>e.id==spId);
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const bote=op?.botes.find(b=>b.id===boteId);
+  const tx=bote?.transectos.find(t=>t.num===txNum);
+  if(!tx)return;
+  if(!tx.especies[spId])tx.especies[spId]={muestras:[]};
+  const edata=tx.especies[spId];
+  const tienePeso=sp?.campo?.peso;
+  const tieneLong=sp?.campo?.long;
+
+  // Todas las especies del transecto como tabs
+  const espTabs=Object.keys(tx.especies).map(eid=>{
+    const s=TODAS_ESPECIES.find(e=>e.id==eid);
+    return`<button class="btn ${eid==spId?'btn-teal':'btn-outline'} btn-sm" onclick="closeModal();setTimeout(()=>openMuestrasEspecie('${opId}','${boteId}',${txNum},${eid}),100)">${s?s.com:'?'}</button>`;
+  }).join('');
+
+  const muestrasRows=edata.muestras.map((m,i)=>`<tr>
+    <td style="font-family:var(--ff-m);font-size:10px;color:var(--text3)">${i+1}</td>
+    ${tieneLong?`<td>${m.l} mm</td>`:''}
+    ${tienePeso?`<td>${m.p} g</td>`:''}
+    <td><button class="btn btn-outline btn-xs" onclick="borrarMuestra('${opId}','${boteId}',${txNum},${spId},${i})">🗑</button></td>
+  </tr>`).join('');
+
+  openModal(`📏 Muestras — ${sp?.com||'?'} · T${txNum} · Bote ${bote?.nombre}`,`
+    <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">${espTabs}</div>
+    <div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <span style="font-size:13px;font-weight:600;color:var(--navy)">${sp?.com} · <em>${sp?.sci}</em></span>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--ff-m)">Operación: ${opId} · Sector: ${op?.sector} · ${tx.fecha}</div>
+      </div>
+      <span class="muestra-counter" id="muestra-counter">N = ${edata.muestras.length} muestras</span>
+    </div>
+
+    <!-- INPUT RÁPIDO -->
+    <div class="muestra-input-row" id="muestra-input-row">
+      ${tieneLong?`<div class="inf-group"><label class="inf-label">Longitud (mm)</label><input class="inf-input" id="inp-long" type="number" placeholder="mm" min="1" max="500" autofocus style="font-size:16px;font-weight:700;text-align:center" onkeydown="if(event.key==='Enter'){document.getElementById('inp-peso')?.focus()||agregarMuestra('${opId}','${boteId}',${txNum},${spId})}"></div>`:''}
+      ${tienePeso?`<div class="inf-group"><label class="inf-label">Peso (g)</label><input class="inf-input" id="inp-peso" type="number" placeholder="g" min="0" max="99999" style="font-size:16px;font-weight:700;text-align:center" onkeydown="if(event.key==='Enter')agregarMuestra('${opId}','${boteId}',${txNum},${spId})"></div>`:''}
+      <button class="btn btn-teal" style="margin-bottom:0;padding:10px 20px;font-size:15px;white-space:nowrap" onclick="agregarMuestra('${opId}','${boteId}',${txNum},${spId})">＋ Agregar</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">💡 Presiona Enter en Peso para agregar rápidamente. Los campos se vacían automáticamente.</div>
+
+    <!-- TABLA DE MUESTRAS -->
+    <div style="max-height:280px;overflow-y:auto">
+      <table class="muestra-tbl" id="muestra-tbl-${spId}">
+        <thead><tr>
+          <th>#</th>
+          ${tieneLong?'<th>Long. (mm)</th>':''}
+          ${tienePeso?'<th>Peso (g)</th>':''}
+          <th>Eliminar</th>
+        </tr></thead>
+        <tbody id="muestra-tbody-${spId}">${muestrasRows}</tbody>
+      </table>
+      ${edata.muestras.length===0?`<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">Sin muestras aún. Ingresa la primera arriba ↑</div>`:''}
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+      <button class="btn btn-green" style="flex:1" onclick="finalizarEspecie('${opId}','${boteId}',${txNum},${spId})">✅ Finalizar ${sp?.com} (${edata.muestras.length} muestras)</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cerrar</button>
+    </div>
+  `,true);
+}
+
+function agregarMuestra(opId, boteId, txNum, spId){
+  const inpL=document.getElementById('inp-long');
+  const inpP=document.getElementById('inp-peso');
+  const l=inpL?parseFloat(inpL.value):null;
+  const p=inpP?parseFloat(inpP.value):null;
+  if(inpL&&(isNaN(l)||l<=0)){toast('⚠ Ingresa una longitud válida','red');inpL.focus();return;}
+  if(inpP&&(isNaN(p)||p<0)){toast('⚠ Ingresa un peso válido','red');inpP.focus();return;}
+
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const bote=op?.botes.find(b=>b.id===boteId);
+  const tx=bote?.transectos.find(t=>t.num===txNum);
+  if(!tx||!tx.especies[spId])return;
+  const muestra={};
+  if(l!==null)muestra.l=l;
+  if(p!==null)muestra.p=p;
+  tx.especies[spId].muestras.push(muestra);
+
+  // Add row to table without re-rendering modal
+  const tbody=document.getElementById(`muestra-tbody-${spId}`);
+  const sp=TODAS_ESPECIES.find(e=>e.id==spId);
+  const i=tx.especies[spId].muestras.length;
+  if(tbody){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="font-family:var(--ff-m);font-size:10px;color:var(--text3)">${i}</td>${sp?.campo?.long&&l!==null?`<td>${l} mm</td>`:''  }${sp?.campo?.peso&&p!==null?`<td>${p} g</td>`:''}<td><button class="btn btn-outline btn-xs" onclick="borrarMuestra('${opId}','${boteId}',${txNum},${spId},${i-1})">🗑</button></td>`;
+    tbody.appendChild(tr);
+    tbody.parentElement.scrollTop=tbody.parentElement.scrollHeight;
+  }
+
+  // Update counter
+  const counter=document.getElementById('muestra-counter');
+  if(counter)counter.textContent=`N = ${i} muestras`;
+
+  // Update finalizar button
+  const finBtn=document.querySelector('#modal-body .btn-green');
+  if(finBtn)finBtn.textContent=`✅ Finalizar ${sp?.com||''} (${i} muestras)`;
+
+  // Clear inputs
+  if(inpL){inpL.value='';inpL.focus();}
+  if(inpP)inpP.value='';
+
+  toast(`✅ Muestra ${i} ingresada ${l?l+'mm':''} ${p?p+'g':''}`, 'green');
+}
+
+function borrarMuestra(opId, boteId, txNum, spId, idx){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const bote=op?.botes.find(b=>b.id===boteId);
+  const tx=bote?.transectos.find(t=>t.num===txNum);
+  if(tx?.especies[spId])tx.especies[spId].muestras.splice(idx,1);
+  const sp=TODAS_ESPECIES.find(e=>e.id==spId);
+  closeModal();
+  setTimeout(()=>openMuestrasEspecie(opId,boteId,txNum,spId),100);
+  toast(`🗑 Muestra eliminada`);
+}
+
+function finalizarEspecie(opId, boteId, txNum, spId){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const bote=op?.botes.find(b=>b.id===boteId);
+  const tx=bote?.transectos.find(t=>t.num===txNum);
+  const sp=TODAS_ESPECIES.find(e=>e.id==spId);
+  const n=tx?.especies[spId]?.muestras.length||0;
+  // Check if more species to fill
+  const espKeys=Object.keys(tx?.especies||{}).map(Number);
+  const idx=espKeys.indexOf(spId);
+  const nextSp=espKeys[idx+1];
+  closeModal();
+  if(nextSp){
+    toast(`✅ ${sp?.com} finalizado (${n} muestras). Continúa con siguiente especie.`,'green');
+    setTimeout(()=>openMuestrasEspecie(opId,boteId,txNum,nextSp),200);
+  } else {
+    toast(`✅ Transecto T${txNum} completo. ${n} muestras de ${sp?.com}.`,'green');
+    renderOperaciones();
+  }
+}
+
+// ════════════════════════════════════════════════════
+// SUBIR EXCEL
+// ════════════════════════════════════════════════════
+function openUploadExcel(){
+  openModal('⬆ Subir tabla Peso-Longitud (Excel)',`
+    <div style="margin-bottom:14px;padding:12px;background:var(--blue-lt);border-radius:9px;font-size:12px;color:var(--blue)">
+      El archivo debe tener el siguiente formato de columnas:<br>
+      <strong>REGION, NOMBRE SECTOR, TIPO DE ORGANIZACIÓN, NOMBRE ORGANIZACIÓN, FECHA, DIA, MES, AÑO, NUM SEG ESBA, ZONA MUESTREO, BOTE, BUZO, ESPECIE, LONGITUD MM, PESO G</strong>
+    </div>
+    <div class="upload-area" id="upload-zone" ondragover="this.classList.add('dragover');event.preventDefault()" ondragleave="this.classList.remove('dragover')" ondrop="handleFileDrop(event)">
+      <div style="font-size:40px;margin-bottom:12px">📊</div>
+      <div style="font-weight:700;color:var(--navy);margin-bottom:6px">Arrastra aquí tu archivo Excel</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:16px">O haz clic para seleccionar</div>
+      <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileSelect(event)">
+      <button class="btn btn-teal btn-sm" onclick="document.getElementById('file-input').click()">Seleccionar archivo</button>
+    </div>
+    <div id="upload-preview" style="margin-top:14px;display:none">
+      <div style="padding:12px;background:var(--green-lt);border:1px solid var(--green);border-radius:9px;font-size:12px;color:var(--green)">
+        ✅ Archivo detectado. Procesando estructura...
+      </div>
+    </div>
+    <div style="margin-top:12px;font-size:11px;color:var(--text3)">
+      Para las personas que prefieren Excel: descarga la <a href="#" onclick="toast('⬇ Descargando plantilla...');return false" style="color:var(--teal)">plantilla oficial</a> y súbela completada.
+    </div>
+  `);
+}
+
+function handleFileDrop(e){
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('dragover');
+  const f=e.dataTransfer.files[0];
+  if(f)simulateUpload(f.name);
+}
+function handleFileSelect(e){
+  const f=e.target.files[0];
+  if(f)simulateUpload(f.name);
+}
+function simulateUpload(name){
+  const prev=document.getElementById('upload-preview');
+  if(prev){
+    prev.style.display='block';
+    prev.innerHTML=`<div style="padding:12px;background:var(--green-lt);border:1px solid var(--green);border-radius:9px;font-size:12px;color:var(--green)">
+      ✅ <strong>${name}</strong> detectado.<br>
+      Columnas validadas correctamente. 
+      <button class="btn btn-teal btn-sm" style="margin-top:8px" onclick="closeModal();toast('✅ Excel importado: ${name} · 1.000 filas procesadas','green')">Importar datos</button>
+    </div>`;
+  }
+}
+
+// ════════════════════════════════════════════════════
+// GENERAR EVADIR DESDE OPERACIÓN
+// ════════════════════════════════════════════════════
+function generarEvadirDesde(opId){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  if(!op){toast('⚠ Operación no encontrada','red');return;}
+  // Build preview rows
+  const rows=[];
+  op.botes.forEach(b=>{
+    b.transectos.forEach(t=>{
+      const nLoco=t.especies[1]?.muestras.length||0;
+      const nErizo=t.especies[5]?.muestras.length||0;
+      rows.push({
+        region:op.region, sector:op.sector, tipoOrg:op.tipoOrg, org:op.org,
+        fecha:t.fecha, dia:t.fecha.slice(8,10), mes:t.fecha.slice(5,7), año:t.fecha.slice(0,4),
+        numSeg:op.numSeg, zona:b.zona, bote:b.nombre, buzo:b.buzo,
+        numTx:t.num, area:t.area,
+        numLoco:nLoco, numErizo:nErizo,
+        sustrato:t.sustrato, cubierta:t.cubierta,
+        densLoco:(nLoco/t.area).toFixed(4), densErizo:(nErizo/t.area).toFixed(4),
+        x:t.x, y:t.y, lon:t.lon, lat:t.lat
+      });
+    });
+  });
+
+  if(rows.length===0){toast('⚠ La operación no tiene transectos con datos','red');return;}
+
+  const headers=['REGION','SECTOR','TIPO ORG','ORGANIZACIÓN','FECHA','DIA','MES','AÑO','SEG/ESBA','ZONA','BOTE','BUZO','T#','ÁREA','N°LOCO','N°ERIZO','SUSTRATO','CUBIERTA','DEN LOCO','DEN ERIZO','X','Y','LON','LAT'];
+  const rowsHtml=rows.map(r=>`<tr>
+    <td>${r.region}</td><td>${r.sector}</td><td>${r.tipoOrg}</td><td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.org}</td>
+    <td>${r.fecha}</td><td>${r.dia}</td><td>${r.mes}</td><td>${r.año}</td>
+    <td>${r.numSeg}</td><td>${r.zona}</td><td>${r.bote}</td><td>${r.buzo}</td>
+    <td>${r.numTx}</td><td>${r.area}</td><td>${r.numLoco}</td><td>${r.numErizo}</td>
+    <td>${r.sustrato}</td><td>${r.cubierta}</td>
+    <td><strong style="color:var(--teal)">${r.densLoco}</strong></td><td><strong style="color:var(--amber)">${r.densErizo}</strong></td>
+    <td style="font-size:10px">${r.x}</td><td style="font-size:10px">${r.y}</td><td>${r.lon}</td><td>${r.lat}</td>
+  </tr>`).join('');
+
+  openModal(`🤿 Generar EVADIR — ${opId} · ${op.sector}`,`
+    <div style="padding:12px;background:var(--teal-lt);border:1px solid rgba(10,143,126,.3);border-radius:9px;font-size:12px;margin-bottom:14px">
+      Los campos del EVADIR se extraen automáticamente desde la operación, botes y transectos.<br>
+      <strong>Revisa los datos y confirma.</strong>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;font-size:12px">
+      <div><span style="color:var(--text3)">Operación:</span> <strong>${opId}</strong></div>
+      <div><span style="color:var(--text3)">Sector:</span> <strong>${op.sector}</strong></div>
+      <div><span style="color:var(--text3)">Organización:</span> <strong>${op.tipoOrg}</strong></div>
+      <div><span style="color:var(--text3)">SEG/ESBA:</span> <strong>${op.numSeg}</strong></div>
+      <div><span style="color:var(--text3)">Botes:</span> <strong>${op.botes.length}</strong></div>
+      <div><span style="color:var(--text3)">Transectos:</span> <strong>${rows.length}</strong></div>
+    </div>
+    <div style="overflow-x:auto;margin-bottom:14px;max-height:260px">
+      <table class="evadir-preview-tbl">
+        <thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-teal" style="flex:1" onclick="closeModal();toast('✅ EVADIR generado y guardado — ${op.sector} SEG-${op.numSeg}','green');goPage('evadir')">✅ Confirmar y guardar EVADIR</button>
+      <button class="btn btn-outline btn-sm" onclick="toast('⬇ Exportando CSV...')">⬇ CSV</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+  `,true);
+}
+
+// ════════════════════════════════════════════════════
+// EVADIR PREVIEW TABLE (page)
+// ════════════════════════════════════════════════════
+function renderEvadirPreview(){
+  const tbl=document.getElementById('evadir-preview-tbl');
+  if(!tbl||tbl.childElementCount>0)return;
+  const headers=['REGION','NOMBRE SECTOR','TIPO ORG','NOMBRE ORGANIZACIÓN','FECHA','DIA','MES','AÑO','SEG','ZONA','BOTE','BUZO','T#','ÁREA','N°LOCO','N°ERIZO','SUSTRATO','CUBIERTA','DEN LOCO','DEN ERIZO','LONG','LAT'];
+  const rows=[
+    [14,'AMARGOS','STI','S.T.I PESCADORES DE AMARGO','2026-02-05',5,2,2026,16,1,'BRUNO','ERWIN MONSALVE',1,120,0,40,'ROCA','ALGAS','0.0000','0.3333',-73.4826,-39.8843],
+    [14,'AMARGOS','STI','S.T.I PESCADORES DE AMARGO','2026-02-05',5,2,2026,16,1,'BRUNO','ERWIN MONSALVE',2,120,68,29,'ROCA','PIURE','0.5667','0.2417',-73.4826,-39.8840],
+    [14,'AMARGOS','STI','S.T.I PESCADORES DE AMARGO','2026-02-05',5,2,2026,16,1,'BRUNO','ERWIN MONSALVE',3,120,99,57,'ROCA','ALGAS PARDAS','0.8250','0.4750',-73.4818,-39.8832],
+    [14,'AMARGOS','STI','S.T.I PESCADORES DE AMARGO','2026-02-05',5,2,2026,16,2,'DON TAQUITO','RODRIGO MUÑOZ',4,120,45,33,'ROCA','ALGAS','0.3750','0.2750',-73.4809,-39.8820],
+  ];
+  tbl.innerHTML=`<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map((r,i)=>`<tr style="${i%2===0?'':'background:var(--bg)'}">${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')
+  }</tbody>`;
+}
+
+function openEvadirDetail(){
+  openModal('👁 Detalle EVADIR',`<div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;font-size:12px">
+      <div><span style="color:var(--text3)">Sector:</span> <strong>AMARGOS</strong></div>
+      <div><span style="color:var(--text3)">SEG:</span> <strong>16</strong></div>
+      <div><span style="color:var(--text3)">Operación origen:</span> <strong>OP-2026-002</strong></div>
+      <div><span style="color:var(--text3)">Fecha:</span> <strong>05-02-2026</strong></div>
+      <div><span style="color:var(--text3)">Den. Loco:</span> <strong style="color:var(--teal)">0.567 ind/m²</strong></div>
+      <div><span style="color:var(--text3)">Den. Erizo:</span> <strong style="color:var(--amber)">0.333 ind/m²</strong></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-teal" style="flex:1" onclick="closeModal();goPage('pl')">Ver operación origen</button>
+      <button class="btn btn-outline btn-sm" onclick="closeModal();toast('⬇ Exportando EVADIR CSV...')">⬇ CSV</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cerrar</button>
+    </div>
+  `);
+}
+
+// ════════════════════════════════════════════════════
+// NUEVO EVADIR (desde listado)
+// ════════════════════════════════════════════════════
+function openNuevoEvadir(){
+  const opsOpts=DB.operaciones.map(op=>`<div class="op-card" onclick="selOp(this,'${op.id}')">
+    <div class="op-card-header">
+      <div class="op-card-title">${op.id}</div>
+      <span class="pill p-teal">SEG-${op.numSeg}</span>
+    </div>
+    <div class="op-card-meta">
+      <span class="pill p-blue">${op.sector}</span>
+      <span class="pill p-slate">${op.tipoOrg}</span>
+      <span class="pill p-green">📅 ${op.fechaInicio}${op.fechaFin!==op.fechaInicio?' → '+op.fechaFin:''}</span>
+      <span class="pill p-amber">${op.botes.length} botes · ${op.botes.reduce((s,b)=>s+b.transectos.length,0)} transectos</span>
+    </div>
+  </div>`).join('');
+  openModal('🤿 Generar EVADIR desde operación',`
+    <div style="margin-bottom:14px">
+      <div class="inf-2col" style="margin-bottom:14px">
+        <div class="inf-group"><label class="inf-label">Filtrar por sector</label>
+          <select class="inf-select" onchange="toast('🔍 Filtrado')"><option>Todos</option><option>AMARGOS</option><option>HUAPE SECTOR B</option></select>
+        </div>
+        <div class="inf-group"><label class="inf-label">Filtrar por empresa</label>
+          <select class="inf-select"><option>Todas</option><option>Bitecma Ltda.</option></select>
+        </div>
+      </div>
+      <div style="font-family:var(--ff-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Operaciones disponibles — Selecciona una</div>
+      <div>${opsOpts}</div>
+    </div>
+    <button class="btn btn-teal" style="width:100%" id="btn-gen-evadir" disabled onclick="proceedGenEvadir()">🤿 Generar EVADIR desde operación seleccionada</button>
+  `,true);
+}
+
+let selectedOpId=null;
+function selOp(el,opId){
+  document.querySelectorAll('.op-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedOpId=opId;
+  const btn=document.getElementById('btn-gen-evadir');
+  if(btn){btn.disabled=false;btn.textContent=`🤿 Generar EVADIR desde ${opId}`;}
+}
+function proceedGenEvadir(){
+  if(!selectedOpId)return;
+  closeModal();
+  setTimeout(()=>generarEvadirDesde(selectedOpId),200);
+}
+
+// ════════════════════════════════════════════════════
+// ANÁLISIS L-P
+// ════════════════════════════════════════════════════
+function switchTab(tab){
+  document.getElementById('tab-content-ops').style.display=tab==='ops'?'':'none';
+  document.getElementById('tab-content-anal').style.display=tab==='anal'?'':'none';
+  document.getElementById('tab-ops').className='btn'+(tab==='ops'?' btn-teal':' btn-outline');
+  document.getElementById('tab-ops').style=tab==='ops'?'border-radius:0;border-right:1px solid rgba(255,255,255,.2)':'border-radius:0;border:none';
+  document.getElementById('tab-anal').className='btn'+(tab==='anal'?' btn-teal':' btn-outline');
+  document.getElementById('tab-anal').style=tab==='anal'?'border-radius:0':'border-radius:0;border:none';
+  if(tab==='anal'){renderHistogram();renderPLScatter();}
+}
+
+function renderHistogram(){
+  const el=document.getElementById('pl-histogram');
+  if(!el||el.childElementCount>0)return;
+  const freqs=[2,5,9,14,20,28,35,42,48,45,40,33,25,18,12,8,5,3,2,1];
+  const max=Math.max(...freqs);
+  el.innerHTML=freqs.map((f,i)=>`<div class="h-bar" style="height:${f/max*100}%;background:var(--teal)" onclick="openInTab('histogram')" title="${40+i*5}–${45+i*5}mm: ${f} ind."></div>`).join('');
+}
+
+function renderPLScatter(){
+  const el=document.getElementById('pl-scatter');
+  if(!el||el.querySelectorAll('.sc-dot').length>0)return;
+  for(let i=0;i<60;i++){
+    const l=43+Math.random()*87;
+    const w=0.0001*Math.pow(l,3.1594)*(0.85+Math.random()*.3);
+    const d=document.createElement('div');
+    d.className='sc-dot';
+    d.style.cssText=`left:${(l-43)/87*88+6}%;bottom:${Math.min(w/500*82+4,90)}%;background:var(--teal)`;
+    d.title=`L:${l.toFixed(0)}mm P:${w.toFixed(0)}g`;
+    d.onclick=()=>openInTab('scatter_lp');
+    el.appendChild(d);
+  }
+}
+
+// ════════════════════════════════════════════════════
+// HISTÓRICO
+// ════════════════════════════════════════════════════
+const CONTINUITY=[
+  {zone:'AMARGOS',segs:[2005,2006,2006,2007,2009,null,2012,2013,2014,2015,null,null,null,2022,2024,2026]},
+  {zone:'HUAPE B',segs:[2003,2005,2007,2009,2011,2012,2013,2014,2015,2016,2018,2019,2021,2022,2023,2025]},
+  {zone:'LOS VILOS B',segs:[2000,2002,2004,2006,2008,2010,null,2012,2014,2015,2017,2019,2021,null,null,null]},
+  {zone:'EL QUISCO A',segs:[1999,2001,2003,2005,2007,2009,2011,2013,2015,2017,2019,2021,2023,null,null,null]},
+  {zone:'ALEPUE',segs:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,2015]},
+];
+function renderContinuity(){
+  const head=document.getElementById('cont-head');
+  const body=document.getElementById('cont-body');
+  if(!head||head.childElementCount>0)return;
+  head.innerHTML=['Zona','ESBA','S1','S2','S3','S4','S5','S6','S7','S8','S9','S10','S11','S12','S13','S14','S15','S16→'].map(h=>`<th>${h}</th>`).join('');
+  body.innerHTML=CONTINUITY.map(c=>`<tr>
+    <td style="font-weight:700;white-space:nowrap">${c.zone}</td>
+    <td style="text-align:center"><span class="pill ${c.segs.some(s=>s)?'p-teal':'p-slate'}">${c.segs.some(s=>s)?'✓':'—'}</span></td>
+    ${c.segs.map(s=>`<td style="text-align:center;font-family:var(--ff-m);font-size:10px;background:${s?'var(--teal-lt)':'transparent'};color:${s?'var(--teal)':'var(--text3)'}">${s||'—'}</td>`).join('')}
+  </tr>`).join('');
+}
+function renderHistBars(){
+  const el=document.getElementById('hist-bars');
+  if(!el||el.childElementCount>0)return;
+  const vals=[0.41,0.55,0.37,0.61,0.48,0.70,0.52,0.65,0.73,0.58,0.44,0.67,0.75,0.52,0.50,0.60];
+  const max=Math.max(...vals);
+  el.innerHTML=vals.map((v,i)=>`<div class="bar-grp"><div class="bar" style="height:${v/max*100}%;background:${i===vals.length-1?'var(--blue)':'var(--teal)'}" data-v="${v.toFixed(3)}"></div></div>`).join('');
+}
+
+// ════════════════════════════════════════════════════
+// ESPECIES TABLE
+// ════════════════════════════════════════════════════
+function renderEspeciesTbl(){
+  const tbody=document.getElementById('especies-tbody');
+  if(!tbody||tbody.childElementCount>0)return;
+  tbody.innerHTML=TODAS_ESPECIES.map(sp=>`<tr>
+    <td><span style="font-family:var(--ff-m);font-size:10px;color:var(--text3)">${sp.id}</span></td>
+    <td><strong>${sp.com}</strong>${sp.lp?` <span class="pill p-teal" style="font-size:9px">★ L-P</span>`:''}</td>
+    <td><em>${sp.sci}</em></td>
+    <td style="color:var(--text3);font-size:11px">${TODAS_ESPECIES[sp.id-1]?.sci?.split(' ')[0]||'—'}</td>
+    <td><span style="font-family:var(--ff-m);font-size:10px">${[6,7,8,9,10,11,12,13].includes(sp.id)?`45${sp.id}`:(sp.id*10)||'—'}</span></td>
+  </tr>`).join('');
+}
+
+// ════════════════════════════════════════════════════
+// INFORME
+// ════════════════════════════════════════════════════
+function runGenerate(){
+  const btn=document.querySelector('#pg-informe .btn-teal');
+  const status=document.getElementById('inf-status');
+  if(btn)btn.disabled=true;
+  const msgs=[{t:'⚙️ Cargando BD...',s:'p-slate'},{t:'📊 Procesando datos...',s:'p-amber'},{t:'📄 Generando DOCX...',s:'p-blue'},{t:'✅ Listo',s:'p-green'}];
+  let i=0;
+  const iv=setInterval(()=>{
+    if(i<msgs.length){if(status){status.textContent=msgs[i].t;status.className='pill '+msgs[i].s;}i++;}
+    else{clearInterval(iv);if(btn){btn.disabled=false;}toast('✅ Informe generado. Abriendo vista previa...','green');setTimeout(()=>openInTab('informe_preview'),600);}
+  },700);
+}
+
+// ════════════════════════════════════════════════════
+// OPEN IN NEW TAB
+// ════════════════════════════════════════════════════
+function openInTab(type){
+  const win=window.open('','_blank');
+  let html='';
+  if(type==='histogram'){
+    const freqs=[2,5,9,14,20,28,35,42,48,45,40,33,25,18,12,8,5,3,2,1];
+    const max=Math.max(...freqs);
+    html=`<html><head><title>Histograma L-P</title><style>body{font-family:DM Sans,sans-serif;padding:32px;background:#f4f6f9}h2{font-family:serif;color:#1a3a5c}</style></head><body>
+    <h2>Distribución de frecuencias — Loco (C. concholepas) · SEG-16</h2>
+    <div style="display:flex;align-items:flex-end;gap:3px;height:220px;border-bottom:2px solid #e0e5ef;border-left:2px solid #e0e5ef;padding:10px 4px 0">
+    ${freqs.map((f,i)=>`<div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:3px"><div style="width:100%;border-radius:3px 3px 0 0;background:#0a8f7e;height:${f/max*200}px"></div><span style="font-size:9px;color:#64748b">${40+i*5}</span></div>`).join('')}</div>
+    <div style="text-align:center;margin-top:8px;color:#94a3b8;font-size:12px">Longitud (mm) — Clases de 5mm — N=1000</div>
+    </body></html>`;
+  } else if(type==='scatter_lp'){
+    const pts=Array.from({length:80},()=>{const l=43+Math.random()*87;const w=0.0001*Math.pow(l,3.1594)*(0.85+Math.random()*.3);return{l,w};});
+    const dots=pts.map(p=>`<circle cx="${(p.l-43)/87*680+40}" cy="${380-(p.w/500*340)}" r="4" fill="#0a8f7e" opacity=".7"/>`).join('');
+    html=`<html><head><title>Scatter L-P</title><style>body{font-family:DM Sans,sans-serif;padding:32px;background:#f4f6f9}h2{font-family:serif;color:#1a3a5c}</style></head><body>
+    <h2>Relación Longitud — Peso · W = 0.0001 · L^3.1594 · r² = 0.9395</h2>
+    <svg width="760" height="420" style="background:#fff;border-radius:12px;border:1px solid #e0e5ef">
+    <line x1="40" y1="380" x2="720" y2="380" stroke="#e0e5ef" stroke-width="1.5"/>
+    <line x1="40" y1="20" x2="40" y2="380" stroke="#e0e5ef" stroke-width="1.5"/>
+    <line x1="40" y1="380" x2="720" y2="20" stroke="#d97706" stroke-width="2" stroke-dasharray="8 4" opacity=".6"/>
+    ${dots}
+    <text x="380" y="410" text-anchor="middle" fill="#94a3b8" font-size="12">Longitud (mm)</text>
+    <text x="18" y="200" text-anchor="middle" fill="#94a3b8" font-size="12" transform="rotate(-90,18,200)">Peso (g)</text>
+    </svg></body></html>`;
+  } else if(type==='evadir_export'){
+    html=`<html><head><title>EVADIR Export</title><style>body{font-family:DM Sans,sans-serif;padding:24px;background:#f4f6f9}table{border-collapse:collapse;width:100%;font-size:11px}th{background:#1a3a5c;color:#fff;padding:7px 10px;text-align:left;white-space:nowrap}td{padding:7px 10px;border-bottom:1px solid #e0e5ef}tr:nth-child(even) td{background:#eef1f6}h2{font-family:serif;color:#1a3a5c;margin-bottom:16px}</style></head><body>
+    <h2>EVADIR — AMARGOS SEG-16 · 05-02-2026</h2>
+    <table><thead><tr><th>REGION</th><th>NOMBRE SECTOR</th><th>TIPO ORG</th><th>NOMBRE ORGANIZACIÓN</th><th>FECHA</th><th>DIA</th><th>MES</th><th>AÑO</th><th>SEG</th><th>ZONA</th><th>BOTE</th><th>BUZO</th><th>T#</th><th>ÁREA</th><th>N°LOCO</th><th>N°ERIZO</th><th>SUSTRATO</th><th>CUBIERTA</th><th>DEN LOCO</th><th>DEN ERIZO</th><th>LONG</th><th>LAT</th></tr></thead><tbody>
+    <tr><td>14</td><td>AMARGOS</td><td>STI</td><td>S.T.I PESCADORES DE AMARGO</td><td>2026-02-05</td><td>5</td><td>2</td><td>2026</td><td>16</td><td>1</td><td>BRUNO</td><td>ERWIN MONSALVE</td><td>1</td><td>120</td><td>0</td><td>40</td><td>ROCA</td><td>ALGAS</td><td>0.0000</td><td>0.3333</td><td>-73.4826</td><td>-39.8843</td></tr>
+    <tr><td>14</td><td>AMARGOS</td><td>STI</td><td>S.T.I PESCADORES DE AMARGO</td><td>2026-02-05</td><td>5</td><td>2</td><td>2026</td><td>16</td><td>1</td><td>BRUNO</td><td>ERWIN MONSALVE</td><td>2</td><td>120</td><td>68</td><td>29</td><td>ROCA</td><td>PIURE</td><td>0.5667</td><td>0.2417</td><td>-73.4826</td><td>-39.8840</td></tr>
+    </tbody></table></body></html>`;
+  } else if(type==='historico_full'){
+    const rows=CONTINUITY.map(c=>`<tr><td style="font-weight:600;padding:8px 12px;border-bottom:1px solid #e0e5ef">${c.zone}</td>${c.segs.map(s=>`<td style="padding:8px 12px;border-bottom:1px solid #e0e5ef;text-align:center;background:${s?'#d0f0ec':'#f1f5f9'};color:${s?'#065f46':'#94a3b8'};font-family:monospace;font-size:11px">${s||'—'}</td>`).join('')}</tr>`).join('');
+    html=`<html><head><title>Continuidad histórica</title><style>body{font-family:DM Sans,sans-serif;padding:32px;background:#f4f6f9}table{border-collapse:collapse;width:100%}h2{font-family:serif;color:#1a3a5c}th{text-align:center;padding:8px 12px;background:#1a3a5c;color:#fff;font-size:11px}</style></head><body>
+    <h2>Registro histórico seguimientos AMERB · Bitecma 1999–2026</h2>
+    <table><thead><tr><th>Zona</th>${Array.from({length:16},(_,i)=>`<th>S${i+1}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
+    </body></html>`;
+  } else if(type==='informe_preview'){
+    html=`<html><head><title>Informe SEG-16</title><style>body{font-family:DM Sans,sans-serif;padding:40px;background:#f4f6f9;max-width:800px;margin:auto}h1{font-family:serif;color:#1a3a5c;text-align:center}table{width:100%;border-collapse:collapse;margin-bottom:16px}td{padding:8px 12px;border-bottom:1px solid #e0e5ef;font-size:13px}td:first-child{color:#94a3b8;width:50%}td:last-child{font-weight:600}.sec{font-family:monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#0a8f7e;margin:20px 0 8px;border-bottom:1px dashed #e0e5ef;padding-bottom:5px}</style></head><body>
+    <p style="text-align:center;font-size:10px;letter-spacing:2px;color:#0a8f7e;text-transform:uppercase">SUBSECRETARÍA DE PESCA Y ACUICULTURA</p>
+    <h1>INFORME DE SEGUIMIENTO N° 16</h1>
+    <p style="text-align:center;font-weight:700;font-size:16px">ÁREA DE MANEJO HUAPE SECTOR B · CORRAL</p>
+    <p style="text-align:center;color:#94a3b8;font-size:13px">Región de Los Ríos · Enero 2026</p>
+    <div class="sec">Organización</div><table><tr><td>Organización</td><td>S.T.I. Pescadores... Caleta de Huape</td></tr><tr><td>N° socios</td><td>37</td></tr><tr><td>Jefe de proyecto</td><td>Armando Rosson Villalobos</td></tr></table>
+    <div class="sec">Evaluación directa (desde OP-2025-033)</div><table><tr><td>Fecha EVADIR</td><td>17-12-2025</td></tr><tr><td>N° transectos</td><td>48</td></tr><tr><td>Den. Loco</td><td>0.598 ind/m²</td></tr><tr><td>Stock Loco</td><td>74.641 ind / 18.399 kg</td></tr><tr><td>CTP Loco 2026</td><td>33.775 ud / 8.410 kg</td></tr></table>
+    <div class="sec">Evaluación económica</div><table><tr><td>Ingresos</td><td>$118.258.200</td></tr><tr><td>Costos</td><td>$11.500.000</td></tr><tr><td>B/C</td><td style="color:#059669;font-weight:700">10.2</td></tr></table>
+    <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:24px">Generado por BITECMA Sistema AMERB · 20-03-2026</p>
+    </body></html>`;
+  }
+  if(win&&html)win.document.write(html);
+}
+</script>
+</body>
+</html>

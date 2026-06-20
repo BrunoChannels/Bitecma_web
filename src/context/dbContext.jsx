@@ -324,6 +324,34 @@ export function ProveedorBaseDatos({ children }) {
     [normalizarSubmareal],
   )
 
+  const limpiarOperacionParaApi = useCallback(
+    (op) => {
+      const raw = op && typeof op === 'object' ? op : {}
+      const copia =
+        typeof structuredClone === 'function' ? structuredClone(raw) : JSON.parse(JSON.stringify(raw || {}))
+      delete copia.estadoSincronizacion
+      delete copia.errorSincronizacion
+      delete copia.ultimaSincronizacion
+      delete copia.ultimaModificacionLocal
+      delete copia.idRemoto
+      delete copia.idLocalAnterior
+      const regionNum = copia?.region == null || copia?.region === '' ? null : Number(copia.region)
+      if (regionNum == null || !Number.isFinite(regionNum)) delete copia.region
+      else copia.region = regionNum
+      const caletaIdNum = copia?.caletaId == null || copia?.caletaId === '' ? null : Number(copia.caletaId)
+      if (caletaIdNum == null || !Number.isFinite(caletaIdNum) || caletaIdNum <= 0) delete copia.caletaId
+      else copia.caletaId = Math.trunc(caletaIdNum)
+      const sectorAmerbIdNum = copia?.sectorAmerbId == null || copia?.sectorAmerbId === '' ? null : Number(copia.sectorAmerbId)
+      if (sectorAmerbIdNum == null || !Number.isFinite(sectorAmerbIdNum) || sectorAmerbIdNum <= 0) delete copia.sectorAmerbId
+      else copia.sectorAmerbId = Math.trunc(sectorAmerbIdNum)
+      const opaIdNum = copia?.opaId == null || copia?.opaId === '' ? null : Number(copia.opaId)
+      if (opaIdNum == null || !Number.isFinite(opaIdNum) || opaIdNum <= 0) delete copia.opaId
+      else copia.opaId = Math.trunc(opaIdNum)
+      return serializarOperacion(copia || {})
+    },
+    [serializarOperacion],
+  )
+
   const asegurarOperacionesCargadas = useCallback(async () => {
     if (cargaOperacionesRef.current.done) return
     if (cargaOperacionesRef.current.promise) return cargaOperacionesRef.current.promise
@@ -414,7 +442,8 @@ export function ProveedorBaseDatos({ children }) {
       const isCreate = m === 'create'
       const method = isCreate ? 'POST' : 'PUT'
       const path = isCreate ? '/operaciones' : `/operaciones/${opId}`
-      const json = await solicitarApi(path, { method, body: JSON.stringify(serializarOperacion(op || {})) })
+      const payload = limpiarOperacionParaApi(op)
+      const json = await solicitarApi(path, { method, body: JSON.stringify(payload) })
       const saved = json?.data ? normalizarOperacion(json.data) : null
       if (saved) {
         establecerBaseDatos((prev) => {
@@ -426,7 +455,7 @@ export function ProveedorBaseDatos({ children }) {
       }
       return saved
     },
-    [apiHabilitada, solicitarApi, normalizarOperacion, serializarOperacion],
+    [apiHabilitada, limpiarOperacionParaApi, solicitarApi, normalizarOperacion],
   )
 
   const eliminarOperacionApi = useCallback(
@@ -459,14 +488,15 @@ export function ProveedorBaseDatos({ children }) {
           const existing = timers.get(id)
           if (existing) clearTimeout(existing)
           const t = setTimeout(() => {
-            solicitarApi(`/operaciones/${id}`, { method: 'PUT', body: JSON.stringify(serializarOperacion(next || {})) }).catch(() => null)
+            const payload = limpiarOperacionParaApi(next)
+            solicitarApi(`/operaciones/${id}`, { method: 'PUT', body: JSON.stringify(payload) }).catch(() => null)
           }, 1200)
           timers.set(id, t)
         }
       }
       return { ...prev, operaciones: ops.map((x, i) => (i === idx ? next : x)) }
     })
-  }, [apiHabilitada, solicitarApi, serializarOperacion])
+  }, [apiHabilitada, limpiarOperacionParaApi, solicitarApi])
 
   const insertarOActualizarBoteMaestro = useCallback(
     async (bote) => {

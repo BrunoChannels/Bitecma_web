@@ -1,0 +1,271 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font-sans);}
+.shell{display:flex;min-height:100vh;background:var(--color-background-tertiary);}
+.sidebar{width:200px;min-width:200px;background:var(--color-background-primary);border-right:0.5px solid var(--color-border-tertiary);padding:1.25rem 0;display:flex;flex-direction:column;gap:4px;}
+.logo{padding:0 1rem 1rem;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:0.5rem;}
+.logo-name{font-size:15px;font-weight:500;color:var(--color-text-primary);}
+.logo-sub{font-size:11px;color:var(--color-text-tertiary);}
+.nav-item{display:flex;align-items:center;gap:10px;padding:7px 1rem;font-size:13px;color:var(--color-text-secondary);cursor:pointer;border-radius:0;}
+.nav-item.active{background:var(--color-background-secondary);color:var(--color-text-primary);font-weight:500;border-left:2px solid #1D9E75;}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;}
+.nav-section{font-size:10px;color:var(--color-text-tertiary);padding:0.75rem 1rem 0.25rem;letter-spacing:0.05em;text-transform:uppercase;}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.topbar{background:var(--color-background-primary);border-bottom:0.5px solid var(--color-border-tertiary);padding:0.75rem 1.5rem;display:flex;align-items:center;justify-content:space-between;}
+.topbar-title{font-size:15px;font-weight:500;color:var(--color-text-primary);}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.badge-role{font-size:11px;padding:3px 10px;border-radius:20px;background:#E1F5EE;color:#085041;font-weight:500;}
+.avatar{width:30px;height:30px;border-radius:50%;background:#E1F5EE;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:#085041;}
+.content{padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:1rem;}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+.mcard{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:0.875rem 1rem;}
+.mcard-label{font-size:11px;color:var(--color-text-tertiary);margin-bottom:6px;}
+.mcard-val{font-size:22px;font-weight:500;color:var(--color-text-primary);line-height:1;}
+.mcard-sub{font-size:11px;color:var(--color-text-tertiary);margin-top:4px;}
+.mcard-pos{color:#1D9E75;}
+.row2{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:10px;}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.875rem;}
+.card-title{font-size:13px;font-weight:500;color:var(--color-text-primary);}
+.filter-row{display:flex;gap:8px;align-items:center;}
+select{font-size:12px;padding:4px 8px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer;}
+.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.tbl th{text-align:left;font-weight:500;font-size:11px;color:var(--color-text-tertiary);border-bottom:0.5px solid var(--color-border-tertiary);padding:6px 8px;}
+.tbl td{padding:7px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary);}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:var(--color-background-secondary);}
+.status{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:500;}
+.st-ok{background:#E1F5EE;color:#085041;}
+.st-pend{background:#FAEEDA;color:#633806;}
+.st-rev{background:#E6F1FB;color:#0C447C;}
+.especie{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;background:var(--color-background-secondary);color:var(--color-text-secondary);}
+.leg{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:8px;font-size:11px;color:var(--color-text-secondary);}
+.leg span{display:flex;align-items:center;gap:4px;}
+.leg-dot{width:9px;height:9px;border-radius:2px;}
+.recent{display:flex;flex-direction:column;gap:0;}
+.r-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary);}
+.r-item:last-child{border-bottom:none;}
+.r-dot{width:7px;height:7px;border-radius:50%;background:#1D9E75;margin-top:4px;flex-shrink:0;}
+.r-main{font-size:12px;color:var(--color-text-primary);font-weight:500;}
+.r-sub{font-size:11px;color:var(--color-text-tertiary);margin-top:1px;}
+.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px;}
+.stat-row:last-child{border-bottom:none;}
+.stat-label{color:var(--color-text-secondary);}
+.stat-val{font-weight:500;color:var(--color-text-primary);}
+.bar-wrap{height:6px;background:var(--color-background-secondary);border-radius:4px;margin-top:3px;overflow:hidden;}
+.bar-fill{height:6px;background:#1D9E75;border-radius:4px;}
+.btn-sm{font-size:11px;padding:4px 10px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-primary);cursor:pointer;}
+</style>
+
+<div class="shell">
+  <div class="sidebar">
+    <div class="logo">
+      <div class="logo-name">BITECMA</div>
+      <div class="logo-sub">Sistema de monitoreo bentónico</div>
+    </div>
+    <div class="nav-section">Principal</div>
+    <div class="nav-item active">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h8"/></svg>
+      Registros EVADIR
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h8"/></svg>
+      Peso / Longitud
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="1"/><path d="M5 5h6M5 8h6M5 11h4"/></svg>
+      Historial
+    </div>
+    <div class="nav-section">Gestión</div>
+    <div class="nav-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 13v-1.5A2.5 2.5 0 0010.5 9h-5A2.5 2.5 0 003 11.5V13"/><circle cx="8" cy="5" r="2.5"/></svg>
+      Usuarios
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12V4l6-2 6 2v8l-6 2-6-2z"/></svg>
+      Informes SUBPESCA
+    </div>
+    <div class="nav-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v2M8 11v2M3 8h2M11 8h2"/><circle cx="8" cy="8" r="3"/></svg>
+      Configuración
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title">Dashboard — Operativos EVADIR</div>
+      <div class="topbar-right">
+        <select id="anio-sel" onchange="updateAll()">
+          <option value="2024">2024</option>
+          <option value="2023">2023</option>
+          <option value="2022">2022</option>
+        </select>
+        <span class="badge-role">Administrador</span>
+        <div class="avatar">JR</div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <div class="metrics">
+        <div class="mcard">
+          <div class="mcard-label">Operativos EVADIR</div>
+          <div class="mcard-val" id="m-evadir">18</div>
+          <div class="mcard-sub mcard-pos">+4 vs año anterior</div>
+        </div>
+        <div class="mcard">
+          <div class="mcard-label">Muestras P/L registradas</div>
+          <div class="mcard-val" id="m-muestras">3.240</div>
+          <div class="mcard-sub mcard-pos">+12% vs año anterior</div>
+        </div>
+        <div class="mcard">
+          <div class="mcard-label">Densidad prom. (ind/m²)</div>
+          <div class="mcard-val" id="m-dens">6,4</div>
+          <div class="mcard-sub" style="color:var(--color-text-danger)">-0,8 vs año anterior</div>
+        </div>
+        <div class="mcard">
+          <div class="mcard-label">Informes enviados SUBPESCA</div>
+          <div class="mcard-val" id="m-inf">11</div>
+          <div class="mcard-sub">7 en revisión</div>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Operativos EVADIR registrados</span>
+            <div class="filter-row">
+              <select id="esp-sel" onchange="filterTable()">
+                <option value="todas">Todas las especies</option>
+                <option value="Loco">Loco</option>
+                <option value="Erizo">Erizo</option>
+                <option value="Almeja">Almeja</option>
+              </select>
+              <button class="btn-sm" onclick="sendPrompt('Muéstrame todos los registros EVADIR con sus detalles completos')">Ver todos ↗</button>
+            </div>
+          </div>
+          <table class="tbl" id="tabla-evadir">
+            <thead>
+              <tr>
+                <th>Código</th><th>Fecha</th><th>Zona / Sector</th><th>Especie</th><th>Densidad (ind/m²)</th><th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">Últimos cambios</span></div>
+          <div class="recent">
+            <div class="r-item"><div class="r-dot"></div><div><div class="r-main">EVADIR-2024-018 creado</div><div class="r-sub">Punta Arenas · hoy 09:42 · J. Ramírez</div></div></div>
+            <div class="r-item"><div class="r-dot" style="background:#378ADD"></div><div><div class="r-main">Informe 2024-017 enviado a SUBPESCA</div><div class="r-sub">Coronel · ayer 14:10 · M. Soto</div></div></div>
+            <div class="r-item"><div class="r-dot" style="background:#EF9F27"></div><div><div class="r-main">Excel cargado · 142 muestras P/L</div><div class="r-sub">Chiloé Norte · 12 jun · F. Alvarado</div></div></div>
+            <div class="r-item"><div class="r-dot" style="background:#E24B4A"></div><div><div class="r-main">Registro EVADIR-2024-015 editado</div><div class="r-sub">Concepción · 10 jun · J. Ramírez</div></div></div>
+            <div class="r-item"><div class="r-dot"></div><div><div class="r-main">Nuevo usuario creado: F. Alvarado</div><div class="r-sub">Rol: Editor · 08 jun · Administrador</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Densidad poblacional por operativo (ind/m²)</span></div>
+          <div class="leg">
+            <span><span class="leg-dot" style="background:#1D9E75"></span>Loco</span>
+            <span><span class="leg-dot" style="background:#378ADD"></span>Erizo</span>
+            <span><span class="leg-dot" style="background:#EF9F27"></span>Almeja</span>
+          </div>
+          <div style="position:relative;width:100%;height:200px;">
+            <canvas id="chartBar"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">Estadísticas por especie</span></div>
+          <div class="stat-row"><span class="stat-label">Loco (Concholepas)</span><span class="stat-val">8 ops</span></div>
+          <div class="bar-wrap"><div class="bar-fill" style="width:72%"></div></div>
+          <div style="height:8px"></div>
+          <div class="stat-row"><span class="stat-label">Erizo (Loxechinus)</span><span class="stat-val">6 ops</span></div>
+          <div class="bar-wrap"><div class="bar-fill" style="width:55%;background:#378ADD"></div></div>
+          <div style="height:8px"></div>
+          <div class="stat-row"><span class="stat-label">Almeja (Mulinia)</span><span class="stat-val">4 ops</span></div>
+          <div class="bar-wrap"><div class="bar-fill" style="width:36%;background:#EF9F27"></div></div>
+          <div style="height:14px"></div>
+          <div class="card-header" style="margin-top:0.5rem;border-top:0.5px solid var(--color-border-tertiary);padding-top:0.75rem;margin-bottom:0.5rem;"><span class="card-title">Distribución por estado</span></div>
+          <div class="stat-row"><span class="stat-label">Enviado a SUBPESCA</span><span class="stat-val st-ok" style="background:#E1F5EE;color:#085041;font-size:11px;padding:2px 8px;border-radius:20px;">11</span></div>
+          <div class="stat-row"><span class="stat-label">En revisión</span><span class="stat-val st-rev" style="background:#E6F1FB;color:#0C447C;font-size:11px;padding:2px 8px;border-radius:20px;">4</span></div>
+          <div class="stat-row"><span class="stat-label">Borrador</span><span class="stat-val st-pend" style="background:#FAEEDA;color:#633806;font-size:11px;padding:2px 8px;border-radius:20px;">3</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const datos = [
+  {cod:'2024-018',fecha:'14 jun 2024',zona:'Punta Arenas',especie:'Erizo',dens:5.1,estado:'Borrador'},
+  {cod:'2024-017',fecha:'10 jun 2024',zona:'Coronel',especie:'Loco',dens:7.8,estado:'Enviado'},
+  {cod:'2024-016',fecha:'02 jun 2024',zona:'Chiloé Norte',especie:'Almeja',dens:4.3,estado:'Enviado'},
+  {cod:'2024-015',fecha:'28 may 2024',zona:'Concepción',especie:'Loco',dens:8.2,estado:'En revisión'},
+  {cod:'2024-014',fecha:'20 may 2024',zona:'Valdivia',especie:'Erizo',dens:6.6,estado:'Enviado'},
+  {cod:'2024-013',fecha:'12 may 2024',zona:'Chiloé Sur',especie:'Loco',dens:9.1,estado:'Enviado'},
+  {cod:'2024-012',fecha:'05 may 2024',zona:'Iquique',especie:'Almeja',dens:3.8,estado:'Borrador'},
+];
+
+function estadoBadge(e){
+  if(e==='Enviado') return '<span class="status st-ok">Enviado</span>';
+  if(e==='En revisión') return '<span class="status st-rev">En revisión</span>';
+  return '<span class="status st-pend">Borrador</span>';
+}
+
+function filterTable(){
+  const esp = document.getElementById('esp-sel').value;
+  const rows = datos.filter(d => esp==='todas' || d.especie===esp);
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = rows.map(d=>`<tr>
+    <td style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary)">EV-${d.cod}</td>
+    <td>${d.fecha}</td>
+    <td>${d.zona}</td>
+    <td><span class="especie">${d.especie}</span></td>
+    <td style="font-weight:500">${d.dens.toFixed(1)}</td>
+    <td>${estadoBadge(d.estado)}</td>
+  </tr>`).join('');
+}
+
+filterTable();
+
+const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+const lblColor = isDark ? '#9c9a92' : '#73726c';
+
+const chartBar = new Chart(document.getElementById('chartBar'),{
+  type:'bar',
+  data:{
+    labels:['Mar','Abr','May','Jun','Jul','Ago','Sep','Oct'],
+    datasets:[
+      {label:'Loco', data:[8.1,7.4,9.1,8.2,7.8,6.9,7.2,7.5], backgroundColor:'#1D9E75', borderRadius:3},
+      {label:'Erizo', data:[5.8,6.1,5.9,6.6,5.1,6.3,5.7,6.0], backgroundColor:'#378ADD', borderRadius:3},
+      {label:'Almeja', data:[3.5,4.1,3.8,4.3,3.6,4.0,3.9,4.2], backgroundColor:'#EF9F27', borderRadius:3},
+    ]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{ticks:{color:lblColor,font:{size:11}}, grid:{display:false}},
+      y:{ticks:{color:lblColor,font:{size:11}}, grid:{color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'},
+        title:{display:true,text:'ind/m²',color:lblColor,font:{size:10}}}
+    }
+  }
+});
+
+function updateAll(){
+  filterTable();
+}
+</script>

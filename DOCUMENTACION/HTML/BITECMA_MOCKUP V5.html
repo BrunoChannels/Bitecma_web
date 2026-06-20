@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BITECMA — Sistema AMERB v4</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f6f9;--bg2:#eef1f6;--white:#fff;--border:#e0e5ef;--border2:#cdd4e3;
+  --navy:#1a3a5c;--navy2:#0f2540;--teal:#0a8f7e;--teal-lt:#d0f0ec;--teal-md:#5ec4b8;
+  --amber:#d97706;--amber-lt:#fef3c7;--green:#059669;--green-lt:#d1fae5;
+  --red:#dc2626;--red-lt:#fee2e2;--blue:#1d6fa4;--blue-lt:#dbeafe;
+  --purple:#7c3aed;--purple-lt:#ede9fe;
+  --slate:#64748b;--slate-lt:#f1f5f9;--text:#1e293b;--text2:#475569;--text3:#94a3b8;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.05);
+  --shadow-md:0 4px 12px rgba(0,0,0,.12),0 8px 32px rgba(0,0,0,.06);
+  --ff-d:'Fraunces',serif;--ff-b:'DM Sans',sans-serif;--ff-m:'DM Mono',monospace;
+  --r:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--ff-b);background:var(--bg);color:var(--text);overflow:hidden;font-size:14px;}
+.screen{display:none;width:100vw;height:100vh;position:absolute;top:0;left:0;}
+.screen.active{display:flex;}
+@keyframes card-in{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+@keyframes fade-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* ── LOGIN ── */
+#scr-login{align-items:center;justify-content:center;background:linear-gradient(135deg,#e8f4f8,#f0f7f4 50%,#e8eef8);}
+.lcard{background:var(--white);border-radius:20px;padding:46px 42px;width:430px;box-shadow:0 20px 60px rgba(10,143,126,.12);border:1px solid rgba(10,143,126,.15);animation:card-in .5s cubic-bezier(.22,1,.36,1) both;}
+.lc-logo{display:flex;align-items:center;gap:12px;margin-bottom:30px;}
+.lc-icon{width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,var(--teal),var(--navy));display:flex;align-items:center;justify-content:center;font-size:21px;color:#fff;}
+.lc-brand h1{font-family:var(--ff-d);font-size:21px;font-weight:900;color:var(--navy);}
+.lc-brand span{font-family:var(--ff-m);font-size:10px;color:var(--teal);letter-spacing:2px;text-transform:uppercase;}
+.lc-title{font-family:var(--ff-d);font-size:25px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+.lc-sub{color:var(--text2);font-size:13px;margin-bottom:26px;}
+.lf-g{margin-bottom:15px;}
+.lf-lbl{font-family:var(--ff-m);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--teal);display:block;margin-bottom:6px;}
+.lf-inp{width:100%;padding:10px 13px;border-radius:9px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;font-family:var(--ff-b);outline:none;transition:border-color .2s,box-shadow .2s;}
+.lf-inp:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(10,143,126,.12);}
+.lf-inp::placeholder{color:var(--text3);}
+.role-row{display:flex;gap:6px;margin-bottom:20px;}
+.role-opt{flex:1;padding:7px 4px;text-align:center;border-radius:7px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:11px;font-family:var(--ff-m);cursor:pointer;transition:all .15s;}
+.role-opt.sel{background:var(--teal-lt);border-color:var(--teal);color:var(--teal);font-weight:600;}
+.btn-login{width:100%;padding:12px;border-radius:10px;background:linear-gradient(135deg,var(--teal),#076e60);border:none;color:#fff;font-family:var(--ff-d);font-weight:700;font-size:15px;cursor:pointer;transition:all .2s;box-shadow:0 4px 14px rgba(10,143,126,.3);}
+.btn-login:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(10,143,126,.4);}
+.lc-foot{text-align:center;margin-top:16px;font-size:12px;color:var(--text3);}
+.lc-foot a{color:var(--teal);cursor:pointer;}
+
+/* ── APP ── */
+#scr-app{flex-direction:column;}
+.topbar{height:55px;min-height:55px;background:var(--white);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:13px;z-index:200;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.tb-logo{display:flex;align-items:center;gap:9px;cursor:pointer;}
+.tb-logo-icon{width:31px;height:31px;border-radius:8px;background:linear-gradient(135deg,var(--teal),var(--navy));display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;}
+.tb-logo-text{font-family:var(--ff-d);font-weight:900;font-size:16px;color:var(--navy);}
+.tb-logo-text span{color:var(--teal);}
+.tb-sep{width:1px;height:26px;background:var(--border);flex-shrink:0;}
+.tb-bc{display:flex;align-items:center;gap:5px;font-family:var(--ff-m);font-size:11px;color:var(--text3);}
+.tb-bc .cur{color:var(--teal);font-weight:500;}
+.tb-spacer{flex:1;}
+.tb-search{display:flex;align-items:center;gap:7px;padding:6px 13px;background:var(--bg);border:1.5px solid var(--border);border-radius:20px;width:210px;}
+.tb-search input{background:none;border:none;outline:none;color:var(--text);font-size:12px;width:100%;font-family:var(--ff-b);}
+.tb-search input::placeholder{color:var(--text3);}
+.tb-actions{display:flex;align-items:center;gap:6px;}
+.tb-btn{width:33px;height:33px;border-radius:8px;border:1.5px solid var(--border);background:var(--white);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .15s;position:relative;}
+.tb-btn:hover{background:var(--teal-lt);border-color:var(--teal);color:var(--teal);}
+.tb-badge{position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;background:var(--red);font-size:8px;color:#fff;display:flex;align-items:center;justify-content:center;border:2px solid var(--white);}
+.user-chip{display:flex;align-items:center;gap:7px;padding:3px 11px 3px 3px;border-radius:20px;border:1.5px solid var(--border);cursor:pointer;background:var(--white);}
+.user-av{width:27px;height:27px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--navy));display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;}
+.user-name{font-size:12px;font-weight:600;color:var(--navy);}
+.user-role{font-family:var(--ff-m);font-size:9px;color:var(--teal);}
+.app-body{display:flex;flex:1;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+.sidebar{width:215px;min-width:215px;background:var(--white);border-right:1px solid var(--border);padding:13px 9px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;flex-shrink:0;}
+.sb-sec{font-family:var(--ff-m);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);padding:9px 8px 4px;}
+.nav{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;cursor:pointer;transition:all .15s;color:var(--text2);font-size:13px;white-space:nowrap;border:1.5px solid transparent;}
+.nav:hover{background:var(--slate-lt);color:var(--text);}
+.nav.on{background:var(--teal-lt);color:var(--teal);border-color:rgba(10,143,126,.2);font-weight:600;}
+.nav-icon{font-size:15px;width:19px;text-align:center;flex-shrink:0;}
+.nav-badge{margin-left:auto;background:var(--teal);color:#fff;font-size:9px;padding:1px 6px;border-radius:9px;font-family:var(--ff-m);}
+.sb-foot{margin-top:auto;padding-top:11px;border-top:1px solid var(--border);}
+
+/* ── MAIN ── */
+.main{flex:1;overflow-y:auto;padding:20px 22px;background:var(--bg);}
+.page{display:none;animation:fade-in .3s ease both;}
+.page.active{display:block;}
+
+/* ── GENERIC ── */
+.ph{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;}
+.ph h2{font-family:var(--ff-d);font-size:21px;font-weight:700;color:var(--navy);}
+.ph p{font-size:12px;color:var(--text2);margin-top:3px;}
+.ph-a{display:flex;gap:7px;align-items:center;}
+.btn{padding:7px 15px;border-radius:8px;font-size:12px;font-family:var(--ff-b);cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s;font-weight:500;border:none;white-space:nowrap;}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important;}
+.b-teal{background:var(--teal);color:#fff;box-shadow:0 2px 8px rgba(10,143,126,.2);}
+.b-teal:hover:not(:disabled){background:#087a6b;transform:translateY(-1px);}
+.b-out{background:var(--white);color:var(--text2);border:1.5px solid var(--border);}
+.b-out:hover:not(:disabled){border-color:var(--teal-md);color:var(--teal);background:var(--teal-lt);}
+.b-red{background:var(--red);color:#fff;}
+.b-green{background:var(--green);color:#fff;}
+.b-amber{background:var(--amber);color:#fff;}
+.b-navy{background:var(--navy);color:#fff;}
+.b-purple{background:var(--purple);color:#fff;}
+.b-sm{padding:4px 10px;font-size:11px;border-radius:7px;}
+.b-xs{padding:3px 7px;font-size:10px;border-radius:6px;}
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:16px;box-shadow:var(--shadow);}
+.ct{font-family:var(--ff-m);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+.mb{margin-bottom:14px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.pill{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:18px;font-size:10px;font-family:var(--ff-m);}
+.p-teal{background:var(--teal-lt);color:var(--teal);}
+.p-amb{background:var(--amber-lt);color:var(--amber);}
+.p-grn{background:var(--green-lt);color:var(--green);}
+.p-red{background:var(--red-lt);color:var(--red);}
+.p-blu{background:var(--blue-lt);color:var(--blue);}
+.p-pur{background:var(--purple-lt);color:var(--purple);}
+.p-slt{background:var(--slate-lt);color:var(--slate);}
+.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.tbl th{text-align:left;padding:8px 11px;font-family:var(--ff-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);border-bottom:1.5px solid var(--border);background:var(--bg);white-space:nowrap;}
+.tbl td{padding:8px 11px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle;}
+.tbl tbody tr:hover td{background:rgba(10,143,126,.04);}
+.tbl tbody tr:last-child td{border-bottom:none;}
+.flt{padding:7px 11px;border-radius:8px;border:1.5px solid var(--border);background:var(--white);color:var(--text);font-size:12px;font-family:var(--ff-b);outline:none;cursor:pointer;transition:border-color .2s;}
+.flt:focus{border-color:var(--teal);}
+.filters{display:flex;gap:9px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+.sc{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden;transition:all .2s;cursor:pointer;}
+.sc:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+.sc::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--r) var(--r) 0 0;}
+.sc-tl::after{background:var(--teal);}
+.sc-am::after{background:var(--amber);}
+.sc-gr::after{background:var(--green);}
+.sc-re::after{background:var(--red);}
+.sc-bl::after{background:var(--blue);}
+.sc-pu::after{background:var(--purple);}
+.sc-lbl{font-family:var(--ff-m);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+.sc-val{font-family:var(--ff-d);font-size:27px;font-weight:900;line-height:1;color:var(--navy);}
+.sc-sub{font-size:11px;color:var(--text3);margin-top:4px;}
+.ig{margin-bottom:10px;}
+.il{font-family:var(--ff-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--teal);display:block;margin-bottom:5px;}
+.ii,.is,.ita{width:100%;padding:8px 11px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;font-family:var(--ff-b);outline:none;transition:border-color .2s;}
+.ii:focus,.is:focus,.ita:focus{border-color:var(--teal);background:var(--white);}
+.ita{height:64px;resize:none;}
+.i2{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.i3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;}
+.isec{font-family:var(--ff-d);font-size:13px;font-weight:700;color:var(--teal);border-bottom:1px solid var(--border);padding-bottom:5px;margin-bottom:10px;margin-top:4px;}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:22px;right:22px;background:var(--navy);color:#fff;padding:11px 16px;border-radius:11px;font-size:13px;z-index:9999;box-shadow:var(--shadow-md);display:none;align-items:center;gap:9px;}
+.toast.show{display:flex;animation:fade-in .3s ease both;}
+
+/* ── MODAL ── */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.28);z-index:999;display:none;align-items:center;justify-content:center;}
+.mo.open{display:flex;}
+.mb-box{background:var(--white);border-radius:16px;padding:26px;width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.18);animation:card-in .3s ease both;}
+.mb-box.wide{width:920px;}
+.mb-box.slim{width:480px;}
+.mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.mh h3{font-family:var(--ff-d);font-size:17px;font-weight:700;color:var(--navy);}
+.mc{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.mc:hover{background:var(--red-lt);border-color:var(--red);color:var(--red);}
+
+/* ── BOTE CARD ── */
+.bote-card{border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:10px;background:var(--white);}
+.bote-hd{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;background:var(--bg);border-bottom:1px solid var(--border);transition:background .15s;}
+.bote-hd:hover{background:var(--slate-lt);}
+.bote-hd.open-hd{background:var(--navy);color:#fff;}
+.bote-hd.open-hd .bote-meta{color:rgba(255,255,255,.6);}
+.bote-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--teal),var(--navy));display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;flex-shrink:0;}
+.bote-icon.open-ic{background:linear-gradient(135deg,var(--teal-md),var(--teal));}
+.bote-name{font-weight:700;font-size:13px;}
+.bote-meta{font-size:11px;color:var(--text3);font-family:var(--ff-m);}
+.bote-body{padding:14px;display:none;}
+.bote-body.open{display:block;}
+
+/* ── SECTION TABS INSIDE BOTE ── */
+.btabs{display:flex;gap:0;margin-bottom:14px;border-radius:8px;overflow:hidden;border:1.5px solid var(--border);}
+.btab{flex:1;padding:8px;text-align:center;font-size:12px;font-family:var(--ff-m);cursor:pointer;background:var(--bg);color:var(--text3);border-right:1px solid var(--border);transition:all .15s;}
+.btab:last-child{border-right:none;}
+.btab.on{background:var(--teal);color:#fff;font-weight:600;}
+.btab:hover:not(.on){background:var(--teal-lt);color:var(--teal);}
+
+/* ── TRANSECTO CARD ── */
+.tx-card{border:1px solid var(--border);border-radius:9px;margin-bottom:7px;overflow:hidden;background:var(--white);}
+.tx-hd{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;cursor:pointer;transition:background .15s;}
+.tx-hd:hover{background:var(--slate-lt);}
+.tx-body{padding:13px;border-top:1px solid var(--border);display:none;}
+.tx-body.open{display:block;}
+
+/* ── ESPECIE ROW IN TRANSECTO ── */
+.sp-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);margin-bottom:5px;background:var(--bg);transition:all .15s;}
+.sp-row:hover{border-color:var(--teal-md);background:var(--teal-lt);}
+.sp-row-name{flex:1;font-size:12px;}
+.sp-row-sci{font-size:10px;color:var(--text3);font-style:italic;}
+.sp-row-count{font-family:var(--ff-m);font-size:13px;font-weight:700;color:var(--navy);min-width:44px;text-align:right;}
+
+/* ── LP MUESTRA INPUT ── */
+.lp-input-row{display:flex;gap:8px;align-items:flex-end;padding:11px;background:var(--teal-lt);border-radius:9px;border:1.5px solid rgba(10,143,126,.25);margin-bottom:10px;}
+.lp-input-row .ig{margin-bottom:0;flex:1;}
+.lp-counter{font-family:var(--ff-m);font-size:11px;color:var(--teal);font-weight:600;}
+.lp-tbl th{padding:6px 9px;font-family:var(--ff-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg);}
+.lp-tbl td{padding:6px 9px;border-bottom:1px solid var(--border);font-size:11px;}
+
+/* ── SPECIES SELECTOR GRID ── */
+.sp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;max-height:300px;overflow-y:auto;}
+.sp-chip{padding:7px 9px;border-radius:8px;border:1.5px solid var(--border);background:var(--white);cursor:pointer;transition:all .15s;}
+.sp-chip:hover{border-color:var(--teal-md);background:var(--teal-lt);}
+.sp-chip.sel{border-color:var(--teal);background:var(--teal-lt);color:var(--teal);}
+.sp-chip-name{font-weight:700;font-size:12px;color:var(--navy);}
+.sp-chip-sci{font-size:9px;color:var(--text3);font-style:italic;}
+.sp-chip.sel .sp-chip-name{color:var(--teal);}
+
+/* ── EVADIR TABLES ── */
+.ev-tbl{width:100%;border-collapse:collapse;font-size:11px;display:block;overflow-x:auto;}
+.ev-tbl th{padding:7px 9px;background:var(--navy);color:#fff;font-family:var(--ff-m);font-size:9px;letter-spacing:.5px;white-space:nowrap;}
+.ev-tbl td{padding:7px 9px;border-bottom:1px solid var(--border);white-space:nowrap;}
+.ev-tbl tr:nth-child(even) td{background:var(--bg);}
+
+/* ── INFO BOX ── */
+.info-box{padding:11px 13px;border-radius:9px;font-size:12px;margin-bottom:13px;display:flex;gap:9px;align-items:flex-start;}
+.info-box.teal{background:var(--teal-lt);border:1px solid rgba(10,143,126,.3);color:var(--teal);}
+.info-box.blue{background:var(--blue-lt);border:1px solid rgba(29,111,164,.3);color:var(--blue);}
+.info-box.amber{background:var(--amber-lt);border:1px solid rgba(217,119,6,.3);color:var(--amber);}
+.info-box.purple{background:var(--purple-lt);border:1px solid rgba(124,58,237,.3);color:var(--purple);}
+
+/* ── OP CARD ── */
+.op-card{background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);padding:14px;cursor:pointer;transition:all .2s;margin-bottom:9px;}
+.op-card:hover{border-color:var(--teal-md);box-shadow:var(--shadow);}
+.op-card.sel{border-color:var(--teal);background:var(--teal-lt);box-shadow:0 0 0 3px rgba(10,143,126,.1);}
+
+/* PROGRESS BAR */
+.pbar{height:5px;border-radius:3px;background:var(--bg2);overflow:hidden;margin-top:4px;}
+.pfill{height:100%;border-radius:3px;transition:width .5s cubic-bezier(.22,1,.36,1);}
+
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"><span id="tmsg">✅ OK</span></div>
+<div class="mo" id="mo" onclick="closeMoOut(event)">
+  <div class="mb-box" id="mb">
+    <div class="mh"><h3 id="mtitle">—</h3><button class="mc" onclick="closeMo()">✕</button></div>
+    <div id="mbody"></div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="scr-login" class="screen active">
+  <div class="lcard">
+    <div class="lc-logo"><div class="lc-icon">🐚</div><div class="lc-brand"><h1>BITECMA</h1><span>Sistema AMERB · v4.0</span></div></div>
+    <div class="lc-title">Iniciar sesión</div>
+    <div class="lc-sub">Sistema de gestión de operaciones bentónicas y generación de EVADIR.</div>
+    <div class="lf-g"><label class="lf-lbl">Correo electrónico</label><input class="lf-inp" value="arosson@bitecma.cl"></div>
+    <div class="lf-g"><label class="lf-lbl">Contraseña</label><input class="lf-inp" type="password" value="••••••••"></div>
+    <div class="lf-g"><label class="lf-lbl">Rol</label>
+      <div class="role-row">
+        <button class="role-opt sel" onclick="selRole(this)">Admin</button>
+        <button class="role-opt" onclick="selRole(this)">Biólogo</button>
+        <button class="role-opt" onclick="selRole(this)">Técnico</button>
+        <button class="role-opt" onclick="selRole(this)">Analista</button>
+      </div>
+    </div>
+    <button class="btn-login" onclick="enterApp()">Ingresar →</button>
+    <div class="lc-foot"><a onclick="toast('📧 Correo enviado')">¿Olvidaste tu contraseña?</a> · Bitecma Ltda. © 2026</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="scr-app" class="screen">
+  <div class="topbar">
+    <div class="tb-logo" onclick="goPage('dashboard')"><div class="tb-logo-icon">🐚</div><div class="tb-logo-text">BIT<span>ECMA</span></div></div>
+    <div class="tb-sep"></div>
+    <div class="tb-bc" id="topbc"><span>Inicio</span><span>/</span><span class="cur">Dashboard</span></div>
+    <div class="tb-spacer"></div>
+    <div class="tb-search"><span style="color:var(--text3);font-size:12px">🔍</span><input placeholder="Buscar operación, sector, especie..."></div>
+    <div class="tb-actions">
+      <button class="tb-btn" onclick="openNotif()">🔔<span class="tb-badge">2</span></button>
+      <button class="tb-btn" onclick="toast('⚙️ Configuración')">⚙️</button>
+      <div class="user-chip"><div class="user-av">AR</div><div><div class="user-name">A. Rosson</div><div class="user-role">Admin</div></div></div>
+    </div>
+  </div>
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="sb-sec">Principal</div>
+      <div class="nav on" id="nav-dashboard" onclick="goPage('dashboard')"><span class="nav-icon">📊</span>Dashboard</div>
+      <div class="sb-sec">Trabajo de Campo</div>
+      <div class="nav" id="nav-ops" onclick="goPage('ops')"><span class="nav-icon">🗂️</span>Operaciones</div>
+      <div class="nav" id="nav-evadir" onclick="goPage('evadir')"><span class="nav-icon">🤿</span>Generar EVADIR</div>
+      <div class="sb-sec">Análisis</div>
+      <div class="nav" id="nav-historico" onclick="goPage('historico')"><span class="nav-icon">📁</span>Registro Histórico</div>
+      <div class="nav" id="nav-informe" onclick="goPage('informe')"><span class="nav-icon">📄</span>Generar Informe</div>
+      <div class="sb-sec">Maestros</div>
+      <div class="nav" id="nav-especies" onclick="goPage('especies')"><span class="nav-icon">🐠</span>Especies</div>
+      <div class="nav" id="nav-sectores" onclick="goPage('sectores')"><span class="nav-icon">🗺️</span>Sectores</div>
+      <div class="nav" id="nav-orgs" onclick="goPage('orgs')"><span class="nav-icon">🏢</span>Organizaciones</div>
+      <div class="sb-foot">
+        <div class="nav" style="color:var(--red)" onclick="logout()"><span class="nav-icon">🚪</span>Cerrar sesión</div>
+      </div>
+    </div>
+
+    <div class="main">
+
+<!-- ═══════════ DASHBOARD ═══════════ -->
+<div class="page active" id="pg-dashboard">
+  <div class="ph">
+    <div><h2>Dashboard</h2><p>Resumen operacional · Temporada 2026</p></div>
+    <div class="ph-a">
+      <button class="btn b-out b-sm" onclick="toast('⬇ Exportando...')">⬇ Exportar</button>
+      <button class="btn b-teal b-sm" onclick="goPage('ops')">＋ Nueva operación</button>
+    </div>
+  </div>
+  <div class="g4 mb">
+    <div class="sc sc-tl" onclick="goPage('ops')"><div class="sc-lbl">Operaciones</div><div class="sc-val">12</div><div class="sc-sub">3 activas · Feb 2026</div></div>
+    <div class="sc sc-bl" onclick="goPage('evadir')"><div class="sc-lbl">EVADIR generados</div><div class="sc-val">58</div><div class="sc-sub">SEG-16 en curso</div></div>
+    <div class="sc sc-gr" onclick="toast('📊 Ver muestras')"><div class="sc-lbl">Muestras L-P</div><div class="sc-val">2.847</div><div class="sc-sub">↑ 12% este mes</div></div>
+    <div class="sc sc-pu" onclick="toast('📊 Ver transectos')"><div class="sc-lbl">Transectos densidad</div><div class="sc-val">384</div><div class="sc-sub">48 últimos 30 días</div></div>
+  </div>
+  <div class="g2 mb">
+    <div class="card">
+      <div class="ct">Operaciones recientes<button class="btn b-out b-sm" onclick="goPage('ops')">Ver todas →</button></div>
+      <table class="tbl">
+        <thead><tr><th>ID</th><th>Sector</th><th>Fecha</th><th>Botes</th><th>Estado</th></tr></thead>
+        <tbody>
+          <tr onclick="goPage('ops')" style="cursor:pointer"><td><strong>OP-2026-002</strong></td><td>AMARGOS</td><td>05-02-2026</td><td>4</td><td><span class="pill p-grn">✓ Completa</span></td></tr>
+          <tr onclick="goPage('ops')" style="cursor:pointer"><td><strong>OP-2025-033</strong></td><td>HUAPE B</td><td>17-12-2025</td><td>3</td><td><span class="pill p-grn">✓ Completa</span></td></tr>
+          <tr onclick="goPage('ops')" style="cursor:pointer"><td><strong>OP-2026-005</strong></td><td>LOS VILOS B</td><td>10-03-2026</td><td>4</td><td><span class="pill p-amb">⏳ En curso</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="ct">EVADIR generados recientemente<button class="btn b-out b-sm" onclick="goPage('evadir')">Ver →</button></div>
+      <table class="tbl">
+        <thead><tr><th>Sector</th><th>SEG</th><th>Operación</th><th>Estado</th></tr></thead>
+        <tbody>
+          <tr onclick="goPage('evadir')" style="cursor:pointer"><td>HUAPE B</td><td>16</td><td>OP-2025-033</td><td><span class="pill p-teal">🔒 Cerrado</span></td></tr>
+          <tr onclick="goPage('evadir')" style="cursor:pointer"><td>AMARGOS</td><td>16</td><td>OP-2026-002</td><td><span class="pill p-amb">⏳ Borrador</span></td></tr>
+          <tr onclick="goPage('evadir')" style="cursor:pointer"><td>LOS VILOS B</td><td>15</td><td>OP-2024-018</td><td><span class="pill p-teal">🔒 Archivado</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Composición de muestras por especie · Últimas operaciones</div>
+    <div style="display:flex;align-items:flex-end;gap:5px;height:100px;padding-top:8px" id="dash-bars"></div>
+    <div style="display:flex;gap:14px;margin-top:8px;font-size:11px;flex-wrap:wrap">
+      <span><span style="color:var(--teal)">■</span> Loco</span>
+      <span><span style="color:var(--amber)">■</span> Erizo rojo</span>
+      <span><span style="color:var(--green)">■</span> Lapa</span>
+      <span><span style="color:var(--blue)">■</span> Otros</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ OPERACIONES ═══════════ -->
+<div class="page" id="pg-ops">
+  <div class="ph">
+    <div>
+      <h2>Operaciones</h2>
+      <p>Cada operación agrupa botes con sus datos de <strong>Peso-Longitud</strong> (por bote/zona) y <strong>Transectos de densidad</strong> (por transecto dentro del bote)</p>
+    </div>
+    <div class="ph-a">
+      <button class="btn b-out b-sm" onclick="openUploadExcel()">⬆ Subir Excel L-P</button>
+      <button class="btn b-teal b-sm" onclick="openNuevaOp()">＋ Nueva operación</button>
+    </div>
+  </div>
+
+  <!-- INFO BOXES -->
+  <div class="g2 mb">
+    <div class="info-box teal">
+      <span style="font-size:20px">📏</span>
+      <div><strong>Peso-Longitud:</strong> Se ingresa por <strong>bote/zona</strong>. El biólogo pide al buzo extraer N individuos de una especie, los cuales se miden y pesan en superficie. Se registran como muestras individuales (longitud mm, peso g) asociadas al bote.</div>
+    </div>
+    <div class="info-box purple">
+      <span style="font-size:20px">🤿</span>
+      <div><strong>Densidad (transectos):</strong> Se ingresa por <strong>transecto dentro del bote</strong>. El buzo recorre el transecto contando individuos de cada especie solicitada. Se registra el conteo total por especie por transecto (ej. 64 Concholepas).</div>
+    </div>
+  </div>
+
+  <div class="filters">
+    <select class="flt"><option>Todos los sectores</option><option>AMARGOS</option><option>HUAPE SECTOR B</option><option>LOS VILOS SECTOR B</option></select>
+    <select class="flt"><option>Todas las fechas</option><option>Feb 2026</option><option>Dic 2025</option></select>
+    <button class="btn b-out b-sm" onclick="toast('↺ Filtros limpiados')">↺ Limpiar</button>
+  </div>
+
+  <div id="ops-list"></div>
+</div>
+
+<!-- ═══════════ GENERAR EVADIR ═══════════ -->
+<div class="page" id="pg-evadir">
+  <div class="ph">
+    <div><h2>Generar EVADIR</h2><p>El EVADIR se construye desde una operación: tabla <strong>DENSIDAD</strong> (transectos) + tablas <strong>PESO-LONGITUD</strong> (muestras por bote/especie)</p></div>
+    <div class="ph-a">
+      <button class="btn b-out b-sm" onclick="toast('⬇ Exportando CSV...')">⬇ Exportar CSV</button>
+      <button class="btn b-teal b-sm" onclick="openGenEvadir()">＋ Generar nuevo EVADIR</button>
+    </div>
+  </div>
+
+  <div class="info-box blue mb">
+    <span style="font-size:18px">ℹ️</span>
+    <div>El EVADIR combina dos tipos de tablas: <strong>1) Tabla DENSIDAD</strong> (una fila por transecto, con conteos de cada especie y densidades calculadas automáticamente como N°/área) · <strong>2) Tablas L-P</strong> (una tabla por especie con longitud y peso de cada individuo medido)</div>
+  </div>
+
+  <!-- EVADIR LIST -->
+  <div class="card mb">
+    <div class="ct">EVADIR registrados
+      <button class="btn b-teal b-sm" onclick="openGenEvadir()">＋ Generar EVADIR</button>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Sector</th><th>SEG/ESBA</th><th>Operación origen</th><th>Fecha</th><th>Transectos</th><th>Botes</th><th>Den Loco</th><th>Den Erizo</th><th>Estado</th><th>Acción</th></tr></thead>
+      <tbody>
+        <tr><td>HUAPE B</td><td>SEG-16</td><td>OP-2025-033</td><td>17-12-2025</td><td>48</td><td>3</td><td>0.598</td><td>0.000</td><td><span class="pill p-teal">🔒 Cerrado</span></td><td>
+          <button class="btn b-out b-xs" onclick="openEvadirViewer('OP-2025-033')">👁 Ver</button>
+          <button class="btn b-teal b-xs" onclick="toast('⬇ Exportando EVADIR_HUAPE_SEG16.csv')">⬇ CSV</button>
+        </td></tr>
+        <tr><td>AMARGOS</td><td>SEG-16</td><td>OP-2026-002</td><td>05-02-2026</td><td>12</td><td>4</td><td>0.567</td><td>0.333</td><td><span class="pill p-amb">⏳ Borrador</span></td><td>
+          <button class="btn b-out b-xs" onclick="openEvadirViewer('OP-2026-002')">👁 Ver</button>
+          <button class="btn b-grn b-xs" onclick="toast('✅ EVADIR finalizado','green')">✓ Finalizar</button>
+        </td></tr>
+        <tr><td>LOS VILOS B</td><td>SEG-15</td><td>OP-2024-018</td><td>14-10-2024</td><td>36</td><td>3</td><td>0.390</td><td>0.026</td><td><span class="pill p-teal">🔒 Archivado</span></td><td>
+          <button class="btn b-out b-xs" onclick="openEvadirViewer('OP-2024-018')">👁 Ver</button>
+          <button class="btn b-teal b-xs" onclick="toast('⬇ Exportando...')">⬇ CSV</button>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════ HISTÓRICO ═══════════ -->
+<div class="page" id="pg-historico">
+  <div class="ph"><div><h2>Registro Histórico</h2><p>36.127 transectos · 1999–2026</p></div>
+    <div class="ph-a"><button class="btn b-teal b-sm" onclick="openInTab('historico')">↗ Vista completa</button></div>
+  </div>
+  <div class="g3 mb">
+    <div class="sc sc-tl" style="cursor:default"><div class="sc-lbl">Total registros</div><div class="sc-val">36.127</div></div>
+    <div class="sc sc-bl" style="cursor:default"><div class="sc-lbl">Sectores únicos</div><div class="sc-val">58</div></div>
+    <div class="sc sc-gr" style="cursor:default"><div class="sc-lbl">Rango temporal</div><div class="sc-val" style="font-size:18px">1999–2026</div></div>
+  </div>
+  <div class="card mb">
+    <div class="ct">Continuidad de seguimientos<button class="btn b-out b-sm" onclick="openInTab('historico')">↗ Pestaña</button></div>
+    <div style="overflow-x:auto"><table class="tbl" id="cont-tbl"><thead><tr id="cont-head"></tr></thead><tbody id="cont-body"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ═══════════ INFORME ═══════════ -->
+<div class="page" id="pg-informe">
+  <div class="ph"><div><h2>Generar Informe</h2><p>Plantilla DOCX autorrellenable · Formato SUBPESCA</p></div>
+    <div class="ph-a"><button class="btn b-teal b-sm" onclick="runGenerate()">⚡ Generar DOCX</button></div>
+  </div>
+  <div style="display:grid;grid-template-columns:310px 1fr;gap:14px">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="card">
+        <div class="isec">📍 Operación de referencia</div>
+        <div class="ig"><label class="il">Sector AMERB</label><select class="is"><option>HUAPE SECTOR B — CORRAL</option><option>AMARGOS</option></select></div>
+        <div class="ig"><label class="il">EVADIR vinculado</label><select class="is"><option>OP-2025-033 · Huape B · 17-12-2025</option><option>OP-2026-002 · Amargos · 05-02-2026</option></select></div>
+        <div class="i2">
+          <div class="ig"><label class="il">N° Seguimiento</label><input class="ii" value="16"></div>
+          <div class="ig"><label class="il">Período</label><input class="ii" value="Enero 2026"></div>
+        </div>
+        <div class="ig"><label class="il">Jefe de proyecto</label><select class="is"><option>Armando Rosson Villalobos</option><option>Lorena Olmos Palacios</option></select></div>
+        <div class="i2">
+          <div class="ig"><label class="il">Ingresos ($)</label><input class="ii" value="118.258.200"></div>
+          <div class="ig"><label class="il">Costos ($)</label><input class="ii" value="11.500.000"></div>
+        </div>
+        <button class="btn b-teal" style="width:100%;margin-top:4px" onclick="runGenerate()">⚡ Generar informe DOCX</button>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
+      <div style="background:var(--bg);padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-family:var(--ff-d);font-weight:700;color:var(--navy)">Vista previa</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span class="pill p-amb" id="inf-status">📄 Borrador</span>
+          <button class="btn b-out b-sm" onclick="openInTab('informe')">↗ Pestaña</button>
+        </div>
+      </div>
+      <div style="padding:16px;overflow-y:auto;flex:1">
+        <div style="background:var(--bg);border-radius:9px;padding:20px;border:1px solid var(--border);font-size:12px;line-height:1.75">
+          <div style="text-align:center;margin-bottom:14px">
+            <div style="font-family:var(--ff-m);font-size:9px;color:var(--teal);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px">SUBSECRETARÍA DE PESCA Y ACUICULTURA</div>
+            <div style="font-family:var(--ff-d);font-size:15px;font-weight:900;color:var(--navy)">INFORME DE SEGUIMIENTO N° 16</div>
+            <div style="font-size:13px;font-weight:700;margin:5px 0">ÁREA DE MANEJO HUAPE SECTOR B</div>
+            <div style="font-size:11px;color:var(--text3)">Región de Los Ríos · Enero 2026</div>
+          </div>
+          <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+          <div style="font-family:var(--ff-m);font-size:9px;color:var(--teal);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Evaluación directa</div>
+          <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--bg2);font-size:11px"><span style="color:var(--text3)">Operación origen</span><span>OP-2025-033</span></div>
+          <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--bg2);font-size:11px"><span style="color:var(--text3)">Stock Loco</span><span style="font-weight:700">74.641 ind / 18.399 kg</span></div>
+          <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:11px"><span style="color:var(--text3)">B/C</span><span style="font-weight:700;color:var(--green)">10.2</span></div>
+        </div>
+        <div style="display:flex;gap:7px;margin-top:12px">
+          <button class="btn b-teal" style="flex:1" onclick="runGenerate()">⬇ Descargar .DOCX</button>
+          <button class="btn b-out" style="flex:1" onclick="toast('📧 Enviado a SUBPESCA','green')">📧 SUBPESCA</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ ESPECIES ═══════════ -->
+<div class="page" id="pg-especies">
+  <div class="ph"><div><h2>Maestro de Especies</h2><p>36 especies bentónicas de Chile</p></div>
+    <div class="ph-a"><button class="btn b-teal b-sm" onclick="toast('➕ Nueva especie')">＋ Nueva especie</button></div>
+  </div>
+  <div class="card"><table class="tbl" id="esp-tbl"><thead><tr><th>#</th><th>Nombre común</th><th>Nombre científico</th><th>Clase</th><th>Registro habitual</th></tr></thead><tbody id="esp-body"></tbody></table></div>
+</div>
+
+<!-- ═══════════ SECTORES / ORGS ═══════════ -->
+<div class="page" id="pg-sectores">
+  <div class="ph"><div><h2>Sectores AMERB</h2></div><div class="ph-a"><button class="btn b-teal b-sm" onclick="toast('➕ Nuevo sector')">＋ Nuevo</button></div></div>
+  <div class="card"><table class="tbl"><thead><tr><th>Sector</th><th>Región</th><th>Sup. (ha)</th><th>Acciones</th></tr></thead><tbody>
+    <tr><td>HUAPE SECTOR B</td><td>XIV</td><td>108.0</td><td><button class="btn b-out b-xs" onclick="goPage('ops')">Ver ops.</button></td></tr>
+    <tr><td>AMARGOS</td><td>XIV</td><td>66.94</td><td><button class="btn b-out b-xs" onclick="goPage('ops')">Ver ops.</button></td></tr>
+    <tr><td>LOS VILOS SECTOR B</td><td>IV</td><td>142.0</td><td><button class="btn b-out b-xs" onclick="goPage('ops')">Ver ops.</button></td></tr>
+  </tbody></table></div>
+</div>
+
+<div class="page" id="pg-orgs">
+  <div class="ph"><div><h2>Organizaciones</h2></div><div class="ph-a"><button class="btn b-teal b-sm" onclick="toast('➕ Nueva org.')">＋ Nueva</button></div></div>
+  <div class="card"><table class="tbl"><thead><tr><th>Sector</th><th>Organización</th><th>Tipo</th><th>Socios</th></tr></thead><tbody>
+    <tr><td>AMARGOS</td><td>S.T.I. Buzos, Pescadores Artesanales de Amargo</td><td>STI</td><td>54</td></tr>
+    <tr><td>HUAPE B</td><td>S.T.I. Pescadores... Caleta de Huape</td><td>STI</td><td>37</td></tr>
+    <tr><td>LOS VILOS B</td><td>S.T.I. Pescadores Artesanales Los Vilos</td><td>STI</td><td>28</td></tr>
+  </tbody></table></div>
+</div>
+
+    </div><!-- /main -->
+  </div><!-- /app-body -->
+</div><!-- /scr-app -->
+
+<script>
+// ════════════════════════════════════════════════
+// SPECIES DATA (36 bentónicas Chile)
+// ════════════════════════════════════════════════
+const ESPECIES = [
+  {id:1,com:'Loco',sci:'Concholepas concholepas',lp:true,dens:true},
+  {id:2,com:'Choro',sci:'Choromytilus chorus',lp:true,dens:true},
+  {id:3,com:'Chorito',sci:'Mytilus chilensis',lp:false,dens:true},
+  {id:4,com:'Cholga',sci:'Aulacomya atra',lp:false,dens:true},
+  {id:5,com:'Erizo rojo',sci:'Loxechinus albus',lp:true,dens:true},
+  {id:6,com:'Lapa bonete',sci:'Fissurella costata',lp:false,dens:true},
+  {id:7,com:'Lapa rosada',sci:'Fissurella cumingi',lp:false,dens:true},
+  {id:8,com:'Lapa negra',sci:'Fissurella nigra',lp:true,dens:true},
+  {id:9,com:'Lapa blanquilla',sci:'Fissurella limbata',lp:false,dens:true},
+  {id:10,com:'Lapa reina',sci:'Fissurella maxima',lp:false,dens:true},
+  {id:11,com:'Lapa negra (latimarginata)',sci:'Fissurella latimarginata',lp:false,dens:true},
+  {id:12,com:'Lapa picta',sci:'Fissurella picta',lp:false,dens:true},
+  {id:13,com:'Lapa spp.',sci:'Fissurella spp.',lp:false,dens:true},
+  {id:14,com:'Huiro negro',sci:'Lessonia berteroana',lp:false,dens:true},
+  {id:15,com:'Huiro palo',sci:'Lessonia trabeculata',lp:false,dens:true},
+  {id:16,com:'Cochayuyo',sci:'Durvillaea antarctica',lp:false,dens:true},
+  {id:17,com:'Huiro canutillo',sci:'Macrocystis integrifolia',lp:false,dens:true},
+  {id:18,com:'Huiro',sci:'Macrocystis pyrifera',lp:false,dens:true},
+  {id:19,com:'Piure',sci:'Pyura chilensis',lp:false,dens:true},
+  {id:20,com:'Almeja',sci:'Retrotapes lenticularis',lp:false,dens:true},
+  {id:21,com:'Tumbao',sci:'Semele solida',lp:false,dens:true},
+  {id:22,com:'Almeja venus',sci:'Venus antiqua',lp:false,dens:true},
+  {id:23,com:'Taca',sci:'Protothaca thaca',lp:true,dens:true},
+  {id:24,com:'Almeja rufa',sci:'Retrotapes rufa',lp:false,dens:true},
+  {id:25,com:'Culengue',sci:'Gari solida',lp:false,dens:true},
+  {id:26,com:'Macha',sci:'Mesodesma donacium',lp:true,dens:true},
+  {id:27,com:'Pepino de mar',sci:'Athyonidium chilensis',lp:false,dens:true},
+  {id:28,com:'Huepo',sci:'Ensis macha',lp:false,dens:true},
+  {id:29,com:'Navajuela',sci:'Tagelus dombeii',lp:false,dens:true},
+  {id:30,com:'Luga roja',sci:'Gigartina skottsbergii',lp:false,dens:true},
+  {id:31,com:'Luga negra',sci:'Sarcothalia crispata',lp:false,dens:true},
+  {id:32,com:'Luga cuchara',sci:'Mazzaella laminarioides',lp:false,dens:true},
+  {id:33,com:'Juliana',sci:'Tawera gayi',lp:false,dens:true},
+  {id:34,com:'Taquilla',sci:'Mulinia edulis',lp:false,dens:true},
+  {id:35,com:'Caracol picuyo',sci:'Odontocymbiola magellanica',lp:false,dens:true},
+  {id:36,com:'Caracol trophon',sci:'Trophon geversianus',lp:false,dens:true},
+];
+
+const SECTORES = ['ALEPUE','AMARGOS','BAHÍA POLOCUÉ SECTOR A','BAHÍA POLOCUÉ SECTOR B','BONIFACIO SECTOR A','CALETA BOCA DEL BARCO','CALETA HUEICOLLA','CALETA HUIDO','CASCAJAL SECTOR A','CHAIHUIN SECTOR A','CHAIHUIN SECTOR B','CHAN CHAN','CHIGUALOCO','CORRAL','EL QUISCO SECTOR A','HUAPE SECTOR A','HUAPE SECTOR B','ISLA DEL REY','LOS VILOS SECTOR A','LOS VILOS SECTOR B','MEHUIN SECTOR B','MISSISSIPI','PIEDRA BLANCA'];
+
+const ORGS = {'AMARGOS':'S.T.I. BUZOS, PESCADORES ARTESANALES DE AMARGO','HUAPE SECTOR B':'S.T.I. PESCADORES, BUZOS... CALETA DE HUAPE','LOS VILOS SECTOR B':'S.T.I. PESCADORES ARTESANALES LOS VILOS','EL QUISCO SECTOR A':'S.T.I. NARCISO AGUIRRE DE PESCADORES ARTESANALES'};
+
+// ════════════════════════════════════════════════
+// IN-MEMORY DB
+// ════════════════════════════════════════════════
+const DB = {
+  operaciones: [
+    {
+      id:'OP-2026-002', region:14, sector:'AMARGOS', tipoOrg:'STI',
+      org:'S.T.I. BUZOS, PESCADORES ARTESANALES DE AMARGO',
+      numSeg:16, fechaInicio:'2026-02-05', fechaFin:'2026-02-05',
+      botes:[
+        {
+          id:'B1', nombre:'BRUNO', buzo:'ERWIN MONSALVE', zona:1,
+          // LP muestras por especie para este bote (solo longitud o longitud+peso)
+          lpMuestras: {
+            1: [{l:104,p:267},{l:96,p:236},{l:108,p:321},{l:115,p:340},{l:101,p:234}],  // Loco
+            5: [{l:80,p:190},{l:96,p:246},{l:92,p:274},{l:86,p:196},{l:85,p:218}],       // Erizo
+          },
+          // Transectos de densidad
+          transectos:[
+            {num:1,area:120,fecha:'2026-02-05',x:629738.19,y:5583972.56,lon:-73.48269,lat:-39.88439,sustrato:'ROCA',cubierta:'ALGAS',counts:{1:0,5:40}},
+            {num:2,area:120,fecha:'2026-02-05',x:629744.56,y:5584010.80,lon:-73.48262,lat:-39.88404,sustrato:'ROCA',cubierta:'PIURE',counts:{1:68,5:29}},
+            {num:3,area:120,fecha:'2026-02-05',x:629849.72,y:5584074.53,lon:-73.48140,lat:-39.88345,sustrato:'ROCA',cubierta:'PIURE',counts:{1:99,5:57}},
+          ]
+        },
+        {
+          id:'B2', nombre:'DON TAQUITO', buzo:'RODRIGO MUÑOZ', zona:2,
+          lpMuestras: {
+            1: [{l:110,p:312},{l:95,p:228},{l:118,p:355}],
+            5: [{l:77,p:183},{l:88,p:215}],
+          },
+          transectos:[
+            {num:4,area:120,fecha:'2026-02-05',x:629808.30,y:5584080.91,lon:-73.48189,lat:-39.88340,sustrato:'ROCA',cubierta:'ALGAS',counts:{1:53,5:0}},
+            {num:5,area:120,fecha:'2026-02-05',x:629868.84,y:5584154.20,lon:-73.48120,lat:-39.88273,sustrato:'ROCA',cubierta:'ALGAS',counts:{1:49,5:0}},
+          ]
+        },
+      ]
+    },
+    {
+      id:'OP-2025-033', region:14, sector:'HUAPE SECTOR B', tipoOrg:'STI',
+      org:'S.T.I. PESCADORES... CALETA DE HUAPE',
+      numSeg:16, fechaInicio:'2025-12-17', fechaFin:'2025-12-17',
+      botes:[
+        {
+          id:'B1', nombre:'PELÍCANO', buzo:'HUGO CARRILLO', zona:1,
+          lpMuestras:{1:[{l:104,p:267},{l:96,p:236},{l:115,p:340}]},
+          transectos:[
+            {num:1,area:120,fecha:'2025-12-17',x:0,y:0,lon:-73.5,lat:-40.0,sustrato:'ROCA',cubierta:'ALGAS',counts:{1:72,8:12}},
+            {num:2,area:120,fecha:'2025-12-17',x:0,y:0,lon:-73.5,lat:-40.0,sustrato:'ROCA',cubierta:'PIURE',counts:{1:55,8:8}},
+          ]
+        },
+      ]
+    }
+  ]
+};
+
+// ════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════
+let toastT;
+function toast(msg, type='') {
+  const t=document.getElementById('toast');
+  t.style.background=type==='green'?'#065f46':type==='red'?'#7f1d1d':'var(--navy)';
+  document.getElementById('tmsg').textContent=msg;
+  t.classList.add('show');
+  clearTimeout(toastT);
+  toastT=setTimeout(()=>t.classList.remove('show'),2600);
+}
+function selRole(el){document.querySelectorAll('.role-opt').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');}
+function logout(){document.getElementById('scr-app').classList.remove('active');document.getElementById('scr-login').classList.add('active');toast('👋 Sesión cerrada');}
+function enterApp(){
+  document.getElementById('scr-login').classList.remove('active');
+  document.getElementById('scr-app').classList.add('active');
+  renderDashBars();renderEspTbl();renderContinuity();
+  toast('✅ Bienvenido, Armando Rosson');
+}
+function goPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav').forEach(n=>n.classList.remove('on'));
+  const pg=document.getElementById('pg-'+id);
+  const nav=document.getElementById('nav-'+id);
+  if(!pg)return;
+  pg.classList.add('active');
+  if(nav)nav.classList.add('on');
+  const labels={dashboard:'Dashboard',ops:'Operaciones',evadir:'Generar EVADIR',historico:'Histórico',informe:'Generar Informe',especies:'Especies',sectores:'Sectores',orgs:'Organizaciones'};
+  const secs={dashboard:'Principal',ops:'Trabajo de Campo',evadir:'Trabajo de Campo',historico:'Análisis',informe:'Análisis',especies:'Maestros',sectores:'Maestros',orgs:'Maestros'};
+  document.getElementById('topbc').innerHTML=`<span>${secs[id]||''}</span><span>/</span><span class="cur">${labels[id]||id}</span>`;
+  if(id==='ops')renderOps();
+}
+
+// ════════════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════════════
+function openMo(title, body, size=''){
+  document.getElementById('mtitle').textContent=title;
+  document.getElementById('mbody').innerHTML=body;
+  document.getElementById('mb').className='mb-box'+(size?' '+size:'');
+  document.getElementById('mo').classList.add('open');
+}
+function closeMo(){document.getElementById('mo').classList.remove('open');}
+function closeMoOut(e){if(e.target===document.getElementById('mo'))closeMo();}
+function openNotif(){openMo('🔔 Notificaciones',`<div style="display:flex;flex-direction:column;gap:9px">
+  <div class="info-box amber">⚠️ <div><strong>2 outliers en EVADIR HUAPE B</strong><br>T-4 y T-10 — Revisar densidad</div></div>
+  <div class="info-box teal">✅ <div><strong>OP-2026-002 completada — AMARGOS</strong><br>5 transectos · 2 botes · muestras L-P ingresadas</div></div>
+</div>`);}
+
+// ════════════════════════════════════════════════
+// DASHBOARD BARS
+// ════════════════════════════════════════════════
+function renderDashBars(){
+  const el=document.getElementById('dash-bars');
+  if(!el||el.childElementCount>0)return;
+  const d=[{v:1000,c:'var(--teal)'},{v:201,c:'var(--amber)'},{v:180,c:'var(--teal)'},{v:85,c:'var(--green)'},{v:720,c:'var(--teal)'},{v:180,c:'var(--amber)'},{v:32,c:'var(--blue)'},{v:320,c:'var(--teal)'}];
+  const mx=Math.max(...d.map(x=>x.v));
+  el.innerHTML=d.map(x=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+    <div style="width:100%;border-radius:3px 3px 0 0;background:${x.c};height:${x.v/mx*88}px;cursor:pointer;transition:filter .15s" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter=''"></div>
+  </div>`).join('');
+}
+
+// ════════════════════════════════════════════════
+// RENDER OPERACIONES
+// ════════════════════════════════════════════════
+function renderOps(){
+  const el=document.getElementById('ops-list');
+  if(!el)return;
+  el.innerHTML=DB.operaciones.map(op=>buildOpCard(op)).join('');
+}
+
+function buildOpCard(op){
+  const totalTx=op.botes.reduce((s,b)=>s+b.transectos.length,0);
+  const totalLPMuestras=op.botes.reduce((s,b)=>s+Object.values(b.lpMuestras).reduce((s2,m)=>s2+m.length,0),0);
+  return `<div class="card mb">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
+      <div>
+        <div style="font-family:var(--ff-d);font-size:15px;font-weight:700;color:var(--navy)">${op.id} — ${op.sector}</div>
+        <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap">
+          <span class="pill p-teal">Región ${op.region}</span>
+          <span class="pill p-slt">${op.tipoOrg}</span>
+          <span class="pill p-blu">SEG-${op.numSeg}</span>
+          <span class="pill p-grn">📅 ${op.fechaInicio}${op.fechaFin!==op.fechaInicio?' → '+op.fechaFin:''}</span>
+          <span class="pill p-pur">🤿 ${op.botes.length} botes · ${totalTx} transectos</span>
+          <span class="pill p-amb">📏 ${totalLPMuestras} muestras L-P</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:7px;flex-shrink:0">
+        <button class="btn b-out b-sm" onclick="openNuevoBote('${op.id}')">＋ Bote</button>
+        <button class="btn b-teal b-sm" onclick="openEvadirPreview('${op.id}')">🤿 Previsualizar EVADIR</button>
+      </div>
+    </div>
+    <div id="botes-${op.id}">${op.botes.map(b=>buildBoteCard(op.id,b)).join('')}</div>
+    <button class="btn b-out b-sm" style="margin-top:6px" onclick="openNuevoBote('${op.id}')">＋ Agregar bote</button>
+  </div>`;
+}
+
+function buildBoteCard(opId, b){
+  const totalTx=b.transectos.length;
+  const totalM=Object.values(b.lpMuestras).reduce((s,m)=>s+m.length,0);
+  const espLP=Object.keys(b.lpMuestras).map(id=>ESPECIES.find(e=>e.id==id)?.com).join(', ');
+  return `<div class="bote-card">
+    <div class="bote-hd ${b._open?'open-hd':''}" id="bhd_${opId}_${b.id}" onclick="toggleBote('${opId}','${b.id}')">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="bote-icon ${b._open?'open-ic':''}">⛵</div>
+        <div>
+          <div class="bote-name">${b.nombre} <span style="font-weight:400;font-size:12px;opacity:.7">· Zona ${b.zona} · ${b.buzo}</span></div>
+          <div class="bote-meta">${totalTx} transectos · ${totalM} muestras L-P${espLP?' ('+espLP+')':''}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="pill p-teal">Zona ${b.zona}</span>
+        <span style="font-size:16px;opacity:.5;transition:transform .2s" id="barr_${opId}_${b.id}">${b._open?'▴':'▾'}</span>
+      </div>
+    </div>
+    <div class="bote-body ${b._open?'open':''}" id="bbody_${opId}_${b.id}">
+      <!-- TABS -->
+      <div class="btabs">
+        <div class="btab ${b._activeTab!=='dens'?'on':''}" onclick="switchBoteTab('${opId}','${b.id}','lp')">📏 Peso-Longitud <span style="background:rgba(255,255,255,.3);border-radius:10px;padding:1px 6px;font-size:10px">${totalM}</span></div>
+        <div class="btab ${b._activeTab==='dens'?'on':''}" onclick="switchBoteTab('${opId}','${b.id}','dens')">🤿 Densidad — Transectos <span style="background:rgba(255,255,255,.3);border-radius:10px;padding:1px 6px;font-size:10px">${totalTx}</span></div>
+      </div>
+      <!-- TAB LP -->
+      <div id="tab_lp_${opId}_${b.id}" style="display:${b._activeTab!=='dens'?'block':'none'}">
+        ${buildLPTab(opId, b)}
+      </div>
+      <!-- TAB DENS -->
+      <div id="tab_dens_${opId}_${b.id}" style="display:${b._activeTab==='dens'?'block':'none'}">
+        ${buildDensTab(opId, b)}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── LP TAB ──
+function buildLPTab(opId, b){
+  const espIds=Object.keys(b.lpMuestras).map(Number);
+  const espCards=espIds.map(eid=>{
+    const sp=ESPECIES.find(e=>e.id==eid);
+    const muestras=b.lpMuestras[eid]||[];
+    return `<div style="border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:var(--bg);border-bottom:1px solid var(--border)">
+        <div>
+          <span style="font-weight:700;font-size:13px;color:var(--navy)">${sp?.com||'?'}</span>
+          <span style="font-size:10px;color:var(--text3);font-style:italic;margin-left:6px">${sp?.sci||''}</span>
+          <span class="pill p-teal" style="margin-left:6px">${muestras.length} muestras</span>
+        </div>
+        <button class="btn b-teal b-xs" onclick="openIngresarMuestras('${opId}','${b.id}',${eid})">✏️ Ingresar muestras</button>
+      </div>
+      <div style="padding:9px 13px;overflow-x:auto">
+        <table class="lp-tbl" style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead><tr><th>#</th><th>Long. (mm)</th><th>Peso (g)</th><th></th></tr></thead>
+          <tbody>${muestras.slice(0,5).map((m,i)=>`<tr>
+            <td style="color:var(--text3)">${i+1}</td>
+            <td>${m.l} mm</td><td>${m.p} g</td>
+            <td><button class="btn b-out b-xs" onclick="borrarLP('${opId}','${b.id}',${eid},${i})">🗑</button></td>
+          </tr>`).join('')}
+          ${muestras.length>5?`<tr><td colspan="4" style="text-align:center;color:var(--text3);font-size:11px;padding:7px">... y ${muestras.length-5} más · <button class="btn b-out b-xs" onclick="openIngresarMuestras('${opId}','${b.id}',${eid})">Ver todas</button></td></tr>`:''}
+          ${muestras.length===0?`<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:14px;font-size:12px">Sin muestras · <button class="btn b-teal b-xs" onclick="openIngresarMuestras('${opId}','${b.id}',${eid})">Ingresar</button></td></tr>`:''}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `<div>
+    <div class="info-box teal" style="margin-bottom:11px">
+      <span>📏</span>
+      <div>Las muestras de <strong>Peso-Longitud se asocian al bote/zona</strong>, no al transecto individual. Agrega o selecciona las especies a muestrear para este bote.</div>
+    </div>
+    ${espCards}
+    <button class="btn b-out b-sm" onclick="openSelEspeciesLP('${opId}','${b.id}')">＋ Agregar especie a muestrear</button>
+  </div>`;
+}
+
+// ── DENSIDAD TAB ──
+function buildDensTab(opId, b){
+  const txCards=b.transectos.map(t=>buildTxCard(opId,b.id,t)).join('');
+  return `<div>
+    <div class="info-box purple" style="margin-bottom:11px">
+      <span>🤿</span>
+      <div>Los transectos registran el <strong>conteo de individuos por especie</strong> que el buzo observa durante el recorrido. La densidad se calcula automáticamente como N°/área.</div>
+    </div>
+    ${txCards}
+    <button class="btn b-out b-sm" onclick="openNuevoTransecto('${opId}','${b.id}')">＋ Agregar transecto</button>
+  </div>`;
+}
+
+function buildTxCard(opId, boteId, t){
+  const espKeys=Object.keys(t.counts).map(Number).filter(id=>t.counts[id]>0);
+  const spRows=Object.keys(t.counts).map(id=>{
+    const sp=ESPECIES.find(e=>e.id==id);
+    const n=t.counts[id];
+    const dens=(n/t.area).toFixed(4);
+    return `<div class="sp-row">
+      <div class="sp-row-name"><div>${sp?.com||'?'}</div><div class="sp-row-sci">${sp?.sci||''}</div></div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="number" value="${n}" min="0" style="width:70px;padding:4px 7px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--ff-m);text-align:center;font-weight:700;background:var(--bg);outline:none" 
+            oninput="updateCount('${opId}','${boteId}',${t.num},${id},this.value)" 
+            onfocus="this.style.borderColor='var(--teal)'" onblur="this.style.borderColor='var(--border)'">
+          <span style="font-size:11px;color:var(--text3)">ind.</span>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:var(--ff-m);font-size:11px;color:var(--teal);font-weight:700">${dens}</div>
+        <div style="font-size:9px;color:var(--text3)">ind/m²</div>
+      </div>
+      <button class="btn b-out b-xs" onclick="removeSpFromTx('${opId}','${boteId}',${t.num},${id})">✕</button>
+    </div>`;
+  }).join('');
+  return `<div class="tx-card">
+    <div class="tx-hd" onclick="toggleTx('${opId}','${boteId}',${t.num})">
+      <div style="display:flex;align-items:center;gap:9px">
+        <span class="pill p-blu" style="font-size:11px">T${t.num}</span>
+        <span style="font-size:12px;color:var(--text2)">${t.fecha} · ${t.area} m² · ${t.sustrato} · ${t.cubierta}</span>
+        <div style="display:flex;gap:4px">${espKeys.map(id=>{const sp=ESPECIES.find(e=>e.id==id);return`<span class="pill p-pur">${sp?.com||'?'}: ${t.counts[id]}</span>`;}).join('')}</div>
+      </div>
+      <div style="display:flex;gap:5px;align-items:center">
+        <button class="btn b-out b-xs" onclick="event.stopPropagation();openAddEspTx('${opId}','${boteId}',${t.num})">＋ Especie</button>
+        <span style="color:var(--text3);font-size:14px">▾</span>
+      </div>
+    </div>
+    <div class="tx-body" id="tx_${opId}_${boteId}_${t.num}">
+      <div class="i3" style="margin-bottom:11px;font-size:11px">
+        <div><div class="il">Fecha</div><div style="font-family:var(--ff-m)">${t.fecha}</div></div>
+        <div><div class="il">X (UTM)</div><div style="font-family:var(--ff-m)">${t.x.toFixed(2)}</div></div>
+        <div><div class="il">Y (UTM)</div><div style="font-family:var(--ff-m)">${t.y.toFixed(2)}</div></div>
+        <div><div class="il">Longitud °</div><div style="font-family:var(--ff-m)">${t.lon}</div></div>
+        <div><div class="il">Latitud °</div><div style="font-family:var(--ff-m)">${t.lat}</div></div>
+        <div><div class="il">Área (m²)</div><div style="font-family:var(--ff-m)">${t.area}</div></div>
+        <div><div class="il">Sustrato</div><div style="font-family:var(--ff-m)">${t.sustrato}</div></div>
+        <div style="grid-column:span 2"><div class="il">Cubierta biológica</div>
+          <select style="width:100%;padding:5px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:11px;background:var(--bg);outline:none" onchange="updateCubierta('${opId}','${boteId}',${t.num},this.value)">
+            ${['ALGAS PARDAS','ALGAS ROJAS','ALGAS','PIURE','SIN COBERTURA','MIXTA'].map(c=>`<option ${c===t.cubierta?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div style="font-family:var(--ff-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Conteo de especies · Edita directamente el número</div>
+      ${spRows}
+      <button class="btn b-out b-sm" style="margin-top:6px" onclick="openAddEspTx('${opId}','${boteId}',${t.num})">＋ Agregar especie</button>
+    </div>
+  </div>`;
+}
+
+// ════════════════════════════════════════════════
+// TOGGLES
+// ════════════════════════════════════════════════
+function toggleBote(opId, boteId){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const b=op?.botes.find(b=>b.id===boteId);
+  if(!b)return;
+  b._open=!b._open;
+  if(!b._activeTab)b._activeTab='lp';
+  renderOps();
+  // Scroll to bote
+  setTimeout(()=>{document.getElementById('bhd_'+opId+'_'+boteId)?.scrollIntoView({behavior:'smooth',block:'nearest'});},100);
+}
+
+function switchBoteTab(opId, boteId, tab){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const b=op?.botes.find(b=>b.id===boteId);
+  if(!b)return;
+  b._activeTab=tab;
+  renderOps();
+}
+
+function toggleTx(opId, boteId, txNum){
+  const el=document.getElementById(`tx_${opId}_${boteId}_${txNum}`);
+  if(el)el.classList.toggle('open');
+}
+
+function updateCount(opId, boteId, txNum, spId, val){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const b=op?.botes.find(b=>b.id===boteId);
+  const t=b?.transectos.find(t=>t.num===txNum);
+  if(t)t.counts[spId]=parseInt(val)||0;
+}
+
+function updateCubierta(opId, boteId, txNum, val){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const b=op?.botes.find(b=>b.id===boteId);
+  const t=b?.transectos.find(t=>t.num===txNum);
+  if(t)t.cubierta=val;
+  toast(`✅ Cubierta actualizada: ${val}`,'green');
+}
+
+// ════════════════════════════════════════════════
+// NUEVA OPERACIÓN
+// ════════════════════════════════════════════════
+function openNuevaOp(){
+  const opts=SECTORES.map(s=>`<option>${s}</option>`).join('');
+  openMo('＋ Nueva operación',`
+    <div class="info-box teal" style="margin-bottom:14px"><span>ℹ️</span><div>Una operación agrupa todos los datos de campo de un día o rango de fechas en un sector. Dentro de ella se crearán los botes, y en cada bote se ingresarán las muestras L-P y los transectos de densidad.</div></div>
+    <div class="i2">
+      <div class="ig"><label class="il">Región</label>
+        <select class="is" id="op-reg"><option value="14">XIV — Los Ríos</option><option value="5">V — Valparaíso</option><option value="4">IV — Coquimbo</option><option value="10">X — Los Lagos</option><option value="11">XI — Aysén</option></select>
+      </div>
+      <div class="ig"><label class="il">N° Seguimiento / ESBA</label><input class="ii" id="op-seg" value="16"></div>
+    </div>
+    <div class="ig"><label class="il">Sector AMERB</label>
+      <select class="is" id="op-sec" onchange="autoOrg()">${opts}</select>
+    </div>
+    <div class="i2">
+      <div class="ig"><label class="il">Tipo organización</label>
+        <select class="is" id="op-tipo"><option>STI</option><option>AINDG</option><option>SCOOP</option><option>ASOC</option></select>
+      </div>
+      <div class="ig"><label class="il">Nombre organización</label><input class="ii" id="op-org" placeholder="S.T.I. ..."></div>
+    </div>
+    <div class="i2">
+      <div class="ig"><label class="il">Fecha inicio</label><input class="ii" id="op-fi" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="ig"><label class="il">Fecha fin</label><input class="ii" id="op-ff" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn b-teal" style="flex:1" onclick="crearOp()">✓ Crear operación</button>
+      <button class="btn b-out" style="flex:1" onclick="closeMo()">Cancelar</button>
+    </div>
+  `,'slim');
+  document.getElementById('op-sec').value='AMARGOS';
+  autoOrg();
+}
+
+function autoOrg(){
+  const s=document.getElementById('op-sec')?.value;
+  const inp=document.getElementById('op-org');
+  if(inp&&ORGS[s])inp.value=ORGS[s];
+}
+
+function crearOp(){
+  const id='OP-2026-'+String(DB.operaciones.length+10).padStart(3,'0');
+  DB.operaciones.unshift({
+    id, region:parseInt(document.getElementById('op-reg').value),
+    sector:document.getElementById('op-sec').value,
+    tipoOrg:document.getElementById('op-tipo').value,
+    org:document.getElementById('op-org').value,
+    numSeg:parseInt(document.getElementById('op-seg').value)||16,
+    fechaInicio:document.getElementById('op-fi').value,
+    fechaFin:document.getElementById('op-ff').value,
+    botes:[]
+  });
+  closeMo();
+  toast(`✅ Operación ${id} creada. Ahora agrega botes.`,'green');
+  renderOps();
+}
+
+// ════════════════════════════════════════════════
+// NUEVO BOTE
+// ════════════════════════════════════════════════
+function openNuevoBote(opId){
+  openMo(`＋ Nuevo bote — ${opId}`,`
+    <div class="info-box blue" style="margin-bottom:13px"><span>⛵</span><div>Cada bote opera en una zona de muestreo. Tendrá sus propias muestras de Peso-Longitud (por bote) y sus propios transectos de densidad.</div></div>
+    <div class="i2">
+      <div class="ig"><label class="il">Nombre del bote</label><input class="ii" id="bn" placeholder="BRUNO"></div>
+      <div class="ig"><label class="il">Zona de muestreo</label><input class="ii" id="bz" type="number" value="1" min="1" max="10"></div>
+    </div>
+    <div class="ig"><label class="il">Nombre del buzo</label><input class="ii" id="bb" placeholder="NOMBRE APELLIDO BUZO"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn b-teal" style="flex:1" onclick="crearBote('${opId}')">✓ Crear bote</button>
+      <button class="btn b-out" style="flex:1" onclick="closeMo()">Cancelar</button>
+    </div>
+  `,'slim');
+}
+
+function crearBote(opId){
+  const nombre=(document.getElementById('bn').value||'').toUpperCase();
+  const zona=parseInt(document.getElementById('bz').value)||1;
+  const buzo=(document.getElementById('bb').value||'').toUpperCase();
+  if(!nombre||!buzo){toast('⚠ Completa nombre de bote y buzo','red');return;}
+  const op=DB.operaciones.find(o=>o.id===opId);
+  if(op){op.botes.push({id:'B'+Date.now(),nombre,buzo,zona,lpMuestras:{},transectos:[],_open:true,_activeTab:'lp'});}
+  closeMo();
+  toast(`✅ Bote ${nombre} · Zona ${zona} agregado`,'green');
+  renderOps();
+}
+
+// ════════════════════════════════════════════════
+// SELECCIONAR ESPECIES L-P (por bote)
+// ════════════════════════════════════════════════
+function openSelEspeciesLP(opId, boteId){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const b=op?.botes.find(b=>b.id===boteId);
+  const ya=Object.keys(b?.lpMuestras||{}).map(Number);
+  openMo(`📏 Especies a muestrear (L-P) — Bote ${b?.nombre}`,`
+    <div class="info-box teal" style="margin-bottom:13px"><span>📏</span><div>Selecciona las especies cuyos individuos el biólogo ha pedido extraer y medir. Las muestras se asocian a este bote/zona muestreo, no a un transecto específico.</div></div>
+    <div style="margin-bottom:11px"><input class="flt" style="width:100%" placeholder="🔍 Buscar especie..." oninput="filterSpGrid(this.value,'sp-grid-lp')"></div>
+    <div class="sp-grid" id="sp-grid-lp">
+      ${ESPECIES.map(sp=>`<div class="sp-chip ${ya.includes(sp.id)?'sel':''}" data-id="${sp.id}" onclick="toggleSpChip(this)">
+        <div class="sp-chip-name">${sp.com}${sp.lp?' ★':''}</div>
+        <div class="sp-chip-sci">${sp.sci}</div>
+      </div>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">★ = especie con registro L-P frecuente</div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn b-teal" style="flex:1" onclick="confirmarEspeciesLP('${opId}','${boteId}')">✓ Confirmar</button>
+      <button class="btn b-out" style="flex:1" onclick="closeMo()">Cancelar</button>
+    </div>
+  `,'wide');
+}
+
+function filterSpGrid(q, gridId){
+  document.querySelectorAll(`#${gridId} .sp-chip`).forEach(el=>{
+    el.style.display=el.textContent.toLowerCase().includes(q.toLowerCase())?'':'none';
+  });
+}
+function toggleSpChip(el){el.classList.toggle('sel');}
+
+function confirmarEspeciesLP(opId, boteId){
+  const sel=[...document.querySelectorAll('#sp-grid-lp .sp-chip.sel')].map(el=>parseInt(el.dataset.id));
+  if(!sel.length){toast('⚠ Selecciona al menos una especie','red');return;}
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const b=op?.botes.find(b=>b.id===boteId);
+  if(b){sel.forEach(id=>{if(!b.lpMuestras[id])b.lpMuestras[id]=[];});}
+  closeMo();
+  toast(`✅ ${sel.length} especie(s) agregadas al bote ${b?.nombre}`,'green');
+  // Open first species for input
+  setTimeout(()=>openIngresarMuestras(opId, boteId, sel[0]),200);
+}
+
+// ════════════════════════════════════════════════
+// INGRESAR MUESTRAS L-P
+// ════════════════════════════════════════════════
+function openIngresarMuestras(opId, boteId, spId){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const b=op?.botes.find(b=>b.id===boteId);
+  const sp=ESPECIES.find(e=>e.id==spId);
+  if(!b||!sp)return;
+  if(!b.lpMuestras[spId])b.lpMuestras[spId]=[];
+  const muestras=b.lpMuestras[spId];
+
+  // Tabs for all LP species of this bote
+  const espIds=Object.keys(b.lpMuestras).map(Number);
+  const tabs=espIds.map(eid=>{
+    const s=ESPECIES.find(e=>e.id==eid);
+    return `<button class="btn ${eid==spId?'b-teal':'b-out'} b-sm" onclick="closeMo();setTimeout(()=>openIngresarMuestras('${opId}','${boteId}',${eid}),100)">${s?.com||'?'} (${b.lpMuestras[eid]?.length||0})</button>`;
+  }).join('');
+
+  const rows=muestras.map((m,i)=>`<tr>
+    <td style="font-family:var(--ff-m);font-size:10px;color:var(--text3)">${i+1}</td>
+    <td>${m.l} mm</td><td>${m.p??'—'} g</td>
+    <td><button class="btn b-out b-xs" onclick="borrarLP('${opId}','${boteId}',${spId},${i});closeMo();setTimeout(()=>openIngresarMuestras('${opId}','${boteId}',${spId}),100)">🗑</button></td>
+  </tr>`).join('');
+
+  openMo(`📏 Muestras L-P — ${sp.com} · Bote ${b.nombre} · Zona ${b.zona}`,`
+    <div style="margin-bottom:14px;display:flex;gap:6px;flex-wrap:wrap">${tabs}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <span style="font-size:13px;font-weight:700;color:var(--navy)">${sp.com}</span>
+        <em style="font-size:11px;color:var(--text3);margin-left:6px">${sp.sci}</em>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--ff-m);margin-top:2px">${op?.sector} · ${b.buzo} · Zona ${b.zona} · SEG-${op?.numSeg}</div>
+      </div>
+      <span class="lp-counter" id="lp-cnt">${muestras.length} muestras</span>
+    </div>
+
+    <!-- FAST INPUT -->
+    <div class="lp-input-row">
+      <div class="ig"><label class="il">Longitud (mm)</label>
+        <input class="ii" id="inp-l" type="number" placeholder="ej. 104" min="1" max="999" autofocus
+          style="font-size:17px;font-weight:700;text-align:center"
+          onkeydown="if(event.key==='Enter'){document.getElementById('inp-p')?.focus();}">
+      </div>
+      <div class="ig"><label class="il">Peso (g)</label>
+        <input class="ii" id="inp-p" type="number" placeholder="ej. 267" min="0" max="99999"
+          style="font-size:17px;font-weight:700;text-align:center"
+          onkeydown="if(event.key==='Enter')addLP('${opId}','${boteId}',${spId})">
+      </div>
+      <button class="btn b-teal" style="padding:10px 18px;font-size:15px;white-space:nowrap" onclick="addLP('${opId}','${boteId}',${spId})">＋ Agregar</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">💡 Presiona <kbd style="background:var(--border);border-radius:3px;padding:1px 5px;font-size:10px">Enter</kbd> en Peso para agregar rápidamente · Los campos se vacían automáticamente</div>
+
+    <!-- TABLE -->
+    <div style="max-height:250px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr>
+          <th style="padding:7px 10px;font-family:var(--ff-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg);text-align:left">#</th>
+          <th style="padding:7px 10px;font-family:var(--ff-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg);text-align:left">Long. (mm)</th>
+          <th style="padding:7px 10px;font-family:var(--ff-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg);text-align:left">Peso (g)</th>
+          <th style="padding:7px 10px;font-family:var(--ff-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg)"></th>
+        </tr></thead>
+        <tbody id="lp-rows">${rows}</tbody>
+      </table>
+      ${muestras.length===0?`<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">Sin muestras aún · Ingresa la primera arriba ↑</div>`:''}
+    </div>
+
+    <div style="display:flex;gap:7px;margin-top:14px;border-top:1px solid var(--border);padding-top:13px">
+      <button class="btn b-green" style="flex:1" id="btn-fin-lp" onclick="finalizarLP('${opId}','${boteId}',${spId},${espIds.indexOf(spId)},${JSON.stringify(espIds)})">✅ Finalizar ${sp.com}</button>
+      <button class="btn b-out" onclick="closeMo();renderOps()">Cerrar y guardar</button>
+    </div>
+  `,'wide');
+}
+
+function addLP(opId, boteId, spId){
+  const il=document.getElementById('inp-l');
+  const ip=document.getElementById('inp-p');
+  const l=parseFloat(il?.value);
+  const p=parseFloat(ip?.value);
+  if(isNaN(l)||l<=0){toast('⚠ Longitud inválida','red');il?.focus();return;}
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const b=op?.botes.find(b=>b.id===boteId);
+  if(!b.lpMuestras[spId])b.lpMuestras[spId]=[];
+  const muestra={l};
+  if(!isNaN(p)&&p>=0)muestra.p=p;
+  b.lpMuestras[spId].push(muestra);
+  const n=b.lpMuestras[spId].length;
+  // Update table
+  const tbody=document.getElementById('lp-rows');
+  if(tbody){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="padding:6px 9px;border-bottom:1px solid var(--border);font-family:var(--ff-m);font-size:10px;color:var(--text3)">${n}</td>
+      <td style="padding:6px 9px;border-bottom:1px solid var(--border)">${l} mm</td>
+      <td style="padding:6px 9px;border-bottom:1px solid var(--border)">${muestra.p??'—'} g</td>
+      <td style="padding:6px 9px;border-bottom:1px solid var(--border)"><button class="btn b-out b-xs" onclick="borrarLP('${opId}','${boteId}',${spId},${n-1});closeMo();setTimeout(()=>openIngresarMuestras('${opId}','${boteId}',${spId}),100)">🗑</button></td>`;
+    tbody.appendChild(tr);
+    tbody.parentElement.parentElement.scrollTop=999;
+  }
+  // Update counter & button
+  const cnt=document.getElementById('lp-cnt');
+  if(cnt)cnt.textContent=`${n} muestras`;
+  const sp=ESPECIES.find(e=>e.id==spId);
+  const btn=document.getElementById('btn-fin-lp');
+  if(btn)btn.textContent=`✅ Finalizar ${sp?.com} (${n})`;
+  // Clear
+  if(il){il.value='';il.focus();}
+  if(ip)ip.value='';
+  toast(`✅ Muestra ${n}: ${l}mm${muestra.p?' / '+muestra.p+'g':''}`, 'green');
+}
+
+function borrarLP(opId, boteId, spId, idx){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const b=op?.botes.find(b=>b.id===boteId);
+  if(b?.lpMuestras[spId])b.lpMuestras[spId].splice(idx,1);
+}
+
+function finalizarLP(opId, boteId, spId, idx, espIds){
+  closeMo();
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const b=op?.botes.find(b=>b.id===boteId);
+  const sp=ESPECIES.find(e=>e.id==spId);
+  const n=b?.lpMuestras[spId]?.length||0;
+  const nextIdx=idx+1;
+  if(nextIdx<espIds.length){
+    const nextId=espIds[nextIdx];
+    const nsp=ESPECIES.find(e=>e.id==nextId);
+    toast(`✅ ${sp?.com} finalizado (${n} muestras). Continúa con ${nsp?.com}...`,'green');
+    setTimeout(()=>openIngresarMuestras(opId,boteId,nextId),200);
+  } else {
+    toast(`✅ Todas las especies finalizadas para bote ${b?.nombre}`,'green');
+    renderOps();
+  }
+}
+
+// ════════════════════════════════════════════════
+// NUEVO TRANSECTO
+// ════════════════════════════════════════════════
+function openNuevoTransecto(opId, boteId){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const b=op?.botes.find(b=>b.id===boteId);
+  const nextNum=(b?.transectos.length||0)+1;
+  openMo(`🤿 Nuevo transecto — ${b?.nombre} · Zona ${b?.zona}`,`
+    <div class="info-box purple" style="margin-bottom:13px"><span>🤿</span><div>Registra el recorrido del buzo. Luego podrás agregar las especies contadas con el número de individuos observados.</div></div>
+    <div class="i3">
+      <div class="ig"><label class="il">N° Transecto</label><input class="ii" id="tx-n" value="${nextNum}"></div>
+      <div class="ig"><label class="il">Área (m²)</label>
+        <select class="is" id="tx-a"><option value="120">120 m² (30×4m)</option><option value="60">60 m² (30×2m)</option><option value="0.0625">0.0625 m² (cuadrante)</option></select>
+      </div>
+      <div class="ig"><label class="il">Fecha</label><input class="ii" id="tx-f" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+    </div>
+    <div class="i2">
+      <div class="ig"><label class="il">X (UTM)</label><input class="ii" id="tx-x" type="number" placeholder="629738" step="0.01"></div>
+      <div class="ig"><label class="il">Y (UTM)</label><input class="ii" id="tx-y" type="number" placeholder="5583972" step="0.01"></div>
+    </div>
+    <div class="i2">
+      <div class="ig"><label class="il">Longitud °</label><input class="ii" id="tx-lo" type="number" placeholder="-73.48269" step="0.00001"></div>
+      <div class="ig"><label class="il">Latitud °</label><input class="ii" id="tx-la" type="number" placeholder="-39.88439" step="0.00001"></div>
+    </div>
+    <div class="i2">
+      <div class="ig"><label class="il">Tipo de sustrato</label>
+        <select class="is" id="tx-s"><option>ROCA</option><option>ROCA/ARENA</option><option>BOLÓN</option><option>ARENA</option><option>MIXTO</option><option>TERTEL</option></select>
+      </div>
+      <div class="ig"><label class="il">Cubierta biológica</label>
+        <select class="is" id="tx-c"><option>ALGAS PARDAS</option><option>ALGAS ROJAS</option><option>ALGAS</option><option>PIURE</option><option>SIN COBERTURA</option><option>MIXTA</option></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn b-teal" style="flex:1" onclick="crearTransecto('${opId}','${boteId}')">✓ Crear y agregar especies</button>
+      <button class="btn b-out" style="flex:1" onclick="closeMo()">Cancelar</button>
+    </div>
+  `);
+}
+
+function crearTransecto(opId, boteId){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const b=op?.botes.find(b=>b.id===boteId);
+  if(!b)return;
+  const num=parseInt(document.getElementById('tx-n').value)||b.transectos.length+1;
+  const area=parseFloat(document.getElementById('tx-a').value)||120;
+  const fecha=document.getElementById('tx-f').value;
+  const x=parseFloat(document.getElementById('tx-x').value)||0;
+  const y=parseFloat(document.getElementById('tx-y').value)||0;
+  const lon=parseFloat(document.getElementById('tx-lo').value)||0;
+  const lat=parseFloat(document.getElementById('tx-la').value)||0;
+  const sustrato=document.getElementById('tx-s').value;
+  const cubierta=document.getElementById('tx-c').value;
+  b.transectos.push({num,area,fecha,x,y,lon,lat,sustrato,cubierta,counts:{}});
+  closeMo();
+  toast(`✅ Transecto T${num} creado. Agrega las especies contadas.`,'green');
+  setTimeout(()=>openAddEspTx(opId,boteId,num),200);
+}
+
+// ════════════════════════════════════════════════
+// AGREGAR ESPECIE A TRANSECTO (densidad)
+// ════════════════════════════════════════════════
+function openAddEspTx(opId, boteId, txNum){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const b=op?.botes.find(b=>b.id===boteId);
+  const t=b?.transectos.find(t=>t.num===txNum);
+  const ya=Object.keys(t?.counts||{}).map(Number);
+  openMo(`🤿 Agregar especies — T${txNum} · ${b?.nombre}`,`
+    <div class="info-box purple" style="margin-bottom:13px"><span>🤿</span><div>Selecciona las especies contadas en este transecto. Podrás ingresar el número de individuos observados directamente.</div></div>
+    <div style="margin-bottom:11px"><input class="flt" style="width:100%" placeholder="🔍 Buscar especie..." oninput="filterSpGrid(this.value,'sp-grid-tx')"></div>
+    <div class="sp-grid" id="sp-grid-tx">
+      ${ESPECIES.map(sp=>`<div class="sp-chip ${ya.includes(sp.id)?'sel':''}" data-id="${sp.id}" onclick="toggleSpChip(this)">
+        <div class="sp-chip-name">${sp.com}</div>
+        <div class="sp-chip-sci">${sp.sci}</div>
+      </div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn b-teal" style="flex:1" onclick="confirmarEspTx('${opId}','${boteId}',${txNum})">✓ Confirmar especies</button>
+      <button class="btn b-out" style="flex:1" onclick="closeMo()">Cancelar</button>
+    </div>
+  `,'wide');
+}
+
+function confirmarEspTx(opId, boteId, txNum){
+  const sel=[...document.querySelectorAll('#sp-grid-tx .sp-chip.sel')].map(el=>parseInt(el.dataset.id));
+  if(!sel.length){toast('⚠ Selecciona al menos una especie','red');return;}
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const b=op?.botes.find(b=>b.id===boteId);
+  const t=b?.transectos.find(t=>t.num===txNum);
+  if(t){sel.forEach(id=>{if(!(id in t.counts))t.counts[id]=0;});}
+  closeMo();
+  toast(`✅ ${sel.length} especie(s) agregadas al T${txNum}`,'green');
+  renderOps();
+  setTimeout(()=>{
+    const body=document.getElementById(`tx_${opId}_${boteId}_${txNum}`);
+    if(body)body.classList.add('open');
+  },100);
+}
+
+function removeSpFromTx(opId, boteId, txNum, spId){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  const b=op?.botes.find(b=>b.id===boteId);
+  const t=b?.transectos.find(t=>t.num===txNum);
+  if(t)delete t.counts[spId];
+  const sp=ESPECIES.find(e=>e.id==spId);
+  toast(`🗑 ${sp?.com} eliminado del T${txNum}`);
+  renderOps();
+}
+
+// ════════════════════════════════════════════════
+// UPLOAD EXCEL
+// ════════════════════════════════════════════════
+function openUploadExcel(){
+  openMo('⬆ Subir tabla Peso-Longitud (Excel)',`
+    <div class="info-box blue" style="margin-bottom:13px"><span>📊</span>
+      <div>El archivo debe tener columnas: <strong>REGION, NOMBRE SECTOR, TIPO DE ORGANIZACIÓN, NOMBRE ORGANIZACIÓN, FECHA, DIA, MES, AÑO, NUM SEG ESBA, ZONA MUESTREO, BOTE, BUZO, ESPECIE, LONGITUD MM, PESO G</strong></div>
+    </div>
+    <div style="border:2px dashed var(--border2);border-radius:11px;padding:28px;text-align:center;cursor:pointer;background:var(--bg);transition:all .2s" 
+      ondragover="this.style.borderColor='var(--teal)';event.preventDefault()" 
+      ondragleave="this.style.borderColor='var(--border2)'"
+      ondrop="handleDrop(event)">
+      <div style="font-size:36px;margin-bottom:10px">📊</div>
+      <div style="font-weight:700;color:var(--navy);margin-bottom:5px">Arrastra aquí tu archivo Excel</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px">O haz clic para seleccionar</div>
+      <input type="file" id="fi" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(event)">
+      <button class="btn b-teal b-sm" onclick="document.getElementById('fi').click()">Seleccionar archivo</button>
+    </div>
+    <div id="file-prev" style="display:none;margin-top:12px"></div>
+    <div style="margin-top:12px;font-size:11px;color:var(--text3)">
+      Para los que prefieren Excel: <a href="#" onclick="toast('⬇ Descargando plantilla...');return false" style="color:var(--teal)">descarga la plantilla oficial</a> con el formato correcto.
+    </div>
+  `);
+}
+
+function handleDrop(e){
+  e.preventDefault();
+  const f=e.dataTransfer.files[0];
+  if(f)simulateFile(f.name);
+}
+function handleFile(e){
+  const f=e.target.files[0];
+  if(f)simulateFile(f.name);
+}
+function simulateFile(name){
+  const prev=document.getElementById('file-prev');
+  if(prev){
+    prev.style.display='block';
+    prev.innerHTML=`<div class="info-box teal">✅ <div><strong>${name}</strong> detectado. Columnas validadas.<br>
+      <button class="btn b-teal b-sm" style="margin-top:8px" onclick="closeMo();toast('✅ Excel importado: '+${JSON.stringify(name)}+' · 1000 filas procesadas','green')">Importar datos</button>
+    </div></div>`;
+  }
+}
+
+// ════════════════════════════════════════════════
+// EVADIR PREVIEW / GENERATOR
+// ════════════════════════════════════════════════
+function openGenEvadir(){
+  const opsHTML=DB.operaciones.map(op=>{
+    const totalTx=op.botes.reduce((s,b)=>s+b.transectos.length,0);
+    const totalM=op.botes.reduce((s,b)=>s+Object.values(b.lpMuestras).reduce((s2,m)=>s2+m.length,0),0);
+    return `<div class="op-card" onclick="selOpEvadir(this,'${op.id}')">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+        <div style="font-family:var(--ff-d);font-size:14px;font-weight:700;color:var(--navy)">${op.id}</div>
+        <span class="pill p-teal">SEG-${op.numSeg}</span>
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <span class="pill p-blu">${op.sector}</span>
+        <span class="pill p-grn">📅 ${op.fechaInicio}${op.fechaFin!==op.fechaInicio?' → '+op.fechaFin:''}</span>
+        <span class="pill p-pur">🤿 ${totalTx} transectos</span>
+        <span class="pill p-amb">📏 ${totalM} muestras L-P</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  openMo('🤿 Generar EVADIR — Seleccionar operación',`
+    <div class="info-box blue" style="margin-bottom:13px"><span>ℹ️</span><div>El EVADIR se construye automáticamente desde la operación seleccionada, combinando los transectos de densidad y las muestras de Peso-Longitud.</div></div>
+    <div class="i2" style="margin-bottom:13px">
+      <div class="ig"><label class="il">Filtrar por sector</label><select class="is"><option>Todos</option>${SECTORES.map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="ig"><label class="il">Filtrar por empresa</label><select class="is"><option>Todas</option><option>Bitecma Ltda.</option></select></div>
+    </div>
+    <div style="font-family:var(--ff-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Operaciones disponibles</div>
+    <div>${opsHTML}</div>
+    <button class="btn b-teal" style="width:100%;margin-top:12px" id="btn-gen-ev" disabled onclick="proceedGenEv()">🤿 Generar EVADIR desde operación seleccionada</button>
+  `,'wide');
+}
+
+let selEvOp=null;
+function selOpEvadir(el,opId){
+  document.querySelectorAll('.op-card').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  selEvOp=opId;
+  const btn=document.getElementById('btn-gen-ev');
+  if(btn){btn.disabled=false;btn.textContent=`🤿 Generar EVADIR desde ${opId}`;}
+}
+function proceedGenEv(){
+  if(!selEvOp)return;
+  closeMo();
+  setTimeout(()=>openEvadirPreview(selEvOp),200);
+}
+
+function openEvadirViewer(opId){openEvadirPreview(opId);}
+
+function openEvadirPreview(opId){
+  const op=DB.operaciones.find(o=>o.id===opId);
+  if(!op){toast('⚠ Operación no encontrada','red');return;}
+
+  // ── BUILD DENSIDAD TABLE ──
+  const densRows=[];
+  op.botes.forEach(b=>{
+    b.transectos.forEach(t=>{
+      const espKeys=Object.keys(t.counts).map(Number);
+      const row={
+        region:op.region, sector:op.sector, tipoOrg:op.tipoOrg, org:op.org,
+        fecha:t.fecha, dia:t.fecha.slice(8,10), mes:t.fecha.slice(5,7), año:t.fecha.slice(0,4),
+        numSeg:op.numSeg, zona:b.zona, bote:b.nombre, buzo:b.buzo,
+        numTx:t.num, area:t.area, sustrato:t.sustrato, cubierta:t.cubierta,
+        x:t.x.toFixed(2), y:t.y.toFixed(2), lon:t.lon, lat:t.lat, datum:'WGS 84',
+        counts:t.counts, espKeys
+      };
+      densRows.push(row);
+    });
+  });
+
+  // Get all unique species across all transectos
+  const allSpIds=[...new Set(densRows.flatMap(r=>r.espKeys))];
+  const allSp=allSpIds.map(id=>ESPECIES.find(e=>e.id==id)).filter(Boolean);
+
+  const densHeader=`<tr>
+    <th>REGION</th><th>SECTOR</th><th>TIPO ORG</th><th>ORGANIZACIÓN</th>
+    <th>FECHA</th><th>DIA</th><th>MES</th><th>AÑO</th><th>SEG</th>
+    <th>ZONA</th><th>BOTE</th><th>BUZO</th><th>T#</th><th>ÁREA</th>
+    ${allSp.map(s=>`<th>N° ${s.com.toUpperCase()}</th>`).join('')}
+    <th>SUSTRATO</th><th>CUBIERTA</th>
+    ${allSp.map(s=>`<th>DENS ${s.com.toUpperCase()} (ind/m²)</th>`).join('')}
+    <th>X</th><th>Y</th><th>LONG</th><th>LAT</th><th>DATUM</th>
+  </tr>`;
+
+  const densBody=densRows.map((r,i)=>`<tr style="${i%2===0?'':'background:var(--bg)'}">
+    <td>${r.region}</td><td>${r.sector}</td><td>${r.tipoOrg}</td>
+    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${r.org}</td>
+    <td>${r.fecha}</td><td>${r.dia}</td><td>${r.mes}</td><td>${r.año}</td><td>${r.numSeg}</td>
+    <td>${r.zona}</td><td>${r.bote}</td><td>${r.buzo}</td><td>${r.numTx}</td><td>${r.area}</td>
+    ${allSpIds.map(id=>`<td style="font-family:var(--ff-m);text-align:center">${r.counts[id]??0}</td>`).join('')}
+    <td>${r.sustrato}</td><td>${r.cubierta}</td>
+    ${allSpIds.map(id=>`<td style="font-family:var(--ff-m);font-weight:700;color:var(--teal);text-align:center">${((r.counts[id]??0)/r.area).toFixed(4)}</td>`).join('')}
+    <td style="font-size:10px">${r.x}</td><td style="font-size:10px">${r.y}</td>
+    <td>${r.lon}</td><td>${r.lat}</td><td>WGS 84</td>
+  </tr>`).join('');
+
+  // ── BUILD LP TABLES ──
+  const lpSections=[];
+  op.botes.forEach(b=>{
+    Object.entries(b.lpMuestras).forEach(([spId, muestras])=>{
+      if(!muestras.length)return;
+      const sp=ESPECIES.find(e=>e.id==spId);
+      const rows=muestras.map((m,i)=>`<tr style="${i%2===0?'':'background:var(--bg)'}">
+        <td>${op.region}</td><td>${op.sector}</td><td>${op.tipoOrg}</td>
+        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${op.org}</td>
+        <td>${op.fechaInicio}</td>
+        <td>${op.fechaInicio.slice(8,10)}</td><td>${op.fechaInicio.slice(5,7)}</td><td>${op.fechaInicio.slice(0,4)}</td>
+        <td>${op.numSeg}</td><td>${b.zona}</td><td>${b.nombre}</td><td>${b.buzo}</td>
+        <td><em>${sp?.sci||'?'}</em></td>
+        <td style="font-family:var(--ff-m);text-align:center;font-weight:700">${m.l}</td>
+        <td style="font-family:var(--ff-m);text-align:center">${m.p??'—'}</td>
+      </tr>`).join('');
+      lpSections.push({sp,bote:b.nombre,zona:b.zona,rows,n:muestras.length});
+    });
+  });
+
+  const lpTabsHTML=lpSections.map((s,i)=>`
+    <div style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+        <div>
+          <span style="font-weight:700;font-size:13px;color:var(--navy)">${s.sp?.com||'?'}</span>
+          <em style="font-size:11px;color:var(--text3);margin-left:6px">${s.sp?.sci||''}</em>
+          <span class="pill p-teal" style="margin-left:6px">Bote ${s.bote} · Zona ${s.zona}</span>
+          <span class="pill p-amb">${s.n} muestras</span>
+        </div>
+        <button class="btn b-out b-xs" onclick="openInTab('lp_${i}_${opId}')">↗ Pestaña</button>
+      </div>
+      <div style="overflow-x:auto;max-height:180px">
+        <table class="ev-tbl">
+          <thead><tr><th>REGION</th><th>SECTOR</th><th>TIPO ORG</th><th>ORGANIZACIÓN</th><th>FECHA</th><th>DIA</th><th>MES</th><th>AÑO</th><th>SEG</th><th>ZONA</th><th>BOTE</th><th>BUZO</th><th>ESPECIE</th><th>LONG. (mm)</th><th>PESO (g)</th></tr></thead>
+          <tbody>${s.rows}</tbody>
+        </table>
+      </div>
+    </div>
+  `).join('');
+
+  openMo(`👁 EVADIR — ${opId} · ${op.sector}`,`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:16px">
+      <div style="text-align:center;padding:10px;background:var(--bg);border-radius:8px"><div style="font-family:var(--ff-m);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Sector</div><div style="font-weight:700;font-size:12px;color:var(--navy);margin-top:3px">${op.sector}</div></div>
+      <div style="text-align:center;padding:10px;background:var(--bg);border-radius:8px"><div style="font-family:var(--ff-m);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Seguimiento</div><div style="font-weight:700;font-size:12px;color:var(--navy);margin-top:3px">SEG-${op.numSeg}</div></div>
+      <div style="text-align:center;padding:10px;background:var(--teal-lt);border-radius:8px"><div style="font-family:var(--ff-m);font-size:9px;color:var(--teal);text-transform:uppercase;letter-spacing:1px">Transectos</div><div style="font-weight:700;font-size:12px;color:var(--teal);margin-top:3px">${densRows.length}</div></div>
+      <div style="text-align:center;padding:10px;background:var(--purple-lt);border-radius:8px"><div style="font-family:var(--ff-m);font-size:9px;color:var(--purple);text-transform:uppercase;letter-spacing:1px">Muestras L-P</div><div style="font-weight:700;font-size:12px;color:var(--purple);margin-top:3px">${lpSections.reduce((s,x)=>s+x.n,0)}</div></div>
+    </div>
+
+    <!-- DENSIDAD TABLE -->
+    <div style="margin-bottom:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-family:var(--ff-d);font-size:14px;font-weight:700;color:var(--navy)">📋 Tabla DENSIDAD — Transectos</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn b-out b-sm" onclick="openInTab('densidad_${opId}')">↗ Abrir en pestaña</button>
+          <button class="btn b-teal b-sm" onclick="toast('✅ Exportando DENSIDAD_${opId}.csv...')">⬇ CSV</button>
+        </div>
+      </div>
+      ${densRows.length===0?`<div class="info-box amber"><span>⚠️</span><div>No hay transectos de densidad registrados en esta operación. Agrégalos desde la sección <strong>Operaciones</strong>.</div></div>`:''}
+      <div style="overflow-x:auto;max-height:220px">
+        <table class="ev-tbl"><thead>${densHeader}</thead><tbody>${densBody}</tbody></table>
+      </div>
+    </div>
+
+    <!-- LP TABLES -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-family:var(--ff-d);font-size:14px;font-weight:700;color:var(--navy)">📏 Tablas PESO-LONGITUD — Por especie y bote</div>
+        <button class="btn b-teal b-sm" onclick="toast('✅ Exportando todas las tablas L-P...')">⬇ Exportar todas</button>
+      </div>
+      ${lpSections.length===0?`<div class="info-box amber"><span>⚠️</span><div>No hay muestras de Peso-Longitud en esta operación. Agrégalas desde la sección <strong>Operaciones</strong>.</div></div>`:lpTabsHTML}
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+      <button class="btn b-green" style="flex:1" onclick="closeMo();toast('✅ EVADIR guardado — ${op.sector} SEG-${op.numSeg}','green');goPage('evadir')">✅ Guardar EVADIR</button>
+      <button class="btn b-out b-sm" onclick="openInTab('densidad_${opId}')">↗ Densidad en pestaña</button>
+      <button class="btn b-out" onclick="closeMo()">Cerrar</button>
+    </div>
+  `,'wide');
+}
+
+// ════════════════════════════════════════════════
+// OPEN IN NEW TAB
+// ════════════════════════════════════════════════
+function openInTab(type){
+  const win=window.open('','_blank');
+  if(!win)return;
+  const style=`<style>body{font-family:DM Sans,sans-serif;padding:28px;background:#f4f6f9;font-size:12px}h2{font-family:serif;color:#1a3a5c;margin-bottom:8px}p{color:#475569;margin-bottom:16px}table{border-collapse:collapse;width:100%}th{background:#1a3a5c;color:#fff;padding:7px 10px;text-align:left;white-space:nowrap;font-size:10px}td{padding:7px 10px;border-bottom:1px solid #e0e5ef;white-space:nowrap}tr:nth-child(even) td{background:#f4f6f9}.sec{color:#0a8f7e;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin:18px 0 6px;border-bottom:1px dashed #e0e5ef;padding-bottom:4px}</style>`;
+  
+  if(type.startsWith('densidad_')){
+    const opId=type.replace('densidad_','');
+    const op=DB.operaciones.find(o=>o.id===opId);
+    if(!op){win.document.write('<html><body>No encontrado</body></html>');return;}
+    const allSpIds=[...new Set(op.botes.flatMap(b=>b.transectos.flatMap(t=>Object.keys(t.counts).map(Number))))];
+    const allSp=allSpIds.map(id=>ESPECIES.find(e=>e.id==id)).filter(Boolean);
+    const hdr=['REGION','NOMBRE SECTOR','TIPO DE ORGANIZACIÓN','NOMBRE ORGANIZACIÓN','FECHA','DIA','MES','AÑO','NUM SEG ESBA','ZONA MUESTREO','BOTE','BUZO','NUM TRANSECTO','AREA TRANSECTO',...allSp.map(s=>`NUM ${s.com.toUpperCase()}`),'TIPO SUSTRATO','CUBIERTA BIOLOGICA',...allSp.map(s=>`DENS ${s.com.toUpperCase()} (N° IND/M2)`),'X','Y','LONG','LAT','DATUM'];
+    let rows='';
+    op.botes.forEach(b=>{b.transectos.forEach(t=>{
+      rows+=`<tr><td>${op.region}</td><td>${op.sector}</td><td>${op.tipoOrg}</td><td>${op.org}</td><td>${t.fecha}</td><td>${t.fecha.slice(8,10)}</td><td>${t.fecha.slice(5,7)}</td><td>${t.fecha.slice(0,4)}</td><td>${op.numSeg}</td><td>${b.zona}</td><td>${b.nombre}</td><td>${b.buzo}</td><td>${t.num}</td><td>${t.area}</td>
+        ${allSpIds.map(id=>`<td style="text-align:center">${t.counts[id]??0}</td>`).join('')}
+        <td>${t.sustrato}</td><td>${t.cubierta}</td>
+        ${allSpIds.map(id=>`<td style="text-align:center;font-weight:700;color:#0a8f7e">${((t.counts[id]??0)/t.area).toFixed(4)}</td>`).join('')}
+        <td>${t.x.toFixed(2)}</td><td>${t.y.toFixed(2)}</td><td>${t.lon}</td><td>${t.lat}</td><td>WGS 84</td></tr>`;
+    });});
+    win.document.write(`<html><head><title>DENSIDAD ${opId}</title>${style}</head><body><h2>Tabla DENSIDAD — ${opId} · ${op.sector} · SEG-${op.numSeg}</h2><table><thead><tr>${hdr.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></body></html>`);
+  } else if(type.startsWith('lp_')){
+    // LP table for a specific section
+    win.document.write(`<html><head><title>L-P Export</title>${style}</head><body><h2>Tabla Peso-Longitud — Exportación</h2><p>Datos de muestras individuales de longitud y peso por especie.</p><p>Abrir en Operaciones para ver datos detallados.</p></body></html>`);
+  } else if(type==='historico'){
+    const cont=[
+      {zone:'AMARGOS',segs:[2005,2006,2006,2007,2009,null,2012,2013,2014,2015,null,null,null,2022,2024,2026]},
+      {zone:'HUAPE B',segs:[2003,2005,2007,2009,2011,2012,2013,2014,2015,2016,2018,2019,2021,2022,2023,2025]},
+      {zone:'LOS VILOS B',segs:[2000,2002,2004,2006,2008,2010,null,2012,2014,2015,2017,2019,2021,null,null,null]},
+    ];
+    const rows=cont.map(c=>`<tr><td style="font-weight:700">${c.zone}</td>${c.segs.map(s=>`<td style="text-align:center;background:${s?'#d0f0ec':'#f1f5f9'};color:${s?'#065f46':'#94a3b8'}">${s||'—'}</td>`).join('')}</tr>`).join('');
+    win.document.write(`<html><head><title>Histórico AMERB</title>${style}</head><body><h2>Registro histórico seguimientos AMERB · Bitecma 1999–2026</h2><table><thead><tr><th>Zona</th>${Array.from({length:16},(_,i)=>`<th>S${i+1}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></body></html>`);
+  } else if(type==='informe'){
+    win.document.write(`<html><head><title>Informe SEG-16</title>${style}</head><body>
+    <p style="text-align:center;font-size:10px;letter-spacing:2px;color:#0a8f7e;text-transform:uppercase">SUBSECRETARÍA DE PESCA Y ACUICULTURA</p>
+    <h2 style="text-align:center">INFORME DE SEGUIMIENTO N° 16</h2>
+    <p style="text-align:center;font-weight:700;font-size:16px">ÁREA DE MANEJO HUAPE SECTOR B · CORRAL · Región de Los Ríos · Enero 2026</p>
+    <div class="sec">Evaluación directa</div>
+    <table><tr><td>Operación origen</td><td>OP-2025-033</td></tr><tr><td>Fecha EVADIR</td><td>17-12-2025</td></tr><tr><td>N° transectos</td><td>48</td></tr><tr><td>Den. Loco</td><td>0.598 ind/m²</td></tr><tr><td>Stock Loco</td><td>74.641 ind / 18.399 kg</td></tr><tr><td>CTP Loco 2026</td><td>33.775 ud / 8.410 kg</td></tr></table>
+    <div class="sec">Evaluación económica</div>
+    <table><tr><td>Ingresos</td><td>$118.258.200</td></tr><tr><td>Costos</td><td>$11.500.000</td></tr><tr><td>B/C</td><td style="color:#059669;font-weight:700">10.2</td></tr></table>
+    <p style="text-align:center;color:#94a3b8;font-size:11px;margin-top:22px">Generado por BITECMA Sistema AMERB · 20-03-2026</p>
+    </body></html>`);
+  }
+}
+
+// ════════════════════════════════════════════════
+// MASTERS
+// ════════════════════════════════════════════════
+function renderEspTbl(){
+  const tbody=document.getElementById('esp-body');
+  if(!tbody||tbody.childElementCount>0)return;
+  tbody.innerHTML=ESPECIES.map(sp=>`<tr>
+    <td style="font-family:var(--ff-m);font-size:10px;color:var(--text3)">${sp.id}</td>
+    <td><strong>${sp.com}</strong>${sp.lp?` <span class="pill p-teal" style="font-size:9px">★ L-P</span>`:''}</td>
+    <td><em style="color:var(--text2)">${sp.sci}</em></td>
+    <td style="font-size:11px;color:var(--text3)">${['Gastropoda','Bivalvia','Phaeophyceae','Echinoidea','Ascidiacea','Holothuroidea','Florideophyceae'][sp.id%7]}</td>
+    <td>${sp.lp?`<span class="pill p-teal">✓ L-P frecuente</span>`:`<span class="pill p-slt">Densidad</span>`}</td>
+  </tr>`).join('');
+}
+
+function renderContinuity(){
+  const head=document.getElementById('cont-head');
+  const body=document.getElementById('cont-body');
+  if(!head||head.childElementCount>0)return;
+  const cols=['Zona','ESBA','S1','S2','S3','S4','S5','S6','S7','S8','S9','S10','S11','S12','S13','S14','S15','S16→'];
+  head.innerHTML=cols.map(h=>`<th>${h}</th>`).join('');
+  const cont=[
+    {zone:'AMARGOS',segs:[2005,2006,2006,2007,2009,null,2012,2013,2014,2015,null,null,null,2022,2024,2026]},
+    {zone:'HUAPE B',segs:[2003,2005,2007,2009,2011,2012,2013,2014,2015,2016,2018,2019,2021,2022,2023,2025]},
+    {zone:'LOS VILOS B',segs:[2000,2002,2004,2006,2008,2010,null,2012,2014,2015,2017,2019,2021,null,null,null]},
+    {zone:'EL QUISCO A',segs:[1999,2001,2003,2005,2007,2009,2011,2013,2015,2017,2019,2021,2023,null,null,null]},
+  ];
+  body.innerHTML=cont.map(c=>`<tr>
+    <td style="font-weight:700">${c.zone}</td>
+    <td><span class="pill ${c.segs.some(s=>s)?'p-teal':'p-slt'}">${c.segs.some(s=>s)?'✓':'—'}</span></td>
+    ${c.segs.map(s=>`<td style="text-align:center;font-family:var(--ff-m);font-size:10px;background:${s?'var(--teal-lt)':'transparent'};color:${s?'var(--teal)':'var(--text3)'}">${s||'—'}</td>`).join('')}
+  </tr>`).join('');
+}
+
+function runGenerate(){
+  const btn=document.querySelector('#pg-informe .b-teal');
+  const st=document.getElementById('inf-status');
+  if(btn)btn.disabled=true;
+  const msgs=[{t:'⚙️ Cargando BD...',c:'p-slt'},{t:'📊 Procesando...',c:'p-amb'},{t:'📄 Generando DOCX...',c:'p-blu'},{t:'✅ Listo',c:'p-grn'}];
+  let i=0;
+  const iv=setInterval(()=>{
+    if(i<msgs.length){if(st){st.textContent=msgs[i].t;st.className='pill '+msgs[i].c;}i++;}
+    else{clearInterval(iv);if(btn)btn.disabled=false;toast('✅ Informe generado','green');setTimeout(()=>openInTab('informe'),600);}
+  },650);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BITECMA — Sistema de Gestión AMERB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ocean-deep: #041e35;
+    --ocean-mid: #083152;
+    --ocean-light: #0d4a7a;
+    --teal: #0bb5a0;
+    --teal-light: #1dd9c2;
+    --cyan: #38e8d5;
+    --amber: #f0a500;
+    --amber-light: #ffc844;
+    --red: #e84040;
+    --green: #29d68a;
+    --surface: #071d30;
+    --surface2: #0a2540;
+    --surface3: #0d3057;
+    --border: rgba(11,181,160,0.18);
+    --border2: rgba(255,255,255,0.07);
+    --text-primary: #e8f4ff;
+    --text-secondary: #7cb4d4;
+    --text-muted: #3d6a8a;
+    --font-display: 'Syne', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --font-body: 'Inter', sans-serif;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background: var(--ocean-deep); color: var(--text-primary); font-family: var(--font-body); overflow: hidden; }
+
+  /* ─── SCREENS ─────────────────────────────── */
+  .screen { display:none; width:100vw; height:100vh; position:absolute; top:0; left:0; }
+  .screen.active { display:flex; }
+
+  /* ─── LOGIN SCREEN ─────────────────────────── */
+  #screen-login {
+    align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 30% 60%, #0a3a5c 0%, #020e1a 70%);
+    overflow: hidden;
+  }
+  .login-bg-wave {
+    position: absolute; inset: 0; pointer-events: none; opacity: 0.6;
+    background: 
+      radial-gradient(ellipse at 70% 40%, rgba(11,181,160,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse at 20% 70%, rgba(56,232,213,0.08) 0%, transparent 50%);
+  }
+  .login-bg-wave svg { position:absolute; bottom:0; left:0; width:100%; opacity:0.25; }
+  .login-particles { position:absolute; inset:0; pointer-events:none; }
+  .particle { position:absolute; border-radius:50%; background:var(--teal); opacity:0; animation: float-up 6s infinite; }
+  @keyframes float-up {
+    0%   { opacity:0; transform: translateY(0) scale(0); }
+    20%  { opacity:0.5; }
+    80%  { opacity:0.3; }
+    100% { opacity:0; transform: translateY(-120px) scale(1.5); }
+  }
+  .login-card {
+    position: relative; z-index:10;
+    background: rgba(10,37,64,0.85);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 48px 44px;
+    width: 420px;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(11,181,160,0.08), inset 0 1px 0 rgba(255,255,255,0.05);
+    animation: card-in 0.6s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  @keyframes card-in {
+    from { opacity:0; transform: translateY(30px) scale(0.97); }
+    to   { opacity:1; transform: none; }
+  }
+  .login-logo { display:flex; align-items:center; gap:12px; margin-bottom:36px; }
+  .login-logo-icon {
+    width:44px; height:44px; border-radius:10px;
+    background: linear-gradient(135deg, var(--teal), var(--ocean-light));
+    display:flex; align-items:center; justify-content:center; font-size:20px;
+  }
+  .login-logo-text h1 { font-family:var(--font-display); font-size:22px; font-weight:800; letter-spacing:-0.5px; }
+  .login-logo-text span { font-family:var(--font-mono); font-size:10px; color:var(--teal); letter-spacing:2px; text-transform:uppercase; }
+  .login-title { font-family:var(--font-display); font-size:26px; font-weight:700; margin-bottom:6px; }
+  .login-sub { color:var(--text-secondary); font-size:13px; margin-bottom:32px; }
+  .form-group { margin-bottom:20px; }
+  .form-label { font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--teal); font-family:var(--font-mono); margin-bottom:8px; display:block; }
+  .form-input {
+    width:100%; padding:12px 16px; border-radius:10px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    color: var(--text-primary); font-size:14px; font-family:var(--font-body);
+    outline:none; transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .form-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(11,181,160,0.15); }
+  .form-input::placeholder { color: var(--text-muted); }
+  .role-selector { display:flex; gap:8px; margin-bottom:24px; }
+  .role-btn {
+    flex:1; padding:8px; border-radius:8px; border:1px solid var(--border);
+    background:transparent; color:var(--text-secondary); font-size:11px; font-family:var(--font-mono);
+    cursor:pointer; transition:all 0.2s; letter-spacing:0.5px;
+  }
+  .role-btn.active { background:rgba(11,181,160,0.15); border-color:var(--teal); color:var(--teal); }
+  .btn-login {
+    width:100%; padding:14px; border-radius:10px;
+    background: linear-gradient(135deg, var(--teal) 0%, #08937f 100%);
+    border:none; color:#041e35; font-family:var(--font-display); font-weight:700;
+    font-size:14px; letter-spacing:0.5px; cursor:pointer; transition: all 0.2s;
+  }
+  .btn-login:hover { transform:translateY(-1px); box-shadow: 0 8px 24px rgba(11,181,160,0.35); }
+  .login-footer { text-align:center; margin-top:24px; font-size:12px; color:var(--text-muted); }
+  .login-footer a { color:var(--teal); cursor:pointer; }
+
+  /* ─── APP SHELL ─────────────────────────────── */
+  #screen-app { flex-direction:column; }
+
+  /* ─── TOPBAR ─────────────────────────────────── */
+  .topbar {
+    height:56px; min-height:56px; 
+    background: rgba(7,29,48,0.95);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    display:flex; align-items:center; padding:0 20px; gap:16px; z-index:100;
+    flex-shrink:0;
+  }
+  .topbar-logo { display:flex; align-items:center; gap:10px; cursor:pointer; flex-shrink:0; }
+  .topbar-logo-icon { width:32px; height:32px; border-radius:7px; background:linear-gradient(135deg, var(--teal), var(--ocean-light)); display:flex; align-items:center; justify-content:center; font-size:15px; }
+  .topbar-logo-text { font-family:var(--font-display); font-weight:800; font-size:16px; letter-spacing:-0.3px; }
+  .topbar-logo-text span { color:var(--teal); }
+  .topbar-divider { width:1px; height:28px; background:var(--border); flex-shrink:0; }
+  .topbar-breadcrumb { font-family:var(--font-mono); font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .topbar-breadcrumb span { color:var(--text-secondary); }
+  .topbar-breadcrumb .active-crumb { color:var(--teal); }
+  .topbar-spacer { flex:1; }
+  .topbar-search {
+    display:flex; align-items:center; gap:8px; padding:7px 14px;
+    background:rgba(255,255,255,0.04); border:1px solid var(--border);
+    border-radius:20px; width:200px;
+  }
+  .topbar-search input { background:none; border:none; outline:none; color:var(--text-primary); font-size:12px; width:100%; }
+  .topbar-search input::placeholder { color:var(--text-muted); }
+  .topbar-actions { display:flex; align-items:center; gap:8px; }
+  .tb-icon-btn {
+    width:34px; height:34px; border-radius:8px; border:1px solid var(--border);
+    background:transparent; color:var(--text-secondary); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; font-size:15px;
+    transition:all 0.2s; position:relative;
+  }
+  .tb-icon-btn:hover { background:rgba(11,181,160,0.1); border-color:var(--teal); color:var(--teal); }
+  .badge { position:absolute; top:-3px; right:-3px; width:14px; height:14px; border-radius:50%; background:var(--red); font-size:8px; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); border:2px solid var(--surface); }
+  .user-chip {
+    display:flex; align-items:center; gap:8px; padding:4px 12px 4px 4px;
+    border-radius:20px; border:1px solid var(--border); cursor:pointer;
+    background:rgba(255,255,255,0.03); transition:all 0.2s;
+  }
+  .user-chip:hover { border-color:var(--teal); }
+  .user-avatar { width:28px; height:28px; border-radius:50%; background:linear-gradient(135deg, var(--teal), var(--ocean-light)); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; }
+  .user-chip-info { font-size:11px; }
+  .user-chip-name { color:var(--text-primary); font-weight:600; }
+  .user-chip-role { color:var(--teal); font-family:var(--font-mono); font-size:10px; }
+
+  /* ─── BODY AREA ──────────────────────────────── */
+  .app-body { display:flex; flex:1; overflow:hidden; }
+
+  /* ─── SIDEBAR ─────────────────────────────────── */
+  .sidebar {
+    width:220px; min-width:220px; background:var(--surface);
+    border-right:1px solid var(--border); padding:16px 12px;
+    display:flex; flex-direction:column; gap:4px; overflow-y:auto;
+    transition: width 0.25s; flex-shrink:0;
+  }
+  .sidebar.collapsed { width:56px; min-width:56px; }
+  .sidebar-section-label {
+    font-family:var(--font-mono); font-size:9px; letter-spacing:2px; text-transform:uppercase;
+    color:var(--text-muted); padding:10px 10px 6px; flex-shrink:0;
+  }
+  .collapsed .sidebar-section-label { display:none; }
+  .nav-item {
+    display:flex; align-items:center; gap:10px; padding:9px 10px;
+    border-radius:9px; cursor:pointer; transition:all 0.15s;
+    color:var(--text-secondary); font-size:13px; white-space:nowrap;
+    border:1px solid transparent;
+  }
+  .nav-item:hover { background:rgba(255,255,255,0.04); color:var(--text-primary); }
+  .nav-item.active { background:rgba(11,181,160,0.12); color:var(--teal); border-color:rgba(11,181,160,0.2); }
+  .nav-item .nav-icon { font-size:16px; flex-shrink:0; width:20px; text-align:center; }
+  .nav-item .nav-label { font-size:13px; }
+  .collapsed .nav-label { display:none; }
+  .nav-item .nav-badge { margin-left:auto; background:var(--amber); color:#000; font-size:9px; padding:2px 6px; border-radius:10px; font-family:var(--font-mono); }
+  .collapsed .nav-badge { display:none; }
+  .sidebar-footer { margin-top:auto; padding-top:12px; border-top:1px solid var(--border); }
+
+  /* ─── MAIN CONTENT ──────────────────────────────── */
+  .main-content { flex:1; overflow-y:auto; padding:24px; background:var(--ocean-deep); }
+  .page { display:none; }
+  .page.active { display:block; }
+
+  /* ─── PAGE HEADER ──────────────────────────────── */
+  .page-header { margin-bottom:24px; }
+  .page-header h2 { font-family:var(--font-display); font-size:24px; font-weight:700; }
+  .page-header p { color:var(--text-secondary); font-size:13px; margin-top:4px; }
+  .page-header-row { display:flex; align-items:flex-start; justify-content:space-between; }
+
+  /* ─── CARDS ──────────────────────────────────────── */
+  .card {
+    background:var(--surface2); border:1px solid var(--border2);
+    border-radius:14px; padding:20px; transition:border-color 0.2s;
+  }
+  .card:hover { border-color:var(--border); }
+  .card-title { font-family:var(--font-mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--text-muted); margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; }
+
+  /* ─── DASHBOARD ──────────────────────────────────── */
+  .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+  .stat-card {
+    background:var(--surface2); border:1px solid var(--border2); border-radius:14px;
+    padding:20px; position:relative; overflow:hidden; cursor:default;
+    transition:all 0.2s;
+  }
+  .stat-card:hover { border-color:var(--border); transform:translateY(-2px); }
+  .stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; border-radius:14px 14px 0 0; }
+  .stat-card.teal::before { background:var(--teal); }
+  .stat-card.amber::before { background:var(--amber); }
+  .stat-card.green::before { background:var(--green); }
+  .stat-card.red::before { background:var(--red); }
+  .stat-label { font-family:var(--font-mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; }
+  .stat-value { font-family:var(--font-display); font-size:32px; font-weight:800; line-height:1; }
+  .stat-value.teal { color:var(--teal); }
+  .stat-value.amber { color:var(--amber); }
+  .stat-value.green { color:var(--green); }
+  .stat-value.red { color:var(--red); }
+  .stat-sub { font-size:11px; color:var(--text-muted); margin-top:6px; display:flex; align-items:center; gap:4px; }
+  .stat-trend { font-size:10px; padding:2px 6px; border-radius:4px; font-family:var(--font-mono); }
+  .trend-up { background:rgba(41,214,138,0.15); color:var(--green); }
+  .trend-dn { background:rgba(232,64,64,0.15); color:var(--red); }
+  .stat-icon { position:absolute; right:16px; top:50%; transform:translateY(-50%); font-size:36px; opacity:0.07; }
+
+  .dashboard-grid { display:grid; grid-template-columns:2fr 1fr; gap:16px; margin-bottom:24px; }
+  .dashboard-grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:24px; }
+
+  /* Bar chart */
+  .bar-chart { display:flex; align-items:flex-end; gap:6px; height:120px; padding-top:10px; }
+  .bar-group { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; }
+  .bar { width:100%; border-radius:4px 4px 0 0; min-height:4px; transition:height 0.5s; position:relative; cursor:default; }
+  .bar-label { font-family:var(--font-mono); font-size:8px; color:var(--text-muted); text-align:center; }
+  .bar-val { font-family:var(--font-mono); font-size:9px; color:var(--text-secondary); }
+  .bar:hover::after { content:attr(data-val); position:absolute; top:-22px; left:50%; transform:translateX(-50%); background:var(--surface3); border:1px solid var(--border); padding:2px 6px; border-radius:4px; font-size:9px; white-space:nowrap; font-family:var(--font-mono); color:var(--teal); }
+
+  /* Recent activity */
+  .activity-list { display:flex; flex-direction:column; gap:10px; }
+  .activity-item { display:flex; align-items:center; gap:12px; padding:10px; border-radius:9px; background:rgba(255,255,255,0.02); border:1px solid transparent; transition:all 0.15s; }
+  .activity-item:hover { border-color:var(--border); background:rgba(255,255,255,0.04); }
+  .act-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .act-text { flex:1; font-size:12px; }
+  .act-text strong { color:var(--text-primary); display:block; }
+  .act-text span { color:var(--text-secondary); font-size:11px; }
+  .act-time { font-family:var(--font-mono); font-size:10px; color:var(--text-muted); }
+
+  /* Map placeholder */
+  .map-placeholder {
+    height:200px; border-radius:10px; overflow:hidden; position:relative;
+    background: radial-gradient(ellipse at 40% 50%, #0a3a5c 0%, #020e1a 80%);
+  }
+  .map-grid { position:absolute; inset:0; opacity:0.15; background: repeating-linear-gradient(0deg,transparent,transparent 29px,rgba(11,181,160,0.5) 30px), repeating-linear-gradient(90deg,transparent,transparent 29px,rgba(11,181,160,0.5) 30px); }
+  .map-dot { position:absolute; width:10px; height:10px; border-radius:50%; background:var(--teal); animation:pulse-dot 2s ease-in-out infinite; }
+  .map-dot::after { content:''; position:absolute; inset:-5px; border-radius:50%; border:2px solid var(--teal); opacity:0; animation:pulse-ring 2s ease-in-out infinite; }
+  @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.6;transform:scale(1.2);} }
+  @keyframes pulse-ring { 0%{opacity:0.6;transform:scale(1);} 100%{opacity:0;transform:scale(2.5);} }
+  .map-label-sm { font-family:var(--font-mono); font-size:8px; color:var(--teal); position:absolute; white-space:nowrap; }
+
+  /* Species ring chart */
+  .ring-chart { display:flex; align-items:center; justify-content:center; gap:20px; padding:10px 0; }
+  .ring-svg { flex-shrink:0; }
+  .ring-legend { display:flex; flex-direction:column; gap:6px; }
+  .ring-legend-item { display:flex; align-items:center; gap:8px; font-size:11px; cursor:default; }
+  .ring-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+  .ring-pct { font-family:var(--font-mono); font-size:10px; color:var(--text-secondary); margin-left:auto; padding-left:8px; }
+
+  /* Table */
+  .data-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .data-table th { text-align:left; padding:10px 12px; font-family:var(--font-mono); font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); border-bottom:1px solid var(--border); white-space:nowrap; }
+  .data-table td { padding:10px 12px; border-bottom:1px solid rgba(255,255,255,0.03); color:var(--text-primary); }
+  .data-table tr:hover td { background:rgba(255,255,255,0.02); }
+  .data-table tr:last-child td { border-bottom:none; }
+  .pill { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:20px; font-size:10px; font-family:var(--font-mono); }
+  .pill-teal { background:rgba(11,181,160,0.15); color:var(--teal); }
+  .pill-amber { background:rgba(240,165,0,0.15); color:var(--amber); }
+  .pill-green { background:rgba(41,214,138,0.15); color:var(--green); }
+  .pill-red { background:rgba(232,64,64,0.15); color:var(--red); }
+  .pill-blue { background:rgba(56,160,240,0.15); color:#38a0f0; }
+
+  /* ─── EVADIR PAGE ──────────────────────────────── */
+  .evadir-filters { display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; align-items:center; }
+  .filter-select {
+    padding:8px 12px; border-radius:9px; background:var(--surface2);
+    border:1px solid var(--border); color:var(--text-primary); font-size:12px;
+    font-family:var(--font-body); outline:none; cursor:pointer;
+  }
+  .filter-select:focus { border-color:var(--teal); }
+  .btn-primary {
+    padding:8px 16px; border-radius:9px; background:var(--teal); border:none;
+    color:#041e35; font-size:12px; font-family:var(--font-display); font-weight:700;
+    cursor:pointer; display:flex; align-items:center; gap:6px; transition:all 0.2s;
+  }
+  .btn-primary:hover { background:var(--teal-light); }
+  .btn-secondary {
+    padding:8px 16px; border-radius:9px; background:transparent;
+    border:1px solid var(--border); color:var(--text-secondary); font-size:12px;
+    cursor:pointer; display:flex; align-items:center; gap:6px; transition:all 0.2s;
+    font-family:var(--font-body);
+  }
+  .btn-secondary:hover { border-color:var(--teal); color:var(--teal); }
+
+  .evadir-layout { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .evadir-table-section { grid-column:1/-1; }
+
+  /* Scatter plot */
+  .scatter-area { position:relative; height:200px; }
+  .scatter-dot { position:absolute; width:5px; height:5px; border-radius:50%; background:var(--teal); opacity:0.7; transform:translate(-50%,-50%); cursor:pointer; transition:all 0.15s; }
+  .scatter-dot:hover { width:9px; height:9px; opacity:1; z-index:10; }
+  .scatter-axis-x { position:absolute; bottom:0; left:0; right:0; height:1px; background:var(--border); }
+  .scatter-axis-y { position:absolute; top:0; bottom:0; left:0; width:1px; background:var(--border); }
+  .scatter-label-x { position:absolute; bottom:-16px; right:0; font-family:var(--font-mono); font-size:9px; color:var(--text-muted); }
+  .scatter-label-y { position:absolute; top:0; left:8px; font-family:var(--font-mono); font-size:9px; color:var(--text-muted); }
+
+  /* Histogram bars */
+  .hist-area { display:flex; align-items:flex-end; gap:2px; height:130px; padding:0 4px; position:relative; }
+  .hist-bar { flex:1; border-radius:2px 2px 0 0; background:var(--teal); opacity:0.7; cursor:pointer; transition:opacity 0.15s; min-width:3px; }
+  .hist-bar.lapa { background:var(--amber); }
+  .hist-bar:hover { opacity:1; }
+  .hist-x-labels { display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:8px; color:var(--text-muted); padding:4px 4px 0; }
+
+  /* Outlier highlight */
+  .outlier { background:rgba(232,64,64,0.2) !important; }
+
+  /* ─── INFORME PAGE ──────────────────────────────── */
+  .informe-layout { display:grid; grid-template-columns:320px 1fr; gap:16px; }
+  .informe-form { display:flex; flex-direction:column; gap:16px; }
+  .inf-group { display:flex; flex-direction:column; gap:6px; }
+  .inf-label { font-family:var(--font-mono); font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:var(--teal); }
+  .inf-input, .inf-select, .inf-textarea {
+    padding:9px 12px; border-radius:9px; background:var(--surface2);
+    border:1px solid var(--border); color:var(--text-primary); font-size:12px;
+    font-family:var(--font-body); outline:none; transition:border-color 0.2s;
+    width:100%;
+  }
+  .inf-input:focus, .inf-select:focus, .inf-textarea:focus { border-color:var(--teal); }
+  .inf-textarea { height:80px; resize:none; }
+  .inf-section-title { font-family:var(--font-display); font-size:14px; font-weight:700; color:var(--teal); border-bottom:1px solid var(--border); padding-bottom:8px; margin-bottom:4px; }
+  .inf-species-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+  /* Preview panel */
+  .preview-panel { background:var(--surface2); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+  .preview-header { background:var(--surface3); padding:14px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); }
+  .preview-header h3 { font-family:var(--font-display); font-size:14px; font-weight:700; }
+  .preview-body { padding:20px; overflow-y:auto; max-height:calc(100vh - 280px); }
+  .doc-preview { background:#1a2a3a; border-radius:10px; padding:24px; font-size:12px; line-height:1.7; }
+  .doc-preview h1 { font-family:var(--font-display); font-size:16px; font-weight:800; text-align:center; margin-bottom:4px; color:var(--teal); }
+  .doc-preview h2 { font-family:var(--font-display); font-size:13px; font-weight:700; text-align:center; margin-bottom:16px; color:var(--text-secondary); }
+  .doc-section { margin-bottom:16px; }
+  .doc-section-title { font-family:var(--font-mono); font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--amber); margin-bottom:6px; }
+  .doc-field { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px dashed rgba(255,255,255,0.05); font-size:11px; }
+  .doc-field span:first-child { color:var(--text-secondary); }
+  .doc-field span:last-child { color:var(--text-primary); font-weight:500; }
+  .doc-placeholder { display:inline-block; background:rgba(11,181,160,0.15); border:1px solid rgba(11,181,160,0.3); border-radius:4px; padding:0 6px; color:var(--teal); font-family:var(--font-mono); font-size:10px; }
+  .progress-steps { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+  .prog-step { display:flex; align-items:center; gap:10px; font-size:12px; }
+  .prog-dot { width:20px; height:20px; border-radius:50%; border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:9px; flex-shrink:0; transition:all 0.3s; }
+  .prog-dot.done { background:var(--teal); border-color:var(--teal); color:#041e35; }
+  .prog-dot.active { border-color:var(--amber); color:var(--amber); animation:blink 1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  .prog-line { color:var(--text-secondary); }
+  .prog-line.done-text { color:var(--teal); }
+
+  /* ─── REGISTRO HISTÓRICO PAGE ──────────────────── */
+  .historico-top { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:16px; }
+  .continuity-grid { display:grid; grid-template-columns:repeat(26,1fr); gap:2px; margin-top:8px; }
+  .cont-cell { height:14px; border-radius:2px; font-size:6px; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); }
+  .cont-cell.has { background:var(--teal); opacity:0.8; }
+  .cont-cell.empty { background:var(--surface3); }
+
+  /* ─── SCROLLBAR ──────────────────────────────────── */
+  ::-webkit-scrollbar { width:4px; height:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+  /* ─── TOOLTIP ──────────────────────────────────── */
+  [title]:hover { cursor:help; }
+
+  /* ─── ANIMATION ──────────────────────────────────── */
+  .fade-in { animation: fade-in 0.4s ease both; }
+  @keyframes fade-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     LOGIN SCREEN
+═══════════════════════════════════════════════════════════════ -->
+<div id="screen-login" class="screen active">
+  <div class="login-bg-wave">
+    <svg viewBox="0 0 1440 320" preserveAspectRatio="none">
+      <path fill="rgba(11,181,160,0.15)" d="M0,192L48,176C96,160,192,128,288,138.7C384,149,480,203,576,213.3C672,224,768,192,864,170.7C960,149,1056,139,1152,154.7C1248,171,1344,213,1392,234.7L1440,256L1440,320L0,320Z"/>
+      <path fill="rgba(11,181,160,0.07)" d="M0,256L60,240C120,224,240,192,360,197.3C480,203,600,245,720,261.3C840,277,960,267,1080,245.3C1200,224,1320,192,1380,176L1440,160L1440,320L0,320Z"/>
+    </svg>
+  </div>
+  <div class="login-particles" id="particles"></div>
+
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">🐚</div>
+      <div class="login-logo-text">
+        <h1>BITECMA</h1>
+        <span>Sistema AMERB · v3.0</span>
+      </div>
+    </div>
+    <div class="login-title">Bienvenido</div>
+    <div class="login-sub">Ingresa tus credenciales para acceder al sistema de gestión de áreas de manejo.</div>
+    
+    <div class="form-group">
+      <label class="form-label">Correo electrónico</label>
+      <input class="form-input" type="email" placeholder="usuario@bitecma.cl" value="arosson@bitecma.cl">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Contraseña</label>
+      <input class="form-input" type="password" placeholder="••••••••" value="••••••••">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Rol de acceso</label>
+      <div class="role-selector">
+        <button class="role-btn active">Admin</button>
+        <button class="role-btn" onclick="this.parentElement.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">Biólogo</button>
+        <button class="role-btn" onclick="this.parentElement.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">Técnico</button>
+        <button class="role-btn" onclick="this.parentElement.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">Analista</button>
+      </div>
+    </div>
+    <button class="btn-login" onclick="enterApp()">Iniciar sesión →</button>
+    <div class="login-footer"><a>¿Olvidaste tu contraseña?</a> · Bitecma Ltda. © 2026</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     APP SCREEN
+═══════════════════════════════════════════════════════════════ -->
+<div id="screen-app" class="screen">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-logo" onclick="showPage('dashboard')">
+      <div class="topbar-logo-icon">🐚</div>
+      <div class="topbar-logo-text">BIT<span>ECMA</span></div>
+    </div>
+    <div class="topbar-divider"></div>
+    <div class="topbar-breadcrumb" id="topbar-breadcrumb">
+      <span>Inicio</span> / <span class="active-crumb">Dashboard</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-search">
+      <span style="color:var(--text-muted);font-size:13px">🔍</span>
+      <input placeholder="Buscar sector, especie, seguimiento...">
+    </div>
+    <div class="topbar-actions">
+      <button class="tb-icon-btn" title="Notificaciones"><span>🔔</span><span class="badge">3</span></button>
+      <button class="tb-icon-btn" title="Configuración">⚙️</button>
+      <div class="user-chip">
+        <div class="user-avatar">AR</div>
+        <div class="user-chip-info">
+          <div class="user-chip-name">A. Rosson</div>
+          <div class="user-chip-role">Admin</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="app-body">
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-section-label">Principal</div>
+      <div class="nav-item active" onclick="showPage('dashboard',this,'Inicio / Dashboard')">
+        <span class="nav-icon">📊</span><span class="nav-label">Dashboard</span>
+      </div>
+      <div class="sidebar-section-label">Evaluaciones</div>
+      <div class="nav-item" onclick="showPage('evadir',this,'Evaluaciones / EVADIR')">
+        <span class="nav-icon">🤿</span><span class="nav-label">EVADIR</span><span class="nav-badge">16</span>
+      </div>
+      <div class="nav-item" onclick="showPage('peso-longitud',this,'Evaluaciones / Peso-Longitud')">
+        <span class="nav-icon">📏</span><span class="nav-label">Peso — Longitud</span>
+      </div>
+      <div class="nav-item" onclick="showPage('historico',this,'Registros / Histórico EVADIR')">
+        <span class="nav-icon">📁</span><span class="nav-label">Registro Histórico</span>
+      </div>
+      <div class="sidebar-section-label">Informes</div>
+      <div class="nav-item" onclick="showPage('informe',this,'Informes / Generar Informe')">
+        <span class="nav-icon">📄</span><span class="nav-label">Generar Informe</span>
+      </div>
+      <div class="sidebar-section-label">Maestros</div>
+      <div class="nav-item" onclick="">
+        <span class="nav-icon">🗺️</span><span class="nav-label">Sectores</span>
+      </div>
+      <div class="nav-item" onclick="">
+        <span class="nav-icon">🐠</span><span class="nav-label">Especies</span>
+      </div>
+      <div class="nav-item" onclick="">
+        <span class="nav-icon">🏢</span><span class="nav-label">Organizaciones</span>
+      </div>
+      <div class="sidebar-section-label">Sistema</div>
+      <div class="nav-item" onclick="">
+        <span class="nav-icon">👥</span><span class="nav-label">Usuarios</span>
+      </div>
+      <div class="sidebar-footer">
+        <div class="nav-item" onclick="document.getElementById('screen-app').classList.remove('active');document.getElementById('screen-login').classList.add('active')">
+          <span class="nav-icon">🚪</span><span class="nav-label">Cerrar sesión</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+
+      <!-- ══ DASHBOARD PAGE ══════════════════════════════════════ -->
+      <div class="page active" id="page-dashboard">
+        <div class="page-header page-header-row">
+          <div>
+            <h2>Dashboard General</h2>
+            <p>Resumen operacional · Temporada 2026 · Reg. Los Ríos → Valparaíso</p>
+          </div>
+          <button class="btn-secondary">📅 Ene 2026 — Mar 2026 ▾</button>
+        </div>
+
+        <!-- STATS -->
+        <div class="stats-grid">
+          <div class="stat-card teal">
+            <div class="stat-label">EVADIR realizados</div>
+            <div class="stat-value teal">58</div>
+            <div class="stat-sub"><span class="stat-trend trend-up">▲ 12%</span> vs período anterior</div>
+            <div class="stat-icon">🤿</div>
+          </div>
+          <div class="stat-card amber">
+            <div class="stat-label">Sectores activos</div>
+            <div class="stat-value amber">24</div>
+            <div class="stat-sub"><span class="stat-trend trend-up">▲ 4</span> nuevos este año</div>
+            <div class="stat-icon">🗺️</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-label">Stock Loco (× 1000)</div>
+            <div class="stat-value green">622k</div>
+            <div class="stat-sub"><span class="stat-trend trend-dn">▼ 5%</span> vs SEG 15</div>
+            <div class="stat-icon">🐚</div>
+          </div>
+          <div class="stat-card red">
+            <div class="stat-label">Informes pendientes</div>
+            <div class="stat-value red">3</div>
+            <div class="stat-sub">Entrega estimada: <strong style="color:var(--amber)">Mar 2026</strong></div>
+            <div class="stat-icon">📄</div>
+          </div>
+        </div>
+
+        <div class="dashboard-grid">
+          <!-- Actividad extractiva bar chart -->
+          <div class="card">
+            <div class="card-title">
+              <span>Actividad extractiva — Kg extraídos por especie</span>
+              <div style="display:flex;gap:8px;font-size:10px">
+                <span style="color:var(--teal)">■ Loco</span>
+                <span style="color:var(--amber)">■ Lapa</span>
+                <span style="color:var(--green)">■ Huiro</span>
+              </div>
+            </div>
+            <div class="bar-chart">
+              <div class="bar-group"><div class="bar" style="height:80%;background:var(--teal)" data-val="43192 kg"></div><div class="bar-label">SEG14</div></div>
+              <div class="bar-group"><div class="bar" style="height:65%;background:var(--teal)" data-val="38700 kg"></div><div class="bar-label">SEG15</div></div>
+              <div class="bar-group"><div class="bar" style="height:90%;background:var(--teal)" data-val="43192 kg"></div><div class="bar-label">SEG16</div></div>
+              <div class="bar-group"><div class="bar" style="height:20%;background:var(--amber)" data-val="14031 kg"></div><div class="bar-label">SEG14</div></div>
+              <div class="bar-group"><div class="bar" style="height:15%;background:var(--amber)" data-val="11200 kg"></div><div class="bar-label">SEG15</div></div>
+              <div class="bar-group"><div class="bar" style="height:5%;background:var(--amber)" data-val="0 kg"></div><div class="bar-label">SEG16</div></div>
+              <div class="bar-group"><div class="bar" style="height:100%;background:var(--green)" data-val="7.4M kg"></div><div class="bar-label">SEG14</div></div>
+              <div class="bar-group"><div class="bar" style="height:85%;background:var(--green)" data-val="6.8M kg"></div><div class="bar-label">SEG15</div></div>
+              <div class="bar-group"><div class="bar" style="height:70%;background:var(--green)" data-val="7.4M kg"></div><div class="bar-label">SEG16</div></div>
+            </div>
+          </div>
+
+          <!-- Activity log -->
+          <div class="card">
+            <div class="card-title">Actividad reciente</div>
+            <div class="activity-list">
+              <div class="activity-item">
+                <div class="act-dot" style="background:var(--teal)"></div>
+                <div class="act-text"><strong>EVADIR SEG-16 Huape B finalizado</strong><span>Armando Rosson · 17-12-2025</span></div>
+                <div class="act-time">2d</div>
+              </div>
+              <div class="activity-item">
+                <div class="act-dot" style="background:var(--green)"></div>
+                <div class="act-text"><strong>Informe SEG-16 Amargos enviado</strong><span>Lorena Olmos · SUBPESCA</span></div>
+                <div class="act-time">5d</div>
+              </div>
+              <div class="activity-item">
+                <div class="act-dot" style="background:var(--amber)"></div>
+                <div class="act-text"><strong>Cuota Loco aprobada — 33.775 ud.</strong><span>SERNAPESCA · Res. 2026-01</span></div>
+                <div class="act-time">1sem</div>
+              </div>
+              <div class="activity-item">
+                <div class="act-dot" style="background:var(--red)"></div>
+                <div class="act-text"><strong>Alerta: outliers detectados T-32</strong><span>Loxechinus albus · Amargos</span></div>
+                <div class="act-time">2sem</div>
+              </div>
+              <div class="activity-item">
+                <div class="act-dot" style="background:var(--teal)"></div>
+                <div class="act-text"><strong>Capacitación buzos Huape B</strong><span>16-12-2025 · 3 buzos</span></div>
+                <div class="act-time">3sem</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-grid3">
+          <!-- Map -->
+          <div class="card" style="grid-column:span 2">
+            <div class="card-title">Distribución geográfica de sectores activos</div>
+            <div class="map-placeholder">
+              <div class="map-grid"></div>
+              <div class="map-dot" style="left:22%;top:35%"><div class="map-label-sm" style="top:-18px;left:12px">Huape B</div></div>
+              <div class="map-dot" style="left:38%;top:42%;animation-delay:0.5s"><div class="map-label-sm" style="top:-18px;left:12px">Amargos</div></div>
+              <div class="map-dot" style="left:55%;top:55%;animation-delay:1s"><div class="map-label-sm" style="top:-18px;left:12px">El Quisco A</div></div>
+              <div class="map-dot" style="left:70%;top:28%;animation-delay:1.5s"><div class="map-label-sm" style="top:-18px;left:12px">Mehuin</div></div>
+              <div class="map-dot" style="left:15%;top:65%;animation-delay:0.8s"></div>
+              <div class="map-dot" style="left:48%;top:20%;animation-delay:1.2s"></div>
+              <div style="position:absolute;bottom:8px;right:12px;font-family:var(--font-mono);font-size:9px;color:var(--text-muted)">24 sectores · Chile sur-central</div>
+            </div>
+          </div>
+
+          <!-- Species distribution -->
+          <div class="card">
+            <div class="card-title">Distribución por especie</div>
+            <div class="ring-chart">
+              <svg class="ring-svg" width="90" height="90" viewBox="0 0 90 90">
+                <circle cx="45" cy="45" r="38" fill="none" stroke="var(--surface3)" stroke-width="12"/>
+                <!-- Loco 35% -->
+                <circle cx="45" cy="45" r="38" fill="none" stroke="var(--teal)" stroke-width="12"
+                  stroke-dasharray="83.5 155.5" stroke-dashoffset="0" transform="rotate(-90 45 45)"/>
+                <!-- Lapa 28% -->
+                <circle cx="45" cy="45" r="38" fill="none" stroke="var(--amber)" stroke-width="12"
+                  stroke-dasharray="66.8 172.2" stroke-dashoffset="-83.5" transform="rotate(-90 45 45)"/>
+                <!-- Huiro 25% -->
+                <circle cx="45" cy="45" r="38" fill="none" stroke="var(--green)" stroke-width="12"
+                  stroke-dasharray="59.7 179.3" stroke-dashoffset="-150.3" transform="rotate(-90 45 45)"/>
+                <!-- Luga 12% -->
+                <circle cx="45" cy="45" r="38" fill="none" stroke="#38a0f0" stroke-width="12"
+                  stroke-dasharray="28.7 210.3" stroke-dashoffset="-210" transform="rotate(-90 45 45)"/>
+                <text x="45" y="48" text-anchor="middle" fill="var(--text-primary)" font-family="Syne" font-size="11" font-weight="800">4 esp.</text>
+              </svg>
+              <div class="ring-legend">
+                <div class="ring-legend-item"><div class="ring-dot" style="background:var(--teal)"></div>Loco<span class="ring-pct">35%</span></div>
+                <div class="ring-legend-item"><div class="ring-dot" style="background:var(--amber)"></div>Lapa<span class="ring-pct">28%</span></div>
+                <div class="ring-legend-item"><div class="ring-dot" style="background:var(--green)"></div>Huiro Palo<span class="ring-pct">25%</span></div>
+                <div class="ring-legend-item"><div class="ring-dot" style="background:#38a0f0"></div>Luga Negra<span class="ring-pct">12%</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick table -->
+        <div class="card">
+          <div class="card-title">
+            <span>Últimos seguimientos — Huape Sector B · Amargos</span>
+            <button class="btn-secondary" style="padding:4px 10px;font-size:11px">Ver todos →</button>
+          </div>
+          <table class="data-table">
+            <thead><tr>
+              <th>Seguimiento</th><th>Sector</th><th>Organización</th><th>Fecha EVADIR</th>
+              <th>Loco (ind/m²)</th><th>Lapa (ind/m²)</th><th>Huiro (ind/m²)</th><th>Estado</th>
+            </tr></thead>
+            <tbody>
+              <tr><td>SEG-16</td><td>HUAPE B</td><td>STI Huape</td><td>17-12-2025</td><td>0.598</td><td>0.301</td><td>0.943</td><td><span class="pill pill-green">✓ Finalizado</span></td></tr>
+              <tr><td>SEG-16</td><td>AMARGOS</td><td>STI Amargos</td><td>05-02-2026</td><td>0.567</td><td>—</td><td>0.332</td><td><span class="pill pill-amber">⏳ En proceso</span></td></tr>
+              <tr><td>SEG-15</td><td>HUAPE B</td><td>STI Huape</td><td>22-11-2023</td><td>0.503</td><td>0.277</td><td>0.811</td><td><span class="pill pill-teal">🔒 Cerrado</span></td></tr>
+              <tr><td>SEG-15</td><td>ALEPUE</td><td>STI N°7 Mehuin</td><td>18-10-2023</td><td>0.441</td><td>0.190</td><td>0.680</td><td><span class="pill pill-teal">🔒 Cerrado</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ══ EVADIR PAGE ══════════════════════════════════════════ -->
+      <div class="page" id="page-evadir">
+        <div class="page-header page-header-row">
+          <div>
+            <h2>Datos EVADIR — Transectos</h2>
+            <p>Evaluaciones directas por transecto y cuadrante · Base de datos AMERB</p>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-secondary">⬇ Exportar CSV</button>
+            <button class="btn-primary">＋ Nuevo EVADIR</button>
+          </div>
+        </div>
+
+        <div class="evadir-filters">
+          <select class="filter-select"><option>Todos los sectores</option><option selected>HUAPE SECTOR B</option><option>AMARGOS</option><option>EL QUISCO A</option><option>ALEPUE</option></select>
+          <select class="filter-select"><option>Todos los seguimientos</option><option selected>SEG-16</option><option>SEG-15</option><option>SEG-14</option><option>ESBA</option></select>
+          <select class="filter-select"><option>Todas las especies</option><option>Concholepas concholepas</option><option>Fissurella spp</option><option>Loxechinus albus</option></select>
+          <select class="filter-select"><option>Todos los buzos</option><option>ERWIN MONSALVE</option><option>HUGO CARRILLO</option></select>
+          <input class="filter-select" type="date" value="2025-12-17" style="cursor:pointer">
+          <button class="btn-secondary">↺ Limpiar filtros</button>
+        </div>
+
+        <!-- Stats row -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px">
+          <div class="card" style="padding:14px">
+            <div class="stat-label" style="font-size:8px">Total transectos</div>
+            <div style="font-family:var(--font-display);font-size:22px;font-weight:800;color:var(--teal)">48</div>
+          </div>
+          <div class="card" style="padding:14px">
+            <div class="stat-label" style="font-size:8px">Den. media Loco</div>
+            <div style="font-family:var(--font-display);font-size:22px;font-weight:800;color:var(--cyan)">0.598</div>
+            <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono)">ind/m²</div>
+          </div>
+          <div class="card" style="padding:14px">
+            <div class="stat-label" style="font-size:8px">Den. media Lapa</div>
+            <div style="font-family:var(--font-display);font-size:22px;font-weight:800;color:var(--amber)">0.301</div>
+            <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono)">ind/m²</div>
+          </div>
+          <div class="card" style="padding:14px">
+            <div class="stat-label" style="font-size:8px">Den. media Huiro</div>
+            <div style="font-family:var(--font-display);font-size:22px;font-weight:800;color:var(--green)">0.943</div>
+            <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono)">ind/m²</div>
+          </div>
+          <div class="card" style="padding:14px">
+            <div class="stat-label" style="font-size:8px">Outliers detectados</div>
+            <div style="font-family:var(--font-display);font-size:22px;font-weight:800;color:var(--red)">2</div>
+            <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono)">revisar</div>
+          </div>
+        </div>
+
+        <!-- Density map visualization -->
+        <div class="evadir-layout">
+          <div class="card">
+            <div class="card-title">Densidad Loco por transecto — HUAPE B SEG-16</div>
+            <div class="scatter-area" id="density-scatter">
+              <div class="scatter-axis-x"></div>
+              <div class="scatter-axis-y"></div>
+              <div class="scatter-label-x">Transecto #</div>
+              <div class="scatter-label-y">Den. (ind/m²)</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Sustrato observado</div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:12px">Bajería (roca)</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:120px;height:6px;border-radius:3px;background:var(--surface3);overflow:hidden"><div style="width:84.7%;height:100%;background:var(--teal);border-radius:3px"></div></div>
+                  <span style="font-family:var(--font-mono);font-size:10px;color:var(--teal)">84.7%</span>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:12px">Mixto</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:120px;height:6px;border-radius:3px;background:var(--surface3);overflow:hidden"><div style="width:7.2%;height:100%;background:var(--amber);border-radius:3px"></div></div>
+                  <span style="font-family:var(--font-mono);font-size:10px;color:var(--amber)">7.2%</span>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:12px">Bolón</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:120px;height:6px;border-radius:3px;background:var(--surface3);overflow:hidden"><div style="width:5.1%;height:100%;background:var(--green);border-radius:3px"></div></div>
+                  <span style="font-family:var(--font-mono);font-size:10px;color:var(--green)">5.1%</span>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:12px">Arena</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:120px;height:6px;border-radius:3px;background:var(--surface3);overflow:hidden"><div style="width:3%;height:100%;background:#38a0f0;border-radius:3px"></div></div>
+                  <span style="font-family:var(--font-mono);font-size:10px;color:#38a0f0">3.0%</span>
+                </div>
+              </div>
+            </div>
+            <div class="card-title" style="margin-top:16px">Cubierta biológica predominante</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+              <span class="pill pill-teal">Algas pardas</span>
+              <span class="pill pill-green">Piure</span>
+              <span class="pill pill-blue">Algas rojas</span>
+              <span class="pill" style="background:rgba(255,255,255,0.05);color:var(--text-secondary)">Sin cobertura</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main EVADIR table -->
+        <div class="card evadir-table-section">
+          <div class="card-title">
+            <span>Tabla de transectos — Huape B · SEG-16 · 17-12-2025</span>
+            <div style="display:flex;gap:8px">
+              <span style="font-size:10px;color:var(--text-muted)">🔴 Outlier detectado</span>
+              <button class="btn-secondary" style="padding:3px 8px;font-size:10px">Ordenar ▾</button>
+            </div>
+          </div>
+          <table class="data-table" style="font-size:11px">
+            <thead><tr>
+              <th>T#</th><th>Zona</th><th>Buzo</th><th>Bote</th><th>Área(m²)</th>
+              <th>N° Loco</th><th>N° Lapa</th><th>N° Erizo</th><th>N° Huiro</th>
+              <th>Den Loco</th><th>Den Lapa</th><th>Sustrato</th><th>Cubierta</th><th>Acción</th>
+            </tr></thead>
+            <tbody>
+              <tr><td><span class="pill pill-teal">1</span></td><td>1</td><td>E. Monsalve</td><td>Bruno</td><td>120</td><td>68</td><td>12</td><td>40</td><td>2</td><td>0.567</td><td>0.100</td><td>ROCA</td><td>ALGAS</td><td><button class="btn-secondary" style="padding:2px 8px;font-size:10px">✏️</button></td></tr>
+              <tr><td>2</td><td>1</td><td>E. Monsalve</td><td>Bruno</td><td>120</td><td>82</td><td>8</td><td>29</td><td>1</td><td>0.683</td><td>0.067</td><td>ROCA</td><td>PIURE</td><td><button class="btn-secondary" style="padding:2px 8px;font-size:10px">✏️</button></td></tr>
+              <tr><td>3</td><td>1</td><td>H. Carrillo</td><td>Pelícano</td><td>120</td><td>55</td><td>22</td><td>18</td><td>3</td><td>0.458</td><td>0.183</td><td>ROCA</td><td>ALGAS</td><td><button class="btn-secondary" style="padding:2px 8px;font-size:10px">✏️</button></td></tr>
+              <tr class="outlier"><td>4</td><td>1</td><td>H. Carrillo</td><td>Pelícano</td><td>120</td><td title="⚠️ Posible outlier">214</td><td>5</td><td>9</td><td>0</td><td style="color:var(--red);font-weight:700">1.783 ⚠️</td><td>0.042</td><td>ROCA/MIXTO</td><td>ALGAS PARDAS</td><td><button class="btn-secondary" style="padding:2px 8px;font-size:10px;border-color:var(--red);color:var(--red)">⚠️</button></td></tr>
+              <tr><td>5</td><td>2</td><td>C. Romero</td><td>Estrella</td><td>120</td><td>47</td><td>18</td><td>33</td><td>2</td><td>0.392</td><td>0.150</td><td>ROCA</td><td>ALGAS ROJAS</td><td><button class="btn-secondary" style="padding:2px 8px;font-size:10px">✏️</button></td></tr>
+              <tr><td>6</td><td>2</td><td>C. Romero</td><td>Estrella</td><td>120</td><td>72</td><td>31</td><td>25</td><td>4</td><td>0.600</td><td>0.258</td><td>ROCA</td><td>ALGAS</td><td><button class="btn-secondary" style="padding:2px 8px;font-size:10px">✏️</button></td></tr>
+              <tr><td>7</td><td>2</td><td>E. Monsalve</td><td>Bruno</td><td>120</td><td>61</td><td>14</td><td>22</td><td>2</td><td>0.508</td><td>0.117</td><td>BOLÓN</td><td>PIURE</td><td><button class="btn-secondary" style="padding:2px 8px;font-size:10px">✏️</button></td></tr>
+              <tr><td>8</td><td>3</td><td>H. Carrillo</td><td>Pelícano</td><td>120</td><td>88</td><td>9</td><td>44</td><td>3</td><td>0.733</td><td>0.075</td><td>ROCA</td><td>ALGAS PARDAS</td><td><button class="btn-secondary" style="padding:2px 8px;font-size:10px">✏️</button></td></tr>
+            </tbody>
+          </table>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">Mostrando 8 de 48 transectos</span>
+            <div style="display:flex;gap:6px">
+              <button class="btn-secondary" style="padding:4px 10px;font-size:11px">← Anterior</button>
+              <button class="btn-primary" style="padding:4px 10px;font-size:11px">Siguiente →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ PESO-LONGITUD PAGE ══════════════════════════════════ -->
+      <div class="page" id="page-peso-longitud">
+        <div class="page-header page-header-row">
+          <div>
+            <h2>Análisis Peso — Longitud</h2>
+            <p>Estructura de tallas y relación longitud-peso por especie · SEG-16</p>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-secondary">⬇ Exportar</button>
+            <button class="btn-primary">＋ Ingresar muestras</button>
+          </div>
+        </div>
+
+        <div class="evadir-filters">
+          <select class="filter-select"><option selected>Concholepas concholepas (Loco)</option><option>Loxechinus albus (Erizo)</option><option>Fissurella nigra (Lapa)</option></select>
+          <select class="filter-select"><option selected>SEG-16 · Huape B · 2025</option><option>SEG-15</option><option>SEG-14</option></select>
+          <select class="filter-select"><option selected>Todas las zonas</option><option>Zona 1</option><option>Zona 2</option><option>Zona 3</option></select>
+        </div>
+
+        <!-- Summary stats for species -->
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px">
+          <div class="card" style="padding:14px;border-color:rgba(11,181,160,0.3)">
+            <div class="stat-label" style="font-size:8px">N muestras</div>
+            <div style="font-family:var(--font-display);font-size:22px;font-weight:800;color:var(--teal)">317</div>
+          </div>
+          <div class="card" style="padding:14px">
+            <div class="stat-label" style="font-size:8px">Talla promedio</div>
+            <div style="font-family:var(--font-display);font-size:22px;font-weight:800">85.3</div>
+            <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono)">mm</div>
+          </div>
+          <div class="card" style="padding:14px">
+            <div class="stat-label" style="font-size:8px">Desv. estándar</div>
+            <div style="font-family:var(--font-display);font-size:22px;font-weight:800">13.6</div>
+          </div>
+          <div class="card" style="padding:14px">
+            <div class="stat-label" style="font-size:8px">Talla mínima</div>
+            <div style="font-family:var(--font-display);font-size:22px;font-weight:800;color:var(--amber)">43</div>
+            <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono)">mm</div>
+          </div>
+          <div class="card" style="padding:14px">
+            <div class="stat-label" style="font-size:8px">Talla máxima</div>
+            <div style="font-family:var(--font-display);font-size:22px;font-weight:800;color:var(--green)">130</div>
+            <div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono)">mm</div>
+          </div>
+          <div class="card" style="padding:14px">
+            <div class="stat-label" style="font-size:8px">R² Rel. L-P</div>
+            <div style="font-family:var(--font-display);font-size:22px;font-weight:800;color:var(--green)">0.94</div>
+          </div>
+        </div>
+
+        <div class="evadir-layout" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+          <!-- Histogram -->
+          <div class="card">
+            <div class="card-title">
+              <span>Distribución de frecuencias de talla — Loco</span>
+              <div style="display:flex;gap:8px;font-size:10px;align-items:center">
+                <span style="background:rgba(11,181,160,0.15);color:var(--teal);padding:2px 8px;border-radius:4px;font-family:var(--font-mono)">■ Loco</span>
+                <span style="background:rgba(240,165,0,0.15);color:var(--amber);padding:2px 8px;border-radius:4px;font-family:var(--font-mono)">■ Lapa</span>
+              </div>
+            </div>
+            <div class="hist-area" id="histogram">
+              <!-- Generated via JS -->
+            </div>
+            <div class="hist-x-labels"><span>40</span><span>60</span><span>80</span><span>100</span><span>120</span><span>140 mm</span></div>
+            <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-top:4px;text-align:center">Talla (mm) — Clases de 5mm</div>
+          </div>
+
+          <!-- Scatter L-P -->
+          <div class="card">
+            <div class="card-title">Relación Longitud — Peso · W = aLᵇ</div>
+            <div style="margin-bottom:8px;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">
+              a = 0.0001 &nbsp;|&nbsp; b = 3.1594 &nbsp;|&nbsp; r² = 0.9395
+            </div>
+            <div class="scatter-area" id="lp-scatter" style="height:160px">
+              <div class="scatter-axis-x"></div>
+              <div class="scatter-axis-y"></div>
+              <div class="scatter-label-x">Longitud (mm)</div>
+              <div class="scatter-label-y">Peso (g)</div>
+              <!-- Regression line (SVG) -->
+              <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none">
+                <line x1="5%" y1="92%" x2="95%" y2="8%" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="4 2" opacity="0.6"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data table L-P -->
+        <div class="card">
+          <div class="card-title">
+            <span>Datos individuales — Loco SEG-16</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input class="filter-select" type="text" placeholder="Buscar buzo, zona..." style="width:180px">
+              <span style="font-size:10px;color:var(--text-muted)">N = 317 ind.</span>
+            </div>
+          </div>
+          <table class="data-table" style="font-size:11px">
+            <thead><tr>
+              <th>#</th><th>Especie</th><th>Zona</th><th>Buzo</th><th>Longitud (mm)</th><th>Peso (g)</th><th>Talla mín (mm)</th><th>Estado</th>
+            </tr></thead>
+            <tbody>
+              <tr><td>1</td><td><i>C. concholepas</i></td><td>1</td><td>E. Monsalve</td><td>104</td><td>267</td><td>100</td><td><span class="pill pill-green">✓ Sobre mínima</span></td></tr>
+              <tr><td>2</td><td><i>C. concholepas</i></td><td>1</td><td>E. Monsalve</td><td>96</td><td>236</td><td>100</td><td><span class="pill pill-amber">⚠ Bajo mínima</span></td></tr>
+              <tr><td>3</td><td><i>C. concholepas</i></td><td>1</td><td>E. Monsalve</td><td>115</td><td>322</td><td>100</td><td><span class="pill pill-green">✓ Sobre mínima</span></td></tr>
+              <tr><td>4</td><td><i>C. concholepas</i></td><td>2</td><td>H. Carrillo</td><td>88</td><td>198</td><td>100</td><td><span class="pill pill-amber">⚠ Bajo mínima</span></td></tr>
+              <tr><td>5</td><td><i>C. concholepas</i></td><td>2</td><td>H. Carrillo</td><td>120</td><td>345</td><td>100</td><td><span class="pill pill-green">✓ Sobre mínima</span></td></tr>
+              <tr><td>6</td><td><i>C. concholepas</i></td><td>3</td><td>C. Romero</td><td>77</td><td>162</td><td>100</td><td><span class="pill pill-red">✗ Fuera rango</span></td></tr>
+            </tbody>
+          </table>
+          <div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">Página 1 de 53 · Mostrando 6 de 317</span>
+            <div style="display:flex;gap:4px">
+              <button class="btn-secondary" style="padding:4px 10px;font-size:10px">1</button>
+              <button class="btn-secondary" style="padding:4px 10px;font-size:10px;border-color:var(--teal);color:var(--teal)">2</button>
+              <button class="btn-secondary" style="padding:4px 10px;font-size:10px">3</button>
+              <span style="color:var(--text-muted);font-size:12px;padding:4px">...</span>
+              <button class="btn-secondary" style="padding:4px 10px;font-size:10px">53</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ HISTÓRICO PAGE ══════════════════════════════════════ -->
+      <div class="page" id="page-historico">
+        <div class="page-header page-header-row">
+          <div>
+            <h2>Registro Histórico EVADIR</h2>
+            <p>36.127 transectos · 1999 – 2026 · Todos los sectores Bitecma</p>
+          </div>
+          <button class="btn-secondary">⬇ Exportar histórico</button>
+        </div>
+
+        <div class="historico-top">
+          <div class="card" style="grid-column:span 2">
+            <div class="card-title">Continuidad de seguimientos por sector — SEG 1 → 25</div>
+            <div style="overflow-x:auto;margin-top:8px">
+              <table class="data-table" style="font-size:10px;min-width:700px">
+                <thead><tr>
+                  <th style="min-width:120px">Sector</th>
+                  <th>ESBA</th>
+                  <th>SEG 1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th>
+                  <th>7</th><th>8</th><th>9</th><th>10</th><th>11</th><th>12</th>
+                  <th>13</th><th>14</th><th>15</th><th>16</th><th>17→</th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td>AMARGOS</td>
+                    <td><span class="pill pill-teal">✓</span></td>
+                    <td>2005</td><td>2006</td><td>2006</td><td>2007</td><td>2009</td><td>—</td>
+                    <td>2012</td><td>2013</td><td>2014</td><td>2015</td><td>—</td><td>—</td>
+                    <td>—</td><td>2022</td><td>2024</td><td>2026</td><td><span class="pill pill-amber">⏳</span></td>
+                  </tr>
+                  <tr>
+                    <td>HUAPE B</td>
+                    <td><span class="pill pill-teal">✓</span></td>
+                    <td>2003</td><td>2005</td><td>2007</td><td>2009</td><td>2011</td><td>2012</td>
+                    <td>2013</td><td>2014</td><td>2015</td><td>2016</td><td>2018</td><td>2019</td>
+                    <td>2021</td><td>2022</td><td>2023</td><td>2025</td><td><span class="pill pill-amber">⏳</span></td>
+                  </tr>
+                  <tr>
+                    <td>EL QUISCO A</td>
+                    <td><span class="pill pill-teal">✓</span></td>
+                    <td>1999</td><td>2001</td><td>2003</td><td>2005</td><td>2007</td><td>2009</td>
+                    <td>2011</td><td>2013</td><td>2015</td><td>2017</td><td>2019</td><td>2021</td>
+                    <td>2023</td><td>—</td><td>—</td><td>—</td><td>—</td>
+                  </tr>
+                  <tr>
+                    <td>ALEPUE</td>
+                    <td>—</td>
+                    <td>2015</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
+                    <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
+                    <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Resumen BD histórica</div>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+              <div class="doc-field" style="font-size:12px"><span>Total transectos BD</span><span style="font-family:var(--font-mono);color:var(--teal)">36.127</span></div>
+              <div class="doc-field" style="font-size:12px"><span>Sectores únicos</span><span style="font-family:var(--font-mono);color:var(--teal)">58</span></div>
+              <div class="doc-field" style="font-size:12px"><span>Rango temporal</span><span style="font-family:var(--font-mono);color:var(--teal)">1999 – 2026</span></div>
+              <div class="doc-field" style="font-size:12px"><span>Organizaciones</span><span style="font-family:var(--font-mono);color:var(--teal)">61</span></div>
+              <div class="doc-field" style="font-size:12px"><span>Especies registradas</span><span style="font-family:var(--font-mono);color:var(--teal)">36</span></div>
+              <div class="doc-field" style="font-size:12px"><span>Tipo muestreo</span><span style="font-family:var(--font-mono);color:var(--text-secondary)">TRANSECTO / CUADRANTE</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Densidad histórica trend -->
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title">
+            <span>Tendencia densidad Loco — HUAPE Sector B (SEG 1 → SEG 16)</span>
+            <div style="display:flex;gap:8px;font-size:10px">
+              <span style="color:var(--teal)">■ ind/m²</span>
+              <span style="color:var(--amber)">■ Stock (×1000)</span>
+            </div>
+          </div>
+          <div class="bar-chart" style="height:130px">
+            <div class="bar-group"><div class="bar" style="height:42%;background:var(--teal);opacity:0.7" data-val="0.41"></div><div class="bar-label">S1</div></div>
+            <div class="bar-group"><div class="bar" style="height:55%;background:var(--teal);opacity:0.75" data-val="0.54"></div><div class="bar-label">S2</div></div>
+            <div class="bar-group"><div class="bar" style="height:38%;background:var(--teal);opacity:0.7" data-val="0.37"></div><div class="bar-label">S3</div></div>
+            <div class="bar-group"><div class="bar" style="height:61%;background:var(--teal);opacity:0.8" data-val="0.60"></div><div class="bar-label">S4</div></div>
+            <div class="bar-group"><div class="bar" style="height:48%;background:var(--teal);opacity:0.75" data-val="0.47"></div><div class="bar-label">S5</div></div>
+            <div class="bar-group"><div class="bar" style="height:70%;background:var(--teal);opacity:0.85" data-val="0.69"></div><div class="bar-label">S6</div></div>
+            <div class="bar-group"><div class="bar" style="height:52%;background:var(--teal);opacity:0.75" data-val="0.51"></div><div class="bar-label">S7</div></div>
+            <div class="bar-group"><div class="bar" style="height:65%;background:var(--teal);opacity:0.8" data-val="0.63"></div><div class="bar-label">S8</div></div>
+            <div class="bar-group"><div class="bar" style="height:73%;background:var(--teal);opacity:0.85" data-val="0.72"></div><div class="bar-label">S9</div></div>
+            <div class="bar-group"><div class="bar" style="height:58%;background:var(--teal);opacity:0.75" data-val="0.57"></div><div class="bar-label">S10</div></div>
+            <div class="bar-group"><div class="bar" style="height:44%;background:var(--teal);opacity:0.7" data-val="0.43"></div><div class="bar-label">S11</div></div>
+            <div class="bar-group"><div class="bar" style="height:67%;background:var(--teal);opacity:0.8" data-val="0.66"></div><div class="bar-label">S12</div></div>
+            <div class="bar-group"><div class="bar" style="height:75%;background:var(--teal);opacity:0.85" data-val="0.74"></div><div class="bar-label">S13</div></div>
+            <div class="bar-group"><div class="bar" style="height:52%;background:var(--teal);opacity:0.75" data-val="0.51"></div><div class="bar-label">S14</div></div>
+            <div class="bar-group"><div class="bar" style="height:51%;background:var(--teal);opacity:0.75" data-val="0.50"></div><div class="bar-label">S15</div></div>
+            <div class="bar-group"><div class="bar" style="height:61%;background:var(--cyan)" data-val="0.60 ← actual"></div><div class="bar-label" style="color:var(--cyan)">S16</div></div>
+          </div>
+        </div>
+
+        <!-- Full historical table -->
+        <div class="card">
+          <div class="card-title">
+            <span>Tabla de registros históricos</span>
+            <div style="display:flex;gap:8px">
+              <input class="filter-select" type="text" placeholder="🔍 Buscar sector, org., buzo..." style="width:220px">
+              <button class="btn-secondary" style="padding:4px 10px;font-size:10px">Filtrar ▾</button>
+            </div>
+          </div>
+          <table class="data-table" style="font-size:11px">
+            <thead><tr>
+              <th>ID</th><th>Sector</th><th>SEG/ESBA</th><th>Organización</th><th>Fecha</th>
+              <th>T#</th><th>Den Loco</th><th>Den Lapa</th><th>Den Erizo</th><th>Sustrato</th><th>Ver</th>
+            </tr></thead>
+            <tbody>
+              <tr><td><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">36127</span></td><td>HUAPE B</td><td>SEG-16</td><td>STI Huape</td><td>17-12-2025</td><td>48</td><td>0.598</td><td>0.301</td><td>—</td><td>ROCA</td><td><button class="btn-secondary" style="padding:2px 8px;font-size:10px">👁</button></td></tr>
+              <tr><td><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">36126</span></td><td>AMARGOS</td><td>SEG-16</td><td>STI Amargos</td><td>05-02-2026</td><td>12</td><td>0.567</td><td>—</td><td>0.333</td><td>ROCA</td><td><button class="btn-secondary" style="padding:2px 8px;font-size:10px">👁</button></td></tr>
+              <tr><td><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">35108</span></td><td>HUAPE B</td><td>SEG-15</td><td>STI Huape</td><td>22-11-2023</td><td>48</td><td>0.503</td><td>0.277</td><td>—</td><td>ROCA</td><td><button class="btn-secondary" style="padding:2px 8px;font-size:10px">👁</button></td></tr>
+              <tr><td><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">34002</span></td><td>EL QUISCO A</td><td>ESBA</td><td>STI Narciso Aguirre</td><td>11-04-1999</td><td>24</td><td>0.000</td><td>0.008</td><td>0.000</td><td>ROCA/ARENA</td><td><button class="btn-secondary" style="padding:2px 8px;font-size:10px">👁</button></td></tr>
+            </tbody>
+          </table>
+          <div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">36.127 registros totales · Página 1 de 3613</span>
+            <div style="display:flex;gap:4px">
+              <button class="btn-secondary" style="padding:4px 10px;font-size:10px">← Anterior</button>
+              <button class="btn-primary" style="padding:4px 10px;font-size:10px">Siguiente →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ INFORME PAGE ══════════════════════════════════════════ -->
+      <div class="page" id="page-informe">
+        <div class="page-header page-header-row">
+          <div>
+            <h2>Generar Informe de Seguimiento</h2>
+            <p>Plantilla DOCX autorrellenable desde la base de datos · Formato SUBPESCA</p>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-secondary">📋 Plantilla vacía</button>
+            <button class="btn-primary" id="btn-generate" onclick="runGenerate()">⚡ Generar informe DOCX</button>
+          </div>
+        </div>
+
+        <div class="informe-layout">
+          <!-- LEFT: Form -->
+          <div class="informe-form">
+            <!-- Steps -->
+            <div class="card">
+              <div class="progress-steps">
+                <div class="prog-step"><div class="prog-dot done">✓</div><span class="prog-line done-text">1. Selección de operativo</span></div>
+                <div class="prog-step"><div class="prog-dot done">✓</div><span class="prog-line done-text">2. Datos de la organización</span></div>
+                <div class="prog-step"><div class="prog-dot done">✓</div><span class="prog-line done-text">3. Resultados EVADIR</span></div>
+                <div class="prog-step"><div class="prog-dot active">4</div><span class="prog-line">4. Cuotas propuestas</span></div>
+                <div class="prog-step"><div class="prog-dot">5</div><span class="prog-line" style="color:var(--text-muted)">5. Generar DOCX</span></div>
+              </div>
+            </div>
+
+            <!-- Identificación del área -->
+            <div class="card">
+              <div class="inf-section-title">📍 Identificación del área</div>
+              <div class="inf-group"><label class="inf-label">Sector AMERB</label>
+                <select class="inf-select"><option selected>HUAPE SECTOR B — CORRAL</option><option>AMARGOS</option></select>
+              </div>
+              <div class="inf-group" style="margin-top:10px"><label class="inf-label">Número de seguimiento</label>
+                <input class="inf-input" value="16">
+              </div>
+              <div class="inf-group" style="margin-top:10px"><label class="inf-label">Período del informe</label>
+                <input class="inf-input" value="Enero 2026">
+              </div>
+              <div class="inf-group" style="margin-top:10px"><label class="inf-label">Región</label>
+                <select class="inf-select"><option selected>XIV — Los Ríos</option><option>V — Valparaíso</option></select>
+              </div>
+            </div>
+
+            <!-- Organización -->
+            <div class="card">
+              <div class="inf-section-title">🏢 Organización</div>
+              <div class="inf-group"><label class="inf-label">Nombre organización</label>
+                <select class="inf-select"><option selected>S.T.I. Pescadores, Buzos, Mariscadores... Caleta Huape</option><option>S.T.I. Buzos Amargos</option></select>
+              </div>
+              <div class="inf-group" style="margin-top:10px"><label class="inf-label">Nº socios</label>
+                <input class="inf-input" value="37">
+              </div>
+              <div class="inf-group" style="margin-top:10px"><label class="inf-label">Jefe de proyecto</label>
+                <select class="inf-select"><option selected>Armando Rosson Villalobos</option><option>Lorena Olmos Palacios</option></select>
+              </div>
+            </div>
+
+            <!-- Evaluación -->
+            <div class="card">
+              <div class="inf-section-title">🤿 Evaluación directa</div>
+              <div class="inf-group"><label class="inf-label">Fecha EVADIR</label>
+                <input class="inf-input" type="date" value="2025-12-17">
+              </div>
+              <div class="inf-group" style="margin-top:10px"><label class="inf-label">N° transectos</label>
+                <input class="inf-input" value="48">
+              </div>
+              <div class="inf-section-title" style="margin-top:14px;font-size:12px">Resultados por especie</div>
+              <div class="inf-species-grid">
+                <div class="inf-group"><label class="inf-label">Stock Loco (ind)</label><input class="inf-input" value="74.641"></div>
+                <div class="inf-group"><label class="inf-label">Stock Loca (kg)</label><input class="inf-input" value="18.399"></div>
+                <div class="inf-group"><label class="inf-label">Stock Lapa (ind)</label><input class="inf-input" value="288.941"></div>
+                <div class="inf-group"><label class="inf-label">Stock Lapa (kg)</label><input class="inf-input" value="32.905"></div>
+                <div class="inf-group"><label class="inf-label">Stock Huiro (ud)</label><input class="inf-input" value="794.320"></div>
+                <div class="inf-group"><label class="inf-label">Stock Huiro (kg)</label><input class="inf-input" value="7.497.414"></div>
+              </div>
+            </div>
+
+            <!-- Cuotas -->
+            <div class="card">
+              <div class="inf-section-title">📊 Cuotas propuestas</div>
+              <div class="inf-species-grid">
+                <div class="inf-group"><label class="inf-label">CTP Loco 2026 (n°)</label><input class="inf-input" value="33.775"></div>
+                <div class="inf-group"><label class="inf-label">CTP Loco 2026 (kg)</label><input class="inf-input" value="8.410"></div>
+                <div class="inf-group"><label class="inf-label">CTP Lapa 2026 (n°)</label><input class="inf-input" value="100.336"></div>
+                <div class="inf-group"><label class="inf-label">CTP Lapa 2026 (kg)</label><input class="inf-input" value="11.737"></div>
+              </div>
+              <div class="inf-group" style="margin-top:10px"><label class="inf-label">Ingresos período anterior ($)</label>
+                <input class="inf-input" value="118.258.200">
+              </div>
+              <div class="inf-group" style="margin-top:8px"><label class="inf-label">Costos operación ($)</label>
+                <input class="inf-input" value="11.500.000">
+              </div>
+            </div>
+
+            <!-- Observaciones -->
+            <div class="card">
+              <div class="inf-section-title">📝 Observaciones adicionales</div>
+              <div class="inf-group"><label class="inf-label">Acciones de manejo período</label>
+                <textarea class="inf-textarea">No se realizaron otras acciones de manejo durante el período.</textarea>
+              </div>
+              <div class="inf-group" style="margin-top:10px"><label class="inf-label">Justificación extracción parcial</label>
+                <textarea class="inf-textarea">Lapa y Luga Negra: No se extrajo el 100% de la cuota asignada debido a falta de mercado y bajos precios.</textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Preview -->
+          <div class="preview-panel">
+            <div class="preview-header">
+              <h3>Vista previa del informe</h3>
+              <div style="display:flex;gap:8px">
+                <span class="pill pill-teal" id="preview-status">📄 Borrador</span>
+                <button class="btn-secondary" style="padding:4px 10px;font-size:11px">🖨 Imprimir</button>
+              </div>
+            </div>
+            <div class="preview-body">
+              <div class="doc-preview">
+                <div style="text-align:center;margin-bottom:16px">
+                  <div style="font-family:var(--font-mono);font-size:9px;color:var(--teal);letter-spacing:2px;margin-bottom:6px">SUBSECRETARÍA DE PESCA Y ACUICULTURA</div>
+                  <h1>INFORME DE SEGUIMIENTO Nº <span class="doc-placeholder">16</span></h1>
+                  <h2>DEL ÁREA DE MANEJO</h2>
+                  <div style="font-family:var(--font-display);font-size:20px;font-weight:800;color:var(--text-primary);margin:8px 0">HUAPE SECTOR B</div>
+                  <div style="font-size:12px;color:var(--text-secondary)">CORRAL · Región de Los Ríos</div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Enero 2026</div>
+                </div>
+                <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+
+                <div class="doc-section">
+                  <div class="doc-section-title">Organización de pescadores</div>
+                  <div class="doc-field"><span>Organización</span><span class="doc-placeholder">Sindicato T.I. Caleta Huape</span></div>
+                  <div class="doc-field"><span>N° socios</span><span>37</span></div>
+                  <div class="doc-field"><span>Consultor</span><span>Bitecma Ltda.</span></div>
+                  <div class="doc-field"><span>Jefe de proyecto</span><span>Armando Rosson V.</span></div>
+                  <div class="doc-field"><span>Financiamiento</span><span>INDESPA · $3.000.000</span></div>
+                </div>
+
+                <div class="doc-section">
+                  <div class="doc-section-title">Evaluación directa — Resultados</div>
+                  <div class="doc-field"><span>Fecha EVADIR</span><span>17-12-2025</span></div>
+                  <div class="doc-field"><span>N° transectos Loco / Lapa</span><span><span class="doc-placeholder">48</span></span></div>
+                  <div class="doc-field"><span>Densidad media Loco</span><span>0.598 ind/m²</span></div>
+                  <div class="doc-field"><span>Abundancia Loco</span><span>622.667 ind.</span></div>
+                  <div class="doc-field"><span>Stock Loco (explotable)</span><span><span class="doc-placeholder">74.641 ind. / 18.399 kg</span></span></div>
+                  <div class="doc-field"><span>Densidad media Lapa</span><span>0.301 ind/m²</span></div>
+                  <div class="doc-field"><span>Stock Lapa (explotable)</span><span>288.941 ind. / 32.905 kg</span></div>
+                  <div class="doc-field"><span>Stock Huiro Palo</span><span>794.320 ud. / 7.497.414 kg</span></div>
+                  <div class="doc-field"><span>Biomasa Luga Negra</span><span>6.906.187 kg</span></div>
+                </div>
+
+                <div class="doc-section">
+                  <div class="doc-section-title">Cuotas propuestas (CTP)</div>
+                  <div class="doc-field"><span>Loco 2026</span><span><span class="doc-placeholder">33.775 ud. / 8.410 kg</span></span></div>
+                  <div class="doc-field"><span>Loco 2027</span><span>60.595 ud. / 15.934 kg</span></div>
+                  <div class="doc-field"><span>Lapa 2026</span><span>100.336 ud. / 11.737 kg</span></div>
+                  <div class="doc-field"><span>Lapa 2027</span><span>44.952 ud. / 6.563 kg</span></div>
+                  <div class="doc-field"><span>Huiro Palo 2026-2027</span><span>7.497.414 kg c/u</span></div>
+                  <div class="doc-field"><span>Luga Negra 2026-2027</span><span>1.381.237 kg c/u</span></div>
+                </div>
+
+                <div class="doc-section">
+                  <div class="doc-section-title">Evaluación económica período anterior</div>
+                  <div class="doc-field"><span>Ingresos totales</span><span>$118.258.200</span></div>
+                  <div class="doc-field"><span>Costos operación</span><span>$11.500.000</span></div>
+                  <div class="doc-field"><span>Relación B/C</span><span style="color:var(--green);font-weight:700">10.2</span></div>
+                  <div class="doc-field"><span>UBS (utilidad socio)</span><span>$2.885.356</span></div>
+                  <div class="doc-field"><span>IPE (util./há)</span><span>$1.024.550</span></div>
+                </div>
+
+                <div class="doc-section">
+                  <div class="doc-section-title">Personal técnico</div>
+                  <div style="font-size:10px;color:var(--text-secondary);line-height:1.8">
+                    Armando Rosson Villalobos · Lorena Olmos Palacios · Claudio Romero San Martín ·
+                    Hugo Carrillo Mardones · César Pedrini Tapia · Cristián Daniel Medina Rifo
+                  </div>
+                </div>
+
+                <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+                <div style="text-align:center;font-family:var(--font-mono);font-size:9px;color:var(--text-muted)">
+                  Generado automáticamente por BITECMA Sistema AMERB · <span class="doc-placeholder">18-03-2026</span>
+                </div>
+              </div>
+
+              <div style="margin-top:16px;display:flex;gap:8px">
+                <button class="btn-primary" style="flex:1" onclick="runGenerate()">⬇ Descargar .DOCX</button>
+                <button class="btn-secondary" style="flex:1">📧 Enviar a SUBPESCA</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main-content -->
+  </div><!-- /app-body -->
+</div><!-- /screen-app -->
+
+<script>
+// ─── PARTICLES ───────────────────────────────────────────
+const container = document.getElementById('particles');
+for (let i = 0; i < 18; i++) {
+  const p = document.createElement('div');
+  p.className = 'particle';
+  p.style.cssText = `
+    left:${Math.random()*100}%;
+    bottom:${Math.random()*40}%;
+    width:${3+Math.random()*5}px;
+    height:${3+Math.random()*5}px;
+    animation-delay:${Math.random()*6}s;
+    animation-duration:${5+Math.random()*4}s;
+  `;
+  container.appendChild(p);
+}
+
+// ─── LOGIN → APP ──────────────────────────────────────────
+function enterApp() {
+  document.getElementById('screen-login').classList.remove('active');
+  document.getElementById('screen-app').classList.add('active');
+  buildScatters();
+  buildHistogram();
+}
+
+// ─── NAVIGATION ───────────────────────────────────────────
+function showPage(id, navEl, breadcrumb) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if (navEl) navEl.classList.add('active');
+  if (breadcrumb) {
+    const parts = breadcrumb.split(' / ');
+    document.getElementById('topbar-breadcrumb').innerHTML =
+      parts.map((p,i) => i===parts.length-1
+        ? `<span class="active-crumb">${p}</span>`
+        : `<span>${p}</span>`).join(' <span style="color:var(--text-muted)">/</span> ');
+  }
+  // Re-render dynamic elements if needed
+  if (id === 'evadir') buildScatters();
+  if (id === 'peso-longitud') buildHistogram();
+}
+
+// ─── DENSITY SCATTER ─────────────────────────────────────
+function buildScatters() {
+  const el = document.getElementById('density-scatter');
+  if (!el || el.querySelector('.scatter-dot')) return;
+  const densities = [0.57,0.68,0.46,1.78,0.39,0.60,0.51,0.73,0.82,0.44,0.61,0.55,0.78,0.47,0.69,0.53,0.66,0.41,0.58,0.72,0.49,0.63,0.55,0.77,0.43,0.67,0.52,0.70,0.45,0.59,0.74,0.48,0.62,0.56,0.80,0.42,0.65,0.54,0.71,0.46,0.60,0.73,0.49,0.57,0.68,0.41,0.63,0.55];
+  const max = 1.9, n = densities.length;
+  densities.forEach((d, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'scatter-dot';
+    if (d > 1.2) dot.style.background = 'var(--red)';
+    dot.style.left = (8 + (i/(n-1)) * 84) + '%';
+    dot.style.bottom = (5 + (d/max) * 85) + '%';
+    dot.title = `T${i+1}: ${d.toFixed(3)} ind/m²`;
+    el.appendChild(dot);
+  });
+}
+
+// ─── L-P SCATTER ─────────────────────────────────────────
+function buildLPScatter() {
+  const el = document.getElementById('lp-scatter');
+  if (!el || el.querySelector('.scatter-dot')) return;
+  const a=0.0001, b=3.1594;
+  for (let i=0;i<80;i++) {
+    const l = 43 + Math.random()*87;
+    const w = a * Math.pow(l,b) * (0.85+Math.random()*0.3);
+    const dot = document.createElement('div');
+    dot.className = 'scatter-dot';
+    dot.style.cssText = `left:${(l-43)/87*90+5}%;bottom:${Math.min(w/500*80+5,92)}%;`;
+    dot.title = `L:${l.toFixed(0)}mm P:${w.toFixed(0)}g`;
+    el.appendChild(dot);
+  }
+}
+
+// ─── HISTOGRAM ────────────────────────────────────────────
+function buildHistogram() {
+  const el = document.getElementById('histogram');
+  if (!el || el.querySelector('.hist-bar')) return;
+  // Loco distribution (roughly normal around 85mm)
+  const locoFreqs = [2,5,9,14,20,28,35,42,48,45,40,33,25,18,12,8,5,3,2,1];
+  const lapaFreqs = [1,3,7,12,18,25,32,38,42,40,35,28,20,14,9,5,3,2,1,1];
+  const maxF = Math.max(...locoFreqs,...lapaFreqs);
+  locoFreqs.forEach((f,i)=>{
+    const bar = document.createElement('div');
+    bar.className = 'hist-bar';
+    bar.style.height = (f/maxF*95)+'%';
+    el.appendChild(bar);
+  });
+}
+
+// Trigger LP scatter on peso-longitud page
+const origShowPage = showPage;
+function showPage(id, navEl, breadcrumb) {
+  origShowPage(id, navEl, breadcrumb);
+  if (id === 'peso-longitud') setTimeout(buildLPScatter, 100);
+}
+
+// ─── GENERATE INFORME ─────────────────────────────────────
+function runGenerate() {
+  const btn = document.getElementById('btn-generate');
+  const status = document.getElementById('preview-status');
+  btn.textContent = '⏳ Generando...';
+  btn.disabled = true;
+  let step = 0;
+  const steps = ['⚙️ Cargando BD...','📊 Procesando EVADIR...','📝 Compilando resultados...','📄 Generando DOCX...','✅ Listo!'];
+  const iv = setInterval(()=>{
+    if (step < steps.length-1) {
+      status.textContent = steps[step++];
+    } else {
+      clearInterval(iv);
+      btn.textContent = '⬇ Descargar .DOCX';
+      btn.disabled = false;
+      btn.style.background='var(--green)';
+      status.textContent = '✅ Generado';
+      status.className = 'pill pill-green';
+    }
+  }, 700);
+}
+
+// Build histogram immediately for pages that start rendered
+setTimeout(buildHistogram, 100);
+</script>
+</body>
+</html>

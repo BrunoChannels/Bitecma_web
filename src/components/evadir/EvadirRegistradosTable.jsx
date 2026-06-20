@@ -202,9 +202,9 @@ export default function EvadirRegistradosTable() {
   }, [rows, q, regionId])
 
   return (
-    <div className="evadir-rt-panel">
-      <div className="evadir-rt-filtros">
-        <div className="evadir-rt-busqueda">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
           <input
             className="flt"
             value={q}
@@ -213,7 +213,7 @@ export default function EvadirRegistradosTable() {
             style={{ width: '100%' }}
           />
         </div>
-        <select className="flt evadir-rt-region" value={regionId} onChange={(e) => setRegionId(e.target.value)} style={{ minWidth: 220 }}>
+        <select className="flt" value={regionId} onChange={(e) => setRegionId(e.target.value)} style={{ minWidth: 220 }}>
           <option value="">Todas las regiones</option>
           {regiones.map((r) => (
             <option key={r.id} value={String(r.id)}>
@@ -223,98 +223,89 @@ export default function EvadirRegistradosTable() {
         </select>
       </div>
 
-      <div className="evadir-rt-wrap">
-        <table className="tbl tbl-static-mobile evadir-rt">
-          <thead>
+      <table className="tbl tbl-static-mobile evadir-rt">
+        <thead>
+          <tr>
+            <th>Sector</th>
+            <th>SEG/ESBA</th>
+            <th className="evadir-rt-hide-mobile">Creador</th>
+            <th>Fecha</th>
+            <th className="evadir-rt-hide-mobile">Transectos/Cuadrantes</th>
+            <th className="evadir-rt-hide-mobile">Botes</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.length === 0 ? (
             <tr>
-              <th>Sector</th>
-              <th>SEG/ESBA</th>
-              <th className="evadir-rt-hide-compact">Creador</th>
-              <th>Fecha</th>
-              <th className="evadir-rt-hide-compact">Transectos/Cuadrantes</th>
-              <th className="evadir-rt-hide-compact">Botes</th>
-              <th>Acción</th>
+              <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text3)', padding: 14 }}>
+                Sin resultados
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text3)', padding: 14 }}>
-                  Sin resultados
-                </td>
-              </tr>
-            ) : (
-              filtered.map((r) => {
-                const op = opById.get(String(r?.id || '')) || null
-                const creador = getCreadorLabel(op)
-                const txCqUI =
-                  r.totalTx > 0 || r.totalCq > 0 ? (
-                    <>
-                      {r.totalTx ? (
-                        <span className="pill p-blu" style={{ fontSize: 10 }}>
-                          T {r.totalTx}
-                        </span>
-                      ) : null}{' '}
-                      {r.totalCq ? (
-                        <span className="pill p-amb" style={{ fontSize: 10 }}>
-                          C {r.totalCq}
-                        </span>
-                      ) : null}
-                    </>
-                  ) : (
-                    '—'
-                  )
-
-                return (
-                  <tr key={r.id}>
-                    <td className="evadir-rt-sector">
-                      <div>{r.sector}</div>
-                      <div className="evadir-rt-meta-compact">
-                        <span>{creador}</span>
-                        <span>{r.totalBotes || 0} botes</span>
-                        <span>{txCqUI}</span>
-                      </div>
-                    </td>
-                    <td>SEG-{r.numSeg}</td>
-                    <td className="evadir-rt-hide-compact">{creador}</td>
-                    <td>{formatearDMY(r.fechaInicio)}</td>
-                    <td className="evadir-rt-hide-compact">{txCqUI}</td>
-                    <td className="evadir-rt-hide-compact">{r.totalBotes}</td>
-                    <td className="evadir-rt-action">
-                      <button
-                        className="btn b-out b-xs"
-                        onClick={() => {
-                          openModal(
-                            'Previsualización EVADIR',
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                              <EvadirPreview db={db} op={op} />
-                              <button className="btn b-teal" onClick={closeModal}>
-                                Cerrar
-                              </button>
-                            </div>,
-                            'full',
-                          )
-                        }}
-                      >
-                        Ver
-                      </button>{' '}
-                      <button
-                        className="btn b-teal b-xs"
-                        onClick={async () => {
-                          const mod = await import('../../utils/evadirExport.js')
-                          await mod.exportEvadirXlsx({ db, opId: r.id, toast })
-                        }}
-                      >
-                        EXCEL
-                      </button>
-                    </td>
-                  </tr>
+          ) : (
+            filtered.map((r) => {
+              const op = opById.get(String(r?.id || '')) || null
+              const creador = getCreadorLabel(op)
+              const txCqUI =
+                r.totalTx > 0 || r.totalCq > 0 ? (
+                  <>
+                    {r.totalTx ? (
+                      <span className="pill p-blu" style={{ fontSize: 10 }}>
+                        T {r.totalTx}
+                      </span>
+                    ) : null}{' '}
+                    {r.totalCq ? (
+                      <span className="pill p-amb" style={{ fontSize: 10 }}>
+                        C {r.totalCq}
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  '—'
                 )
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+
+              return (
+                <tr key={r.id}>
+                  <td className="evadir-rt-sector">{r.sector}</td>
+                  <td>SEG-{r.numSeg}</td>
+                  <td className="evadir-rt-hide-mobile">{creador}</td>
+                  <td>{formatearDMY(r.fechaInicio)}</td>
+                  <td className="evadir-rt-hide-mobile">{txCqUI}</td>
+                  <td className="evadir-rt-hide-mobile">{r.totalBotes}</td>
+                  <td className="evadir-rt-action">
+                    <button
+                      className="btn b-out b-xs"
+                      onClick={() => {
+                        openModal(
+                          'Previsualización EVADIR',
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <EvadirPreview db={db} op={op} />
+                            <button className="btn b-teal" onClick={closeModal}>
+                              Cerrar
+                            </button>
+                          </div>,
+                          'full',
+                        )
+                      }}
+                    >
+                      Ver
+                    </button>{' '}
+                    <button
+                      className="btn b-teal b-xs"
+                      onClick={async () => {
+                        const mod = await import('../../utils/evadirExport.js')
+                        await mod.exportEvadirXlsx({ db, opId: r.id, toast })
+                      }}
+                    >
+                      EXCEL
+                    </button>
+                  </td>
+                </tr>
+              )
+            })
+          )}
+        </tbody>
+      </table>
     </div>
   )
 }

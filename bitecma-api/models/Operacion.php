@@ -103,6 +103,18 @@ class Operacion
         return $out;
     }
 
+    private static function normalizeLpTargetSpeciesIds($ids)
+    {
+        $arr = is_array($ids) ? $ids : [];
+        $out = [];
+        foreach ($arr as $raw) {
+            $id = (int)$raw;
+            if ($id <= 0) continue;
+            $out[$id] = $id;
+        }
+        return array_values($out);
+    }
+
     private static function trxToUnidadInsert($t)
     {
         $t = is_array($t) ? $t : [];
@@ -887,10 +899,18 @@ class Operacion
             }
 
             if (array_key_exists('lpMuestras', $b)) {
-                $stmtDelM = $db->prepare("DELETE FROM muestras WHERE operacion_bote_id = :id");
-                $stmtDelM->execute([':id' => $opBoteId]);
-
+                $lpObjetivo = self::normalizeLpTargetSpeciesIds(isset($b['lpTargetSpeciesIds']) ? $b['lpTargetSpeciesIds'] : null);
                 $lp = self::normalizeLpMuestras(isset($b['lpMuestras']) ? $b['lpMuestras'] : null);
+                if ($lpObjetivo) {
+                    $phSp = implode(',', array_fill(0, count($lpObjetivo), '?'));
+                    $paramsDel = array_merge([$opBoteId], $lpObjetivo);
+                    $stmtDelM = $db->prepare("DELETE FROM muestras WHERE operacion_bote_id = ? AND especie_id IN ($phSp)");
+                    $stmtDelM->execute($paramsDel);
+                } else {
+                    $stmtDelM = $db->prepare("DELETE FROM muestras WHERE operacion_bote_id = :id");
+                    $stmtDelM->execute([':id' => $opBoteId]);
+                }
+
                 foreach ($lp as $spId => $entry) {
                     foreach ($entry as $kind => $arr) {
                         if (!is_array($arr)) continue;

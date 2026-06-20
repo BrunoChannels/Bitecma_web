@@ -1,0 +1,414 @@
+/* Variables globales de tema (colores, tipografías, radios, sombras). */
+/* :root: variables CSS reutilizables en todo el mockup (paleta, fuentes, radios, sombras). */
+:root{
+  --bg:#f4f6f9;--bg2:#eef1f6;--white:#fff;--border:#e0e5ef;--border2:#cdd4e3;
+  --navy:#1a3a5c;--navy2:#0f2540;--teal:#0a8f7e;--teal-lt:#d0f0ec;--teal-md:#5ec4b8;
+  --amber:#d97706;--amber-lt:#fef3c7;--green:#059669;--green-lt:#d1fae5;
+  --red:#dc2626;--red-lt:#fee2e2;--blue:#1d6fa4;--blue-lt:#dbeafe;
+  --purple:#7c3aed;--purple-lt:#ede9fe;
+  --slate:#64748b;--slate-lt:#f1f5f9;--text:#1e293b;--text2:#475569;--text3:#94a3b8;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.05);
+  --shadow-md:0 4px 12px rgba(0,0,0,.12),0 8px 32px rgba(0,0,0,.06);
+  --ff-d:'Fraunces',serif;--ff-b:'DM Sans',sans-serif;--ff-m:'DM Mono',monospace;
+  --r:12px;
+}
+/* *: reset global de márgenes/padding y box model consistente. */
+*{margin:0;padding:0;box-sizing:border-box;}
+/* body: estilos base, fondo, tipografía y evita scroll del body (scroll va en .main). */
+body{font-family:var(--ff-b);background:var(--bg);color:var(--text);overflow:hidden;font-size:14px;}
+/* .screen: contenedor de pantalla completa (login/app) oculto por defecto. */
+.screen{display:none;width:100vw;height:100vh;position:absolute;top:0;left:0;}
+/* .screen.active: muestra la pantalla activa usando flex. */
+.screen.active{display:flex;}
+/* @keyframes card-in: animación de entrada para tarjetas/modales. */
+@keyframes card-in{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+/* @keyframes fade-in: animación de aparición suave para páginas y toasts. */
+@keyframes fade-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* Pantalla Login (contenedor centrado, inputs y botones). */
+/* #scr-login: layout y fondo del login. */
+#scr-login{align-items:center;justify-content:center;background:linear-gradient(135deg,#e8f4f8,#f0f7f4 50%,#e8eef8);}
+/* .lcard: tarjeta principal del login. */
+.lcard{background:var(--white);border-radius:20px;padding:46px 42px;width:430px;box-shadow:0 20px 60px rgba(10,143,126,.12);border:1px solid rgba(10,143,126,.15);animation:card-in .5s cubic-bezier(.22,1,.36,1) both;}
+/* .lc-logo: fila superior con logo e identidad. */
+.lc-logo{display:flex;align-items:center;gap:12px;margin-bottom:30px;}
+/* .lc-icon: ícono circular con inicial. */
+.lc-icon{width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,var(--teal),var(--navy));display:flex;align-items:center;justify-content:center;font-size:21px;color:#fff;font-family:var(--ff-d);font-weight:900;}
+/* .lc-brand h1: nombre de marca. */
+.lc-brand h1{font-family:var(--ff-d);font-size:21px;font-weight:900;color:var(--navy);}
+/* .lc-brand span: subtítulo/claim en estilo monoespaciado. */
+.lc-brand span{font-family:var(--ff-m);font-size:10px;color:var(--teal);letter-spacing:2px;text-transform:uppercase;}
+/* .lc-title: título principal del login. */
+.lc-title{font-family:var(--ff-d);font-size:25px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+/* .lc-sub: texto secundario del login. */
+.lc-sub{color:var(--text2);font-size:13px;margin-bottom:26px;}
+/* .lf-g: grupo de input (label + campo). */
+.lf-g{margin-bottom:15px;}
+/* .lf-lbl: label en mayúsculas para inputs del login. */
+.lf-lbl{font-family:var(--ff-m);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--teal);display:block;margin-bottom:6px;}
+/* .lf-inp: input del login. */
+.lf-inp{width:100%;padding:10px 13px;border-radius:9px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;font-family:var(--ff-b);outline:none;transition:border-color .2s,box-shadow .2s;}
+/* .lf-inp:focus: resaltado al enfocar input. */
+.lf-inp:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(10,143,126,.12);}
+/* .lf-inp::placeholder: color de placeholder. */
+.lf-inp::placeholder{color:var(--text3);}
+/* .role-row: fila de botones de selección de rol. */
+.role-row{display:flex;gap:6px;margin-bottom:20px;}
+/* .role-opt: botón de rol (estado normal). */
+.role-opt{flex:1;padding:7px 4px;text-align:center;border-radius:7px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:11px;font-family:var(--ff-m);cursor:pointer;transition:all .15s;}
+/* .role-opt.sel: rol seleccionado (highlight). */
+.role-opt.sel{background:var(--teal-lt);border-color:var(--teal);color:var(--teal);font-weight:600;}
+/* .btn-login: botón principal de ingreso. */
+.btn-login{width:100%;padding:12px;border-radius:10px;background:linear-gradient(135deg,var(--teal),#076e60);border:none;color:#fff;font-family:var(--ff-d);font-weight:700;font-size:15px;cursor:pointer;transition:all .2s;box-shadow:0 4px 14px rgba(10,143,126,.3);}
+/* .btn-login:hover: elevación del botón al pasar el mouse. */
+.btn-login:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(10,143,126,.4);}
+/* .lc-foot: pie del login (links/nota). */
+.lc-foot{text-align:center;margin-top:16px;font-size:12px;color:var(--text3);}
+/* .lc-foot a: link en pie del login. */
+.lc-foot a{color:var(--teal);cursor:pointer;}
+
+/* Layout principal de la app (topbar + sidebar + main). */
+/* #scr-app: contenedor principal (vertical) de la app. */
+#scr-app{flex-direction:column;}
+/* .topbar: barra superior fija. */
+.topbar{height:55px;min-height:55px;background:var(--white);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:13px;z-index:200;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+/* .tb-logo: bloque clickable de marca en topbar. */
+.tb-logo{display:flex;align-items:center;gap:9px;cursor:pointer;}
+/* .tb-logo-icon: caja del ícono de marca en topbar. */
+.tb-logo-icon{width:31px;height:31px;border-radius:8px;background:linear-gradient(135deg,var(--teal),var(--navy));display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-family:var(--ff-d);font-weight:900;}
+/* .tb-logo-text: texto “BITECMA” en topbar. */
+.tb-logo-text{font-family:var(--ff-d);font-weight:900;font-size:16px;color:var(--navy);}
+/* .tb-logo-text span: resalta parte del texto de marca. */
+.tb-logo-text span{color:var(--teal);}
+/* .tb-sep: separador vertical en topbar. */
+.tb-sep{width:1px;height:26px;background:var(--border);flex-shrink:0;}
+/* .tb-bc: breadcrumb de navegación. */
+.tb-bc{display:flex;align-items:center;gap:5px;font-family:var(--ff-m);font-size:11px;color:var(--text3);}
+/* .tb-bc .cur: parte activa del breadcrumb. */
+.tb-bc .cur{color:var(--teal);font-weight:500;}
+/* .tb-spacer: empuja acciones hacia la derecha. */
+.tb-spacer{flex:1;}
+/* .tb-search: buscador global (contenedor). */
+.tb-search{display:flex;align-items:center;gap:7px;padding:6px 13px;background:var(--bg);border:1.5px solid var(--border);border-radius:20px;width:210px;}
+/* .tb-search input: input del buscador global. */
+.tb-search input{background:none;border:none;outline:none;color:var(--text);font-size:12px;width:100%;font-family:var(--ff-b);}
+/* .tb-search input::placeholder: placeholder del buscador. */
+.tb-search input::placeholder{color:var(--text3);}
+/* .tb-search svg: tamaño/color de ícono dentro del buscador. */
+.tb-search svg{width:14px;height:14px;display:block;fill:currentColor;}
+/* .tb-actions: contenedor de botones de acción (notificaciones/ajustes/usuario). */
+.tb-actions{display:flex;align-items:center;gap:6px;}
+/* .tb-btn: botón icono de topbar. */
+.tb-btn{width:33px;height:33px;border-radius:8px;border:1.5px solid var(--border);background:var(--white);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .15s;position:relative;}
+/* .tb-btn:hover: hover del botón de topbar. */
+.tb-btn:hover{background:var(--teal-lt);border-color:var(--teal);color:var(--teal);}
+/* .tb-btn svg: tamaño de íconos SVG en botones de topbar. */
+.tb-btn svg{width:16px;height:16px;display:block;fill:currentColor;}
+/* .tb-badge: badge numérico (ej. notificaciones). */
+.tb-badge{position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;background:var(--red);font-size:8px;color:#fff;display:flex;align-items:center;justify-content:center;border:2px solid var(--white);}
+/* .user-chip: chip de usuario (avatar + nombre + rol). */
+.user-chip{display:flex;align-items:center;gap:7px;padding:3px 11px 3px 3px;border-radius:20px;border:1.5px solid var(--border);cursor:pointer;background:var(--white);}
+/* .user-av: avatar circular. */
+.user-av{width:27px;height:27px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--navy));display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;}
+/* .user-name: nombre de usuario. */
+.user-name{font-size:12px;font-weight:600;color:var(--navy);}
+/* .user-role: rol en estilo monoespaciado. */
+.user-role{font-family:var(--ff-m);font-size:9px;color:var(--teal);}
+/* .app-body: contenedor lateral (sidebar) + contenido (main). */
+.app-body{display:flex;flex:1;overflow:hidden;}
+
+/* .sidebar: menú lateral. */
+.sidebar{width:215px;min-width:215px;background:var(--white);border-right:1px solid var(--border);padding:13px 9px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;flex-shrink:0;}
+/* .sb-sec: título de sección del sidebar. */
+.sb-sec{font-family:var(--ff-m);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);padding:9px 8px 4px;}
+/* .nav: item del menú lateral (normal). */
+.nav{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;cursor:pointer;transition:all .15s;color:var(--text2);font-size:13px;white-space:nowrap;border:1.5px solid transparent;}
+/* .nav:hover: hover del item del menú. */
+.nav:hover{background:var(--slate-lt);color:var(--text);}
+/* .nav.on: item activo del menú. */
+.nav.on{background:var(--teal-lt);color:var(--teal);border-color:rgba(10,143,126,.2);font-weight:600;}
+/* .nav-icon: contenedor de icono del item. */
+.nav-icon{display:inline-flex;align-items:center;justify-content:center;width:19px;flex-shrink:0;}
+/* .nav-icon svg: tamaño del SVG del menú. */
+.nav-icon svg{width:16px;height:16px;display:block;fill:currentColor;}
+/* .nav-badge: badge pequeño en item del menú. */
+.nav-badge{margin-left:auto;background:var(--teal);color:#fff;font-size:9px;padding:1px 6px;border-radius:9px;font-family:var(--ff-m);}
+/* .sb-foot: zona inferior del sidebar (ej. logout). */
+.sb-foot{margin-top:auto;padding-top:11px;border-top:1px solid var(--border);}
+
+/* .main: contenedor scrollable del contenido principal. */
+.main{flex:1;overflow-y:auto;padding:20px 22px;background:var(--bg);}
+/* .page: página interna (oculta por defecto). */
+.page{display:none;animation:fade-in .3s ease both;}
+/* .page.active: página visible. */
+.page.active{display:block;}
+
+/* .ph: header de página (título + acciones). */
+.ph{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;}
+/* .ph h2: título de página. */
+.ph h2{font-family:var(--ff-d);font-size:21px;font-weight:700;color:var(--navy);}
+/* .ph p: subtítulo de página. */
+.ph p{font-size:12px;color:var(--text2);margin-top:3px;}
+/* .ph-a: contenedor de acciones (botones) en header. */
+.ph-a{display:flex;gap:7px;align-items:center;}
+/* .btn: estilo base de botón. */
+.btn{padding:7px 15px;border-radius:8px;font-size:12px;font-family:var(--ff-b);cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s;font-weight:500;border:none;white-space:nowrap;}
+/* .btn:disabled: estado deshabilitado. */
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important;}
+/* .b-teal: variante botón principal. */
+.b-teal{background:var(--teal);color:#fff;box-shadow:0 2px 8px rgba(10,143,126,.2);}
+/* .b-teal:hover: hover del botón principal. */
+.b-teal:hover:not(:disabled){background:#087a6b;transform:translateY(-1px);}
+/* .b-out: variante botón contorno. */
+.b-out{background:var(--white);color:var(--text2);border:1.5px solid var(--border);}
+/* .b-out:hover: hover del botón contorno. */
+.b-out:hover:not(:disabled){border-color:var(--teal-md);color:var(--teal);background:var(--teal-lt);}
+/* .b-red: variante botón rojo. */
+.b-red{background:var(--red);color:#fff;}
+/* .b-green: variante botón verde. */
+.b-green{background:var(--green);color:#fff;}
+/* .b-amber: variante botón ámbar. */
+.b-amber{background:var(--amber);color:#fff;}
+/* .b-navy: variante botón azul marino. */
+.b-navy{background:var(--navy);color:#fff;}
+/* .b-purple: variante botón morado. */
+.b-purple{background:var(--purple);color:#fff;}
+/* .b-sm: tamaño pequeño de botón. */
+.b-sm{padding:4px 10px;font-size:11px;border-radius:7px;}
+/* .b-xs: tamaño extra pequeño de botón. */
+.b-xs{padding:3px 7px;font-size:10px;border-radius:6px;}
+/* .card: tarjeta genérica. */
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:16px;box-shadow:var(--shadow);}
+/* .ct: título/encabezado interno de tarjeta. */
+.ct{font-family:var(--ff-m);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+/* .mb: margen inferior estándar. */
+.mb{margin-bottom:14px;}
+/* .g2: grilla 2 columnas. */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+/* .g3: grilla 3 columnas. */
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+/* .g4: grilla 4 columnas. */
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+/* .pill: etiqueta/chip pequeño. */
+.pill{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:18px;font-size:10px;font-family:var(--ff-m);}
+/* .p-teal: chip verde/teal. */
+.p-teal{background:var(--teal-lt);color:var(--teal);}
+/* .p-amb: chip ámbar. */
+.p-amb{background:var(--amber-lt);color:var(--amber);}
+/* .p-grn: chip verde. */
+.p-grn{background:var(--green-lt);color:var(--green);}
+/* .p-red: chip rojo. */
+.p-red{background:var(--red-lt);color:var(--red);}
+/* .p-blu: chip azul. */
+.p-blu{background:var(--blue-lt);color:var(--blue);}
+/* .p-pur: chip morado. */
+.p-pur{background:var(--purple-lt);color:var(--purple);}
+/* .p-slt: chip gris/slate. */
+.p-slt{background:var(--slate-lt);color:var(--slate);}
+/* .tbl: tabla base (listados). */
+.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+/* .tbl th: header de tabla base. */
+.tbl th{text-align:left;padding:8px 11px;font-family:var(--ff-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);border-bottom:1.5px solid var(--border);background:var(--bg);white-space:nowrap;}
+/* .tbl td: celda de tabla base. */
+.tbl td{padding:8px 11px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle;}
+/* .tbl tbody tr:hover td: hover de filas. */
+.tbl tbody tr:hover td{background:rgba(10,143,126,.04);}
+/* .tbl tbody tr:last-child td: elimina borde inferior en última fila. */
+.tbl tbody tr:last-child td{border-bottom:none;}
+/* .flt: control de filtro (select/input). */
+.flt{padding:7px 11px;border-radius:8px;border:1.5px solid var(--border);background:var(--white);color:var(--text);font-size:12px;font-family:var(--ff-b);outline:none;cursor:pointer;transition:border-color .2s;}
+/* .flt:focus: resaltado al enfocar filtro. */
+.flt:focus{border-color:var(--teal);}
+/* .filters: contenedor de filtros. */
+.filters{display:flex;gap:9px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+/* .sc: tarjeta estadística (stat card). */
+.sc{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:16px;box-shadow:var(--shadow);position:relative;overflow:hidden;transition:all .2s;cursor:pointer;}
+/* .sc:hover: hover de tarjeta estadística. */
+.sc:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+/* .sc::after: barra superior de color. */
+.sc::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--r) var(--r) 0 0;}
+/* .sc-tl::after: barra teal. */
+.sc-tl::after{background:var(--teal);}
+/* .sc-am::after: barra ámbar. */
+.sc-am::after{background:var(--amber);}
+/* .sc-gr::after: barra verde. */
+.sc-gr::after{background:var(--green);}
+/* .sc-re::after: barra roja. */
+.sc-re::after{background:var(--red);}
+/* .sc-bl::after: barra azul. */
+.sc-bl::after{background:var(--blue);}
+/* .sc-pu::after: barra morada. */
+.sc-pu::after{background:var(--purple);}
+/* .sc-lbl: etiqueta de stat card. */
+.sc-lbl{font-family:var(--ff-m);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+/* .sc-val: valor grande de stat card. */
+.sc-val{font-family:var(--ff-d);font-size:27px;font-weight:900;line-height:1;color:var(--navy);}
+/* .sc-sub: texto secundario de stat card. */
+.sc-sub{font-size:11px;color:var(--text3);margin-top:4px;}
+/* .ig: wrapper de input group en formularios (margen). */
+.ig{margin-bottom:10px;}
+/* .il: label estándar para formularios (uppercase). */
+.il{font-family:var(--ff-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--teal);display:block;margin-bottom:5px;}
+/* .ii/.is/.ita: inputs (text/select/textarea) estándar. */
+.ii,.is,.ita{width:100%;padding:8px 11px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;font-family:var(--ff-b);outline:none;transition:border-color .2s;}
+/* .ii/.is/.ita:focus: foco de inputs estándar. */
+.ii:focus,.is:focus,.ita:focus{border-color:var(--teal);background:var(--white);}
+/* .ita: textarea estándar (alto fijo). */
+.ita{height:64px;resize:none;}
+/* .i2: grilla de inputs 2 columnas. */
+.i2{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+/* .i3: grilla de inputs 3 columnas. */
+.i3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;}
+/* .isec: encabezado de sección dentro de un formulario. */
+.isec{font-family:var(--ff-d);font-size:13px;font-weight:700;color:var(--teal);border-bottom:1px solid var(--border);padding-bottom:5px;margin-bottom:10px;margin-top:4px;}
+
+/* .toast: notificación flotante. */
+.toast{position:fixed;bottom:22px;right:22px;background:var(--navy);color:#fff;padding:11px 16px;border-radius:11px;font-size:13px;z-index:9999;box-shadow:var(--shadow-md);display:none;align-items:center;gap:9px;}
+/* .toast.show: muestra el toast con animación. */
+.toast.show{display:flex;animation:fade-in .3s ease both;}
+
+/* .mo: overlay del modal (fondo). */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.28);z-index:999;display:none;align-items:center;justify-content:center;}
+/* .mo.open: muestra el overlay del modal. */
+.mo.open{display:flex;}
+/* .mb-box: caja del modal. */
+.mb-box{background:var(--white);border-radius:16px;padding:26px;width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.18);animation:card-in .3s ease both;}
+/* .mb-box.wide: modal ancho. */
+.mb-box.wide{width:920px;}
+/* .mb-box.slim: modal angosto. */
+.mb-box.slim{width:480px;}
+/* .mh: cabecera del modal (título + cerrar). */
+.mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+/* .mh h3: título del modal. */
+.mh h3{font-family:var(--ff-d);font-size:17px;font-weight:700;color:var(--navy);}
+/* .mc: botón cerrar modal. */
+.mc{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+/* .mc:hover: hover cerrar modal. */
+.mc:hover{background:var(--red-lt);border-color:var(--red);color:var(--red);}
+
+/* .bote-card: contenedor de un bote dentro de una operación. */
+.bote-card{border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:10px;background:var(--white);}
+/* .bote-hd: header clickeable del bote (colapsable). */
+.bote-hd{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;background:var(--bg);border-bottom:1px solid var(--border);transition:background .15s;}
+/* .bote-hd:hover: hover del header del bote. */
+.bote-hd:hover{background:var(--slate-lt);}
+/* .bote-hd.open-hd: estado expandido del header del bote. */
+.bote-hd.open-hd{background:var(--navy);color:#fff;}
+/* .bote-hd.open-hd .bote-meta: meta en estado expandido. */
+.bote-hd.open-hd .bote-meta{color:rgba(255,255,255,.6);}
+/* .bote-icon: ícono del bote. */
+.bote-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--teal),var(--navy));display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;flex-shrink:0;}
+/* .bote-icon.open-ic: variante de ícono en estado expandido. */
+.bote-icon.open-ic{background:linear-gradient(135deg,var(--teal-md),var(--teal));}
+/* .bote-name: nombre del bote. */
+.bote-name{font-weight:700;font-size:13px;}
+/* .bote-meta: metadatos del bote (buzo/zona/resumen). */
+.bote-meta{font-size:11px;color:var(--text3);font-family:var(--ff-m);}
+/* .bote-body: cuerpo colapsable del bote. */
+.bote-body{padding:14px;display:none;}
+/* .bote-body.open: cuerpo visible. */
+.bote-body.open{display:block;}
+
+/* .btabs: tabs dentro del bote (L-P / Densidad). */
+.btabs{display:flex;gap:0;margin-bottom:14px;border-radius:8px;overflow:hidden;border:1.5px solid var(--border);}
+/* .btab: tab individual (normal). */
+.btab{flex:1;padding:8px;text-align:center;font-size:12px;font-family:var(--ff-m);cursor:pointer;background:var(--bg);color:var(--text3);border-right:1px solid var(--border);transition:all .15s;}
+/* .btab:last-child: sin borde derecho en último tab. */
+.btab:last-child{border-right:none;}
+/* .btab.on: tab activo. */
+.btab.on{background:var(--teal);color:#fff;font-weight:600;}
+/* .btab:hover: hover de tab inactivo. */
+.btab:hover:not(.on){background:var(--teal-lt);color:var(--teal);}
+
+/* .tx-card: tarjeta de unidad (transecto/cuadrante). */
+.tx-card{border:1px solid var(--border);border-radius:9px;margin-bottom:7px;overflow:hidden;background:var(--white);}
+/* .tx-hd: header clickeable del transecto/cuadrante. */
+.tx-hd{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;cursor:pointer;transition:background .15s;}
+/* .tx-hd:hover: hover del header. */
+.tx-hd:hover{background:var(--slate-lt);}
+/* .tx-body: cuerpo colapsable del transecto/cuadrante. */
+.tx-body{padding:13px;border-top:1px solid var(--border);display:none;}
+/* .tx-body.open: cuerpo visible. */
+.tx-body.open{display:block;}
+
+/* .sp-row: fila de especie (conteo/densidad) dentro de un transecto/cuadrante. */
+.sp-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:7px;border:1px solid var(--border);margin-bottom:5px;background:var(--bg);transition:all .15s;}
+/* .sp-row:hover: hover de fila de especie. */
+.sp-row:hover{border-color:var(--teal-md);background:var(--teal-lt);}
+/* .sp-row-name: columna nombre de especie. */
+.sp-row-name{flex:1;font-size:12px;}
+/* .sp-row-sci: nombre científico (itálica). */
+.sp-row-sci{font-size:10px;color:var(--text3);font-style:italic;}
+/* .sp-row-count: estilos del conteo (si se usa). */
+.sp-row-count{font-family:var(--ff-m);font-size:13px;font-weight:700;color:var(--navy);min-width:44px;text-align:right;}
+
+/* .lp-input-row: fila destacada de inputs para ingreso rápido L-P. */
+.lp-input-row{display:flex;gap:8px;align-items:flex-end;padding:11px;background:var(--teal-lt);border-radius:9px;border:1.5px solid rgba(10,143,126,.25);margin-bottom:10px;}
+/* .lp-input-row .ig: ajustes para inputs dentro del row L-P. */
+.lp-input-row .ig{margin-bottom:0;flex:1;}
+/* .lp-counter: contador de muestras. */
+.lp-counter{font-family:var(--ff-m);font-size:11px;color:var(--teal);font-weight:600;}
+/* .lp-tbl th: header de tabla L-P embebida. */
+.lp-tbl th{padding:6px 9px;font-family:var(--ff-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg);}
+/* .lp-tbl td: celdas de tabla L-P embebida. */
+.lp-tbl td{padding:6px 9px;border-bottom:1px solid var(--border);font-size:11px;}
+
+/* .sp-grid: grilla de chips de especies (selección). */
+.sp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;max-height:300px;overflow-y:auto;}
+/* .sp-chip: chip seleccionable de especie. */
+.sp-chip{padding:7px 9px;border-radius:8px;border:1.5px solid var(--border);background:var(--white);cursor:pointer;transition:all .15s;}
+/* .sp-chip:hover: hover del chip. */
+.sp-chip:hover{border-color:var(--teal-md);background:var(--teal-lt);}
+/* .sp-chip.sel: chip seleccionado. */
+.sp-chip.sel{border-color:var(--teal);background:var(--teal-lt);color:var(--teal);}
+/* .sp-chip-name: nombre común en chip. */
+.sp-chip-name{font-weight:700;font-size:12px;color:var(--navy);}
+/* .sp-chip-sci: nombre científico en chip. */
+.sp-chip-sci{font-size:9px;color:var(--text3);font-style:italic;}
+/* .sp-chip.sel .sp-chip-name: color del nombre cuando está seleccionado. */
+.sp-chip.sel .sp-chip-name{color:var(--teal);}
+
+/* .ev-tbl: tabla EVADIR (ancha y scrolleable horizontal). */
+.ev-tbl{width:100%;border-collapse:collapse;font-size:11px;display:block;overflow-x:auto;}
+/* .ev-tbl th: header EVADIR. */
+.ev-tbl th{padding:7px 9px;background:var(--navy);color:#fff;font-family:var(--ff-m);font-size:9px;letter-spacing:.5px;white-space:nowrap;}
+/* .ev-tbl td: celda EVADIR. */
+.ev-tbl td{padding:7px 9px;border-bottom:1px solid var(--border);white-space:nowrap;}
+/* .ev-tbl tr:nth-child(even) td: zebra striping para legibilidad. */
+.ev-tbl tr:nth-child(even) td{background:var(--bg);}
+
+/* .info-box: caja informativa (variant por color). */
+.info-box{padding:11px 13px;border-radius:9px;font-size:12px;margin-bottom:13px;display:flex;gap:9px;align-items:flex-start;}
+/* .info-box.teal: info-box teal (éxito/info). */
+.info-box.teal{background:var(--teal-lt);border:1px solid rgba(10,143,126,.3);color:var(--teal);}
+/* .info-box.blue: info-box azul. */
+.info-box.blue{background:var(--blue-lt);border:1px solid rgba(29,111,164,.3);color:var(--blue);}
+/* .info-box.amber: info-box ámbar (advertencia). */
+.info-box.amber{background:var(--amber-lt);border:1px solid rgba(217,119,6,.3);color:var(--amber);}
+/* .info-box.purple: info-box morado (cuadrantes/detalle). */
+.info-box.purple{background:var(--purple-lt);border:1px solid rgba(124,58,237,.3);color:var(--purple);}
+
+/* .op-card: tarjeta seleccionable de operación en el asistente EVADIR. */
+.op-card{background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);padding:14px;cursor:pointer;transition:all .2s;margin-bottom:9px;}
+/* .op-card:hover: hover de tarjeta operación. */
+.op-card:hover{border-color:var(--teal-md);box-shadow:var(--shadow);}
+/* .op-card.sel: tarjeta operación seleccionada. */
+.op-card.sel{border-color:var(--teal);background:var(--teal-lt);box-shadow:0 0 0 3px rgba(10,143,126,.1);}
+
+/* .pbar: barra de progreso base. */
+.pbar{height:5px;border-radius:3px;background:var(--bg2);overflow:hidden;margin-top:4px;}
+/* .pfill: relleno animado de barra de progreso. */
+.pfill{height:100%;border-radius:3px;transition:width .5s cubic-bezier(.22,1,.36,1);}
+/* .b-purple: variante botón morado (repetida para asegurar override al final). */
+.b-purple{background:var(--purple);color:#fff;}
+/* .b-purple:hover: hover del botón morado. */
+.b-purple:hover:not(:disabled){background:#6d28d9;transform:translateY(-1px);}
+/* .tx-card.cuad: variante visual de tarjeta para cuadrante. */
+.tx-card.cuad{border-color:var(--purple);}
+
+/* ::-webkit-scrollbar: tamaño del scrollbar (WebKit). */
+::-webkit-scrollbar{width:4px;height:4px;}
+/* ::-webkit-scrollbar-track: fondo del track del scrollbar. */
+::-webkit-scrollbar-track{background:transparent;}
+/* ::-webkit-scrollbar-thumb: “thumb” del scrollbar. */
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
