@@ -110,3 +110,14 @@ Dentro de una operación activa:
 3. El sistema genera y descarga automáticamente el archivo `bitecmac_web_backup_[fecha].sql`
 
 > ⚠️ El sistema notifica al Administrador si han pasado más de 7 días desde el último respaldo.
+
+## Derechos de Autor y Licencia
+
+**© 2026 [BITECMA Ltda]. Todos los derechos reservados.**
+
+El código fuente, diseño, arquitectura y documentación del proyecto "Bitecma Web Sistema de Gestión Amerb" son de carácter propietario y código cerrado. 
+
+Queda estrictamente prohibida la copia, reproducción, modificación, distribución, publicación, exhibición o transmisión de cualquier parte de este software, ya sea con fines comerciales o no comerciales, sin la autorización previa, expresa y por escrito del titular de los derechos de autor. 
+
+El acceso a este repositorio no otorga ningún derecho o licencia implícita sobre la propiedad intelectual del proyecto.
+
